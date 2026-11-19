@@ -746,6 +746,12 @@ function browse(){
   V.list.forEach(function(id){h+=card(BY[id]);});return h;
 }
 function prog(){
+  var detail;
+  V.selfView=true;
+  try{detail=usrDetail();}finally{V.selfView=false;}
+  return detail+'<h2>বিষয়ভিত্তিক অগ্রগতি</h2>'+progOld();
+}
+function progOld(){
   var T=tree(),seen=0,r=0,w=0;
   Q.forEach(function(x){if(S.seen[x.id])seen++;var s=S.st[x.id];if(s){r+=s[0];w+=s[1];}});
   var h='<h1>অগ্রগতি</h1><div class="panel"><div class="total">'+bn(seen)+' / '+bn(Q.length)+'</div><div class="meta">প্রশ্ন দেওয়া হয়েছে। মোট নির্ভুলতা '+bn(r+w?Math.round(r/(r+w)*100):0)+'%</div></div>';
@@ -1062,6 +1068,10 @@ function loadUsers(){
   }).catch(function(err){V.usrLoading=false;V.usrErr="লোড হয়নি: "+err.message;render();});
 }
 function userCtx(){
+  if(V.selfView){
+    var me=(firebase.auth().currentUser)||{};
+    return {u:{uid:UID,data:{email:me.email||"",state:S}},st:normalize(S)};
+  }
   var u=V.usrList.filter(function(x){return x.uid===V.usrSel;})[0];
   if(!u)return null;
   return {u:u,st:normalize(u.data.state)};
@@ -1098,7 +1108,7 @@ function usrDetail(){
   var acc=tot?Math.round(right/tot*100):0;
   var wrongAll=Object.keys(st.wrong).filter(function(id){return BY[id];}).map(function(id){return BY[id];});
   var seen=Object.keys(st.seen).filter(function(id){return BY[id];}).length;
-  var h='<button class="btn alt" data-act="usrback" style="margin:0 0 10px">← সব ব্যবহারকারী</button><h1>'+esc(userName(u))+'</h1>';
+  var h=(V.selfView?'':'<button class="btn alt" data-act="usrback" style="margin:0 0 10px">← সব ব্যবহারকারী</button>')+'<h1>'+esc(userName(u))+'</h1>';
   h+='<div class="panel"><div class="total">'+bn(seen)+' / '+bn(Q.length)+'</div><div class="meta">প্রশ্ন দেওয়া হয়েছে · মোট নির্ভুলতা '+bn(acc)+'% · বর্তমানে ভুল '+bn(wrongAll.length)+'টি · গত ১ মাসে '+bn(ex.length)+'টি পরীক্ষা</div></div>';
   h+='<h2>বর্তমান ভুল প্রশ্ন ('+bn(wrongAll.length)+'টি)</h2><p class="meta">সঠিক উত্তর দিলে এখান থেকে সরে যাবে।</p>';
   var cnt={}; wrongAll.forEach(function(q){var k=q.s+"||"+q.t;cnt[k]=(cnt[k]||0)+1;});
