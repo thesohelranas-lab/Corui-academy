@@ -479,10 +479,10 @@ function hs(s){var n=5381;for(var j=0;j<s.length;j++)n=((n<<5)+n+s.charCodeAt(j)
 var BY={};Q.forEach(function(x){x.id=hs(x.q+x.o.join("|"));BY[x.id]=x;});
 
 /* ===== সংরক্ষণ (এই ডিভাইসের ব্রাউজারে) ===== */
-var S={seen:{},wrong:{},fav:{},st:{},hist:[]};
+var S={seen:{},wrong:{},fav:{},st:{},hist:[],exams:[]};
 var UID=null,DB=null,booted=false,saveTimer=null;
 var V_AUTH={mode:"login",msg:""};
-function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},st:d.st||{},hist:d.hist||[]};}
+function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[]};}
 function save(){
   if(!UID||!DB)return;
   var u=UID,d=DB,snapshot=JSON.parse(JSON.stringify(S));
@@ -533,18 +533,27 @@ function pool(){
   });
 }
 function begin(ids,title){
-  V.ex={ids:ids,i:0,a:{}};V.filter="all";V.title=title||"পরীক্ষা";V.screen="exam";render();app.scrollTop=0;
+  var ex={id:"e"+Date.now().toString(36),name:title||"পরীক্ষা",at:Date.now(),ids:ids,a:{},status:"running"};
+  S.exams.unshift(ex); V.ex=ex; V.filter="all"; V.title=ex.name; V.screen="exam";
+  save(); render(); app.scrollTop=0;
 }
 function answer(id,k){
   V.ex.a[id]=k;S.seen[id]=1;save();render();
 }
 function finish(){
-  var c=0,w=0,ids=V.ex.ids;
+  if(V.ex.status==="done"){V.screen="result";return render();}
+  var ids=V.ex.ids,c=0,w=0;
   ids.forEach(function(id){var a=V.ex.a[id];if(a===undefined)return;var st=S.st[id]=S.st[id]||[0,0];if(a===BY[id].a){st[0]++;delete S.wrong[id];}else{st[1]++;S.wrong[id]=1;}});
   ids.forEach(function(id){var a=V.ex.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
   V.ex.r={n:ids.length,c:c,w:w,sk:ids.length-c-w,sc:c-w*NEG};
-  S.hist.unshift({d:Date.now(),t:V.title,n:ids.length,c:c,w:w,sc:V.ex.r.sc});S.hist=S.hist.slice(0,30);save();
-  V.screen="result";render();
+  V.ex.status="done"; V.ex.finishedAt=Date.now();
+  S.hist.unshift({d:V.ex.finishedAt,t:V.ex.name,n:ids.length,c:c,w:w,sc:V.ex.r.sc}); S.hist=S.hist.slice(0,30);
+  var done=S.exams.filter(function(x){return x.status==="done";});
+  if(done.length>20){
+    var old=done.sort(function(a,b){return a.finishedAt-b.finishedAt;}).slice(0,done.length-20).map(function(x){return x.id;});
+    S.exams=S.exams.filter(function(x){return old.indexOf(x.id)<0;});
+  }
+  save(); V.screen="result"; render();
 }
 function exLine(x,label){
   if(!x)return '';
@@ -578,14 +587,14 @@ function card(q,sel,mode){
   return h+'</div>';
 }
 function nav(){
-  var T=[["home","হোম"],["fav","পছন্দ"],["wrong","ভুল"],["prog","অগ্রগতি"]];
+  var T=[["home","হোম"],["exams","পরীক্ষা"],["fav","পছন্দ"],["wrong","ভুল"],["prog","অগ্রগতি"]];
   if(ADMIN)T.push(["admin","ড্যাশবোর্ড"]);
   document.getElementById("nav").innerHTML=T.map(function(x){return '<button data-tab="'+x[0]+'"'+(V.tab===x[0]&&!V.screen?' aria-current="page"':'')+'>'+x[1]+'</button>';}).join("");
 }
 
 /* ===== স্ক্রিন ===== */
 function home(){
-  var c=V.cfg,T=tree(),p=pool(),h='<h1>এমসিকিউ প্র্যাকটিস</h1><div class="panel">';
+  var c=V.cfg,T=tree(),p=pool(),h='<h1>এমসিকিউ প্র্যাকটিস</h1>'+runBanner()+'<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="exname" placeholder="যেমন: Verb Test 1"></div>';
   h+='<div class="row"><label>কোন প্রশ্ন আসবে</label><select data-cfg="pool"><option value="new"'+(c.pool==="new"?" selected":"")+'>শুধু নতুন (এখনো দেওয়া হয়নি)</option><option value="all"'+(c.pool==="all"?" selected":"")+'>সব প্রশ্ন</option><option value="wrong"'+(c.pool==="wrong"?" selected":"")+'>আগে ভুল করা</option></select></div>';
   if(insts.length>1)h+='<div class="row"><label>প্রতিষ্ঠান</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div>';
   h+='<div class="row"><label>প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(p.length)+')</label><input type="number" min="1" data-cfg="n" value="'+c.n+'"></div>';
@@ -669,6 +678,7 @@ function prog(){
   return h+'<p class="meta" style="margin-top:14px">আপনার অগ্রগতি অ্যাকাউন্টে সেভ হচ্ছে।</p><button class="btn alt" id="logout">লগ আউট</button>';
 }
 /* ===== অ্যাডমিন: প্রশ্ন লোড, সেভ ও ড্যাশবোর্ড ===== */
+var RAW={};
 var ADMIN=false, ADMIN_EMAIL="thesohelranas@gmail.com";
 var SEED=Q.slice();
 function setQuestions(arr){
@@ -683,32 +693,81 @@ function clean(x){
 }
 function loadQuestions(){
   return DB.collection("questions").get().then(function(snap){
-    if(snap.empty)return;
-    var arr=[]; snap.forEach(function(d){var x=d.data(); x.id=d.id; arr.push(x);});
+    RAW={};var map={};
+    SEED.forEach(function(x,i){map[x.id]=Object.assign({},x,{ord:x.ord||(i+1)});});
+    snap.forEach(function(d){
+      var data=d.data();RAW[d.id]=data;
+      if(data.deleted){delete map[d.id];return;}
+      map[d.id]=Object.assign({},data,{id:d.id});
+    });
+    var arr=Object.keys(map).map(function(k){return map[k];});
     arr.sort(function(a,b){return (a.ord||0)-(b.ord||0);});
     setQuestions(arr);
   });
 }
-function writeAll(arr){
+function logChanges(changes,label){
+  return DB.collection("adminRedo").get().then(function(snap){
+    var b=DB.batch(); snap.forEach(function(d){b.delete(d.ref);}); return b.commit();
+  }).then(function(){
+    return DB.collection("adminLog").add({at:Date.now(),label:label,changes:changes});
+  });
+}
+function snapOf(id){return RAW[id]?JSON.parse(JSON.stringify(RAW[id])):null;}
+function writeAll(arr,label){
   arr.forEach(function(x,i){if(!x.ord)x.ord=i+1;});
-  var chunks=[]; for(var i=0;i<arr.length;i+=400)chunks.push(arr.slice(i,i+400));
-  return chunks.reduce(function(p,chunk){
+  var changes=arr.map(function(x){return {id:x.id,before:snapOf(x.id),after:clean(x)};});
+  var chunks=[]; for(var i=0;i<changes.length;i+=400)chunks.push(changes.slice(i,i+400));
+  var total=chunks.length;
+  return chunks.reduce(function(p,chunk,ci){
     return p.then(function(){
       var b=DB.batch();
-      chunk.forEach(function(x){b.set(DB.collection("questions").doc(x.id),clean(x));});
+      chunk.forEach(function(c){b.set(DB.collection("questions").doc(c.id),c.after);});
       return b.commit();
+    }).then(function(){
+      chunk.forEach(function(c){RAW[c.id]=c.after;});
+      return logChanges(chunk,(label||"ইমপোর্ট")+(total>1?" ("+(ci+1)+"/"+total+")":""));
     });
   },Promise.resolve())
-  .then(function(){setQuestions(arr);alert("সেভ হয়েছে: "+arr.length+"টি প্রশ্ন");render();})
+  .then(function(){return loadQuestions();})
+  .then(function(){alert("সেভ হয়েছে: "+arr.length+"টি প্রশ্ন");render();})
   .catch(function(err){alert("সমস্যা: "+err.message);});
+}
+function admUndo(){
+  DB.collection("adminLog").orderBy("at","desc").limit(1).get().then(function(snap){
+    if(snap.empty){alert("আনডু করার কিছু নেই");return;}
+    var doc=snap.docs[0],entry=doc.data();
+    if(!confirm("শেষ পরিবর্তনটি ফিরিয়ে আনবেন?\n\n"+entry.label))return;
+    var b=DB.batch();
+    entry.changes.forEach(function(c){
+      var ref=DB.collection("questions").doc(c.id);
+      if(c.before===null)b.delete(ref); else b.set(ref,c.before);
+    });
+    return b.commit()
+      .then(function(){return DB.collection("adminRedo").add({at:Date.now(),label:entry.label,changes:entry.changes});})
+      .then(function(){return DB.collection("adminLog").doc(doc.id).delete();})
+      .then(function(){return loadQuestions();})
+      .then(function(){alert("আনডু হয়েছে: "+entry.label);render();});
+  }).catch(function(err){alert("আনডু হয়নি: "+err.message);});
 }
 function admImportText(){
   var raw=document.getElementById("imp").value.trim();
   if(!raw){alert("JSON পেস্ট করুন");return;}
   var arr; try{arr=JSON.parse(raw);}catch(err){alert("JSON ঠিক নেই: "+err.message);return;}
   if(!Array.isArray(arr)){alert("JSON একটা তালিকা (array) হতে হবে");return;}
-  arr.forEach(function(x){if(!x.id)x.id=hs(x.q+(x.o||[]).join("|"));});
-  writeAll(arr);
+  var byId={}, byKey={};
+  Q.forEach(function(x){byId[x.id]=x; byKey[normKey(x.q+x.o.join("|"))]=x.id;});
+  var toWrite=[], nNew=0, nUpd=0, nDup=0;
+  arr.forEach(function(x){
+    if(!x.id)x.id=hs(x.q+(x.o||[]).join("|"));
+    var key=normKey(x.q+(x.o||[]).join("|"));
+    if(byKey[key] && byKey[key]!==x.id){nDup++;return;}
+    if(byId[x.id])nUpd++; else nNew++;
+    toWrite.push(x);
+  });
+  var msg="নতুন প্রশ্ন: "+nNew+"\nআপডেট হবে: "+nUpd+"\nডুপ্লিকেট বাদ যাবে: "+nDup+"\n\nচালিয়ে যাবেন?";
+  if(!confirm(msg))return;
+  if(!toWrite.length){alert("লেখার মতো কিছু নেই");return;}
+  writeAll(toWrite,"JSON ইমপোর্ট");
 }
 function admSave(){
   var g=function(id){return document.getElementById(id).value.trim();};
@@ -718,7 +777,9 @@ function admSave(){
   var isNew=V.edit==="new", id=isNew?"q"+Date.now().toString(36):V.edit, old=isNew?{}:(BY[id]||{});
   var obj={s:g("a_s"),t:g("a_t"),q:q,o:o,a:+document.getElementById("a_ans").value,i:g("a_i"),y:g("a_y"),
     bn:g("a_bn"),e:g("a_e"),ex:old.ex,rule:old.rule,v:document.getElementById("a_v").checked?0:1,ord:old.ord||(Q.length+1)};
-  DB.collection("questions").doc(id).set(clean(obj)).then(function(){
+  var before=snapOf(id),after=clean(obj);
+  DB.collection("questions").doc(id).set(after).then(function(){
+    RAW[id]=after;logChanges([{id:id,before:before,after:after}],(isNew?"নতুন প্রশ্ন যোগ: ":"প্রশ্ন এডিট: ")+q.slice(0,40));
     obj.id=id;
     var arr=Q.filter(function(x){return x.id!==id;}); arr.push(obj);
     arr.sort(function(a,b){return (a.ord||0)-(b.ord||0);});
@@ -727,10 +788,29 @@ function admSave(){
 }
 function admDelete(id){
   if(!confirm("এই প্রশ্নটি মুছে ফেলবেন?"))return;
-  DB.collection("questions").doc(id).delete().then(function(){
+  var before=snapOf(id),after={deleted:true,id:id};
+  DB.collection("questions").doc(id).set(after).then(function(){
+    RAW[id]=after;logChanges([{id:id,before:before,after:after}],"প্রশ্ন মুছে ফেলা");
     setQuestions(Q.filter(function(x){return x.id!==id;}));
     V.edit=null; render();
   }).catch(function(err){alert("মোছা যায়নি: "+err.message);});
+}
+function admRedo(){
+  DB.collection("adminRedo").orderBy("at","desc").limit(1).get().then(function(snap){
+    if(snap.empty){alert("আবার করার কিছু নেই");return;}
+    var doc=snap.docs[0],entry=doc.data();
+    if(!confirm("আবার করা হবে?\n\n"+entry.label))return;
+    var b=DB.batch();
+    entry.changes.forEach(function(c){
+      var ref=DB.collection("questions").doc(c.id);
+      if(c.after===null)b.delete(ref); else b.set(ref,c.after);
+    });
+    return b.commit()
+      .then(function(){return DB.collection("adminLog").add({at:Date.now(),label:entry.label,changes:entry.changes});})
+      .then(function(){return DB.collection("adminRedo").doc(doc.id).delete();})
+      .then(function(){return loadQuestions();})
+      .then(function(){alert("আবার করা হয়েছে: "+entry.label);render();});
+  }).catch(function(err){alert("আবার করা হয়নি: "+err.message);});
 }
 function admExport(){
   var data=JSON.stringify(Q.map(function(x){var c=clean(x);c.id=x.id;return c;}),null,2);
@@ -760,8 +840,8 @@ function adminView(){
   var f=V.admFilter||{}, sub=f.subj||"", txt=(f.text||"").trim().toLowerCase();
   var subjects=[]; Q.forEach(function(x){if(subjects.indexOf(x.s)<0)subjects.push(x.s);});
   var h='<h1>ড্যাশবোর্ড</h1><p class="meta">মোট '+bn(Q.length)+'টি প্রশ্ন</p>';
-  h+='<div class="panel meta" style="margin-bottom:12px">প্রথমবার অবশ্যই "মূল প্রশ্নগুলো ইমপোর্ট" চাপুন। নাহলে পরের বার শুধু নতুন যোগ করা প্রশ্নগুলো দেখাবে।</div>';
-  h+='<div class="panel"><button class="btn" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button>';
+  h+='<div class="panel meta" style="margin-bottom:12px">নতুন প্রশ্ন JSON-এ দিয়ে ইমপোর্ট করলে যোগ হবে। একই প্রশ্ন আবার এলে আপডেট হবে, হুবহু একই হলে ডুপ্লিকেট বাদ যাবে।</div>';
+  h+='<div class="panel"><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button>';
   h+='<div class="row" style="margin-top:10px"><label>বিষয়</label><select data-adm="subj"><option value="">সব</option>'+subjects.map(function(s){return '<option value="'+esc(s)+'"'+(sub===s?' selected':'')+'>'+esc(s)+'</option>';}).join("")+'</select></div>';
   h+='<div class="row"><label>খুঁজুন</label><input type="text" data-adm="text" value="'+esc(f.text||"")+'"></div></div>';
   var list=Q.filter(function(x){return (!sub||x.s===sub)&&(!txt||(x.q+" "+x.t+" "+x.s).toLowerCase().indexOf(txt)>=0);});
@@ -771,9 +851,38 @@ function adminView(){
     h+='<p class="q" style="font-size:16px;margin-bottom:8px">'+esc(x.q)+'</p><button class="btn alt" data-act="edit" data-qid="'+x.id+'" style="margin:0">এডিট</button></div>';
   });
   h+='<div class="panel" style="margin-top:12px"><h2 style="margin-top:0">ইমপোর্ট ও ব্যাকআপ</h2>';
-  h+='<button class="btn" id="adm-seed">মূল প্রশ্নগুলো ইমপোর্ট করুন</button>';
+  
   h+='<textarea id="imp" rows="5" style="width:100%;font:inherit;padding:8px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);margin-top:10px" placeholder="প্রশ্নের JSON তালিকা এখানে পেস্ট করুন"></textarea>';
   h+='<button class="btn alt" id="adm-import">JSON থেকে ইমপোর্ট</button><button class="btn alt" id="adm-export">ব্যাকআপ ডাউনলোড</button></div>';
+  return h;
+}
+
+function fmt(ms){var d=new Date(ms);return bn(d.toLocaleDateString("en-GB"))+" "+bn(d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}));}
+function runBanner(){
+  var run=S.exams.filter(function(x){return x.status!=="done";});
+  if(!run.length)return "";
+  var x=run[0],n=x.ids.filter(function(id){return x.a[id]!==undefined;}).length;
+  return '<div class="panel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1">চলমান পরীক্ষা: <b>'+esc(x.name)+'</b> ('+bn(n)+'/'+bn(x.ids.length)+')</span><button class="btn" data-act="resume" data-exid="'+x.id+'" style="margin:0;width:auto;padding:8px 14px">চালিয়ে যান</button></div>';
+}
+function examsView(){
+  var run=S.exams.filter(function(x){return x.status!=="done";});
+  var done=S.exams.filter(function(x){return x.status==="done";}).sort(function(a,b){return (b.finishedAt||0)-(a.finishedAt||0);});
+  var h='<h1>পরীক্ষা</h1><h2>চলমান পরীক্ষা</h2>';
+  if(!run.length)h+='<div class="panel meta">কোনো চলমান পরীক্ষা নেই।</div>';
+  run.forEach(function(x){
+    var ok=x.ids.filter(function(id){return BY[id];}),n=ok.filter(function(id){return x.a[id]!==undefined;}).length;
+    h+='<div class="card"><b>'+esc(x.name)+'</b><div class="meta">'+bn(n)+'/'+bn(ok.length)+' উত্তর দেওয়া · শুরু: '+fmt(x.at)+'</div>';
+    h+='<button class="btn" data-act="resume" data-exid="'+x.id+'" style="margin:0 0 6px">চালিয়ে যান</button><button class="btn alt" data-act="exdel" data-exid="'+x.id+'" style="margin:0">বাতিল করুন</button></div>';
+  });
+  h+='<h2>পরীক্ষার ইতিহাস</h2>';
+  if(!done.length)h+='<div class="panel meta">এখনো কোনো পরীক্ষা শেষ হয়নি।</div>';
+  done.forEach(function(x){
+    var ok=x.ids.filter(function(id){return BY[id];}),c=0,w=0;
+    ok.forEach(function(id){var a=x.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
+    var sc=c-w*NEG;
+    h+='<div class="card"><b>'+esc(x.name)+'</b><div class="meta">'+fmt(x.finishedAt||x.at)+' · সঠিক '+bn(c)+', ভুল '+bn(w)+', নম্বর '+bn(sc.toFixed(2))+'/'+bn(ok.length)+'</div>';
+    h+='<button class="btn alt" data-act="exres" data-exid="'+x.id+'" style="margin:0 0 6px">ফলাফল দেখুন</button><button class="btn alt" data-act="exdel" data-exid="'+x.id+'" style="margin:0">মুছে ফেলুন</button></div>';
+  });
   return h;
 }
 
@@ -781,7 +890,7 @@ function render(){
   var s=V.screen,y=app.scrollTop;
   if(!booted){document.getElementById("nav").innerHTML="";app.innerHTML='<p class="meta">লোড হচ্ছে…</p>';return;}
   if(!UID){document.getElementById("nav").innerHTML="";app.innerHTML=authScreen();return;}
-  app.innerHTML=(s==="exam"?exam():s==="result"?result():s==="browse"?browse():V.tab==="home"?home():V.tab==="prog"?prog():V.tab==="admin"&&ADMIN?adminView():listTab(V.tab==="admin"?"fav":V.tab));
+  app.innerHTML=(s==="exam"?exam():s==="result"?result():s==="browse"?browse():V.tab==="home"?home():V.tab==="exams"?examsView():V.tab==="prog"?prog():V.tab==="admin"&&ADMIN?adminView():listTab(V.tab==="admin"?"fav":V.tab));
   nav();
   app.scrollTop=(s==="exam")?y:0;
 }
@@ -805,10 +914,25 @@ app.addEventListener("click",function(e){
   if(t.id==="adm-export"){return admExport();}
   if(t.dataset.act==="edit"){V.edit=t.dataset.qid;return render();}
   if(t.dataset.act==="del"){return admDelete(t.dataset.qid);}
+  if(t.dataset.act==="resume"||t.dataset.act==="exres"){
+    var ex=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0];
+    if(!ex)return;
+    V.ex=ex; V.title=ex.name; V.filter="all";
+    V.screen=(t.dataset.act==="resume"&&ex.status!=="done")?"exam":"result";
+    render(); app.scrollTop=0; return;
+  }
+  if(t.dataset.act==="exdel"){
+    if(!confirm("এই পরীক্ষাটি মুছে ফেলবেন?"))return;
+    S.exams=S.exams.filter(function(x){return x.id!==t.dataset.exid;});
+    if(V.ex&&V.ex.id===t.dataset.exid){V.ex=null;V.screen=null;}
+    save(); render(); return;
+  }
+  if(t.id==="adm-undo"){return admUndo();}
+  if(t.id==="adm-redo"){return admRedo();}
   if(t.id==="logout"){firebase.auth().signOut();return;}
   if(t.dataset.fav){var id=t.dataset.fav;if(S.fav[id])delete S.fav[id];else S.fav[id]=1;save();t.textContent=S.fav[id]?"★":"☆";return;}
   if(t.dataset.k!==undefined)return answer(t.dataset.id,+t.dataset.k);
-  if(t.id==="start"){var p=pool(),n=Math.max(1,Math.min(+V.cfg.n||1,p.length));var ids=(V.cfg.order==="rand"?shuffle(p):p).slice(0,n).map(function(x){return x.id;});return begin(ids,"টপিক অনুযায়ী পরীক্ষা");}
+  if(t.id==="start"){var p=pool(),n=Math.max(1,Math.min(+V.cfg.n||1,p.length));var ids=(V.cfg.order==="rand"?shuffle(p):p).slice(0,n).map(function(x){return x.id;});var nm=((document.getElementById("exname")||{}).value||"").trim();return begin(ids,nm||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")));}
   if(t.id==="next"){var ex=V.ex;if(ex.i+1<ex.ids.length){ex.i++;render();}else finish();return;}
   if(t.id==="quit")return finish();
   if(t.id==="redo")return begin(shuffle(V.ex.bad),"ভুলগুলো আবার");
@@ -820,7 +944,7 @@ app.addEventListener("click",function(e){
 });
 app.addEventListener("change",function(e){
   var t=e.target,c=V.cfg;
-  if(t.id&&/^(a_|imp|em|pw)/.test(t.id))return;
+  if(t.id&&/^(a_|imp|em|pw|exname)/.test(t.id))return;
   if(t.dataset.adm){V.admFilter=V.admFilter||{};V.admFilter[t.dataset.adm]=t.value;return render();}
   if(t.dataset.cfg){c[t.dataset.cfg]=t.type==="checkbox"?t.checked:t.value;}
   else if(t.dataset.top){c.topics[t.dataset.top]=t.checked;}
