@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2F5BEA">
 <title>এমসিকিউ প্র্যাকটিস</title>
-<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#F3F5F9;--surface:#fff;--ink:#1B2340;--muted:#5B6485;--line:#DCE1EE;--accent:#2F5BEA;--accent-ink:#fff;--ok:#1E8E5A;--okbg:#E3F4EC;--bad:#C93C3C;--badbg:#FBE7E7;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
@@ -13,7 +14,7 @@ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
 :root[data-theme="dark"]{--bg:#10142A;--surface:#1A2040;--ink:#E8ECFA;--muted:#9AA3C7;--line:#2C3560;--accent:#7C9BFF;--accent-ink:#10142A;--ok:#4FD39A;--okbg:#12342A;--bad:#FF8585;--badbg:#3A1C26}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
-body{background:var(--bg);color:var(--ink);font-family:"Hind Siliguri",system-ui,sans-serif;font-size:17px;line-height:1.55;display:flex;flex-direction:column}
+body{background:var(--bg);color:var(--ink);font-family:"Inter","Noto Sans Bengali","Hind Siliguri",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:17px;font-variant-ligatures:common-ligatures;text-rendering:optimizeLegibility;-webkit-text-size-adjust:100%;line-height:1.55;display:flex;flex-direction:column}
 main{flex:1;overflow-y:auto;padding:16px 16px 24px;max-width:600px;width:100%;margin:0 auto}
 h1{font-size:22px;margin:4px 0 12px;font-weight:700}
 h2{font-size:17px;margin:18px 0 8px;font-weight:700}
@@ -56,6 +57,8 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid 
 input[type=email],input[type=password]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;width:100%}
 input[type=text]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;width:100%;margin-bottom:4px}
 textarea{font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;width:100%}
+button,input,select,textarea{font-family:inherit;font-variant-ligatures:common-ligatures}
+.q,.opt span,.exp{overflow-wrap:anywhere;word-break:normal}
 </style>
 </head>
 <body>
@@ -745,11 +748,42 @@ function browse(){
   var h='<h1>'+V.title+'</h1><button class="btn alt" id="home" style="margin:0 0 12px">ফিরে যান</button>';
   V.list.forEach(function(id){h+=card(BY[id]);});return h;
 }
+function wrongList(){return Object.keys(S.wrong).filter(function(id){return BY[id];}).map(function(id){return BY[id];});}
 function prog(){
-  var detail;
-  V.selfView=true;
-  try{detail=usrDetail();}finally{V.selfView=false;}
-  return detail+'<h2>বিষয়ভিত্তিক অগ্রগতি</h2>'+progOld();
+  var seen=0,r=0,w=0,T=tree();
+  Q.forEach(function(x){if(S.seen[x.id])seen++;var st=S.st[x.id];if(st){r+=st[0];w+=st[1];}});
+  var wr=wrongList(), acc=r+w?Math.round(r/(r+w)*100):0;
+  var h='<h1>অগ্রগতি</h1><div class="panel"><div class="total">'+bn(seen)+' / '+bn(Q.length)+'</div><div class="meta">প্রশ্ন দেওয়া হয়েছে · মোট নির্ভুলতা '+bn(acc)+'% · বর্তমানে ভুল '+bn(wr.length)+'টি</div></div>';
+  h+='<button class="card" data-act="wrongopen" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer"><b>বর্তমান ভুল প্রশ্ন</b> ('+bn(wr.length)+'টি)<div class="meta">ক্লিক করে ভুল প্রশ্ন দেখুন →</div></button>';
+  h+='<h2>বিষয়ভিত্তিক অগ্রগতি</h2><table><tr><th>টপিক</th><th>দেওয়া</th><th>ভুল</th><th>নির্ভুল</th></tr>';
+  Object.keys(T).forEach(function(s){Object.keys(T[s]).forEach(function(t){
+    var qs=T[s][t],sn=0,a=0,b=0;
+    qs.forEach(function(x){if(S.seen[x.id])sn++;var st=S.st[x.id];if(st){a+=st[0];b+=st[1];}});
+    h+='<tr><td>'+esc(tlabel(t))+'</td><td>'+bn(sn)+'/'+bn(qs.length)+'</td><td>'+bn(qs.filter(function(x){return S.wrong[x.id];}).length)+'</td><td>'+(a+b?bn(Math.round(a/(a+b)*100))+'%':'–')+'</td></tr>';
+  });});
+  return h+'</table><p class="meta" style="margin-top:14px">আপনার অগ্রগতি অ্যাকাউন্টে সেভ হচ্ছে।</p><button class="btn alt" id="logout">লগ আউট</button>';
+}
+function wrongView(){
+  var wr=wrongList(), cnt={};
+  wr.forEach(function(q){var k=q.s+"||"+q.t;cnt[k]=(cnt[k]||0)+1;});
+  var keys=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];});
+  var h='<button class="btn alt" data-act="wrongback" style="margin:0 0 10px">← ফিরে যান</button><h1>বর্তমান ভুল প্রশ্ন ('+bn(wr.length)+'টি)</h1><p class="meta">সঠিক উত্তর দিলে এখান থেকে সরে যাবে।</p>';
+  if(!wr.length)return h+'<div class="panel meta">এখন কোনো ভুল প্রশ্ন নেই।</div>';
+  h+='<p class="meta">যে টপিকে বেশি ভুল, সেটি উপরে।</p><div class="chips"><button class="chip" data-act="usrtop" data-key="" aria-pressed="'+(!V.usrTopic)+'">সব ('+bn(wr.length)+')</button>'+keys.map(function(k){var p=k.split("||");return '<button class="chip" data-act="usrtop" data-key="'+esc(k)+'" aria-pressed="'+(V.usrTopic===k)+'">'+esc(tlabel(p[1]))+' ('+bn(cnt[k])+')</button>';}).join("")+'</div>';
+  keys.filter(function(k){return !V.usrTopic||V.usrTopic===k;}).forEach(function(k){
+    var p=k.split("||");
+    h+='<h3>'+esc(tlabel(p[1]))+' ('+bn(cnt[k])+'টি)</h3>';
+    wr.filter(function(q){return (q.s+"||"+q.t)===k;}).forEach(function(q){
+      var last=latestAnswer(S.exams,q.id);
+      h+='<div class="card"><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
+      q.o.forEach(function(o,i){
+        var c=i===q.a?"opt ok":(i===last?"opt bad":"opt");
+        h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+(i===q.a?'সঠিক উত্তর':(i===last?'আপনার উত্তর':''))+'</i></div>';
+      });
+      h+='</div>';
+    });
+  });
+  return h;
 }
 function progOld(){
   var T=tree(),seen=0,r=0,w=0;
@@ -1171,20 +1205,35 @@ function usrExamView(){
   return h;
 }
 
-var TR_PAIRS=[["উত্তর সেভ হয়েছে। ফলাফল শেষে দেখতে পারবেন।", "Answer saved. You can see the result at the end."], ["পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে", "Show topic with questions in exam"], ["আগে থেকে অ্যাকাউন্ট আছে, লগইন করুন", "Already have an account? Log in"], ["এই সময়ে কোনো পরীক্ষা শেষ হয়নি।", "No exam finished in this period."], ["এগুলো দিয়ে পরীক্ষা শুরু করুন", "Start exam with these"], ["শুধু নতুন (এখনো দেওয়া হয়নি)", "New only (not yet attempted)"], ["যে টপিকে বেশি ভুল, সেটি উপরে।", "Topics with most mistakes appear first."], ["পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)", "Password (min 6 characters)"], ["এই ফিল্টারে কোনো প্রশ্ন নেই।", "No questions for this filter."], ["এখনো কোনো পরীক্ষা শেষ হয়নি।", "No exam finished yet."], ["নির্বাচিতগুলো উত্তরসহ দেখুন", "View selected with answers"], ["কোনো চলমান পরীক্ষা নেই।", "No running exams."], ["প্রতিটা প্রশ্নের পরপরই", "After each question"], ["বিষয় ও টপিক বেছে নিন।", "Choose subjects and topics."], ["নতুন অ্যাকাউন্ট খুলুন", "Create account"], ["পরীক্ষা শেষ করার পর", "After finishing the exam"], ["এমসিকিউ প্র্যাকটিস", "MCQ Practice"], ["বর্তমান ভুল প্রশ্ন", "Current wrong questions"], ["গত ১ মাসের পরীক্ষা", "Exams in the last 1 month"], ["পরীক্ষা শুরু করুন", "Start exam"], ["← পরীক্ষার তালিকা", "← Exam list"], ["পরীক্ষা শেষ করুন", "Finish exam"], ["উত্তর কখন দেখাবে", "When to show answers"], ["← সব ব্যবহারকারী", "← All users"], ["অ্যাকাউন্ট খুলুন", "Create account"], ["কোন প্রশ্ন আসবে", "Which questions"], ["পরীক্ষার ইতিহাস", "Exam history"], ["সর্বশেষ ইমপোর্ট", "Latest import"], ["পছন্দের প্রশ্ন", "Favorite questions"], ["ভুল করা প্রশ্ন", "Wrong questions"], ["প্রশ্ন সংখ্যা", "Number of questions"], ["টপিক বেছে নিন", "Choose topics"], ["চলমান পরীক্ষা", "Running exams"], ["ছাত্রের উত্তর", "Student's answer"], ["পরীক্ষার নাম", "Exam name"], ["উত্তর দেওয়া", "Answered"], ["আগে ভুল করা", "Previously wrong"], ["চালিয়ে যান", "Continue"], ["ফলাফল দেখুন", "View result"], ["ব্যবহারকারী", "Users"], ["বাতিল করুন", "Cancel"], ["মুছে ফেলুন", "Delete"], ["সঠিক উত্তর", "Correct answer"], ["সঠিক করেছে", "Corrected"], ["ভুল প্রশ্ন", "Wrong questions"], ["হোমে ফিরুন", "Back to home"], ["বাংলা অর্থ", "Bangla meaning"], ["লোড হচ্ছে…", "Loading…"], ["সব প্রশ্ন", "All questions"], ["র‍্যান্ডম", "Random"], ["নির্বাচিত", "Selected"], ["← সব টপিক", "← All topics"], ["আরও দেখুন", "Show more"], ["পুরনো আগে", "Oldest first"], ["সিরিয়াল", "Serial"], ["এখনো ভুল", "Still wrong"], ["ফিরে যান", "Go back"], ["ব্যাখ্যা", "Explanation"], ["কম দেখুন", "Show less"], ["নতুন আগে", "Newest first"], ["মূল ক্রম", "Original order"], ["অগ্রগতি", "Progress"], ["পরীক্ষা", "Exams"], ["লগ আউট", "Log out"], ["প্রশ্ন", "Question"], ["সাজানো", "Sort"], ["খুঁজুন", "Search"], ["মুছুন", "Delete"], ["স্কিপ", "Skipped"], ["নম্বর", "Score"], ["ফলাফল", "Result"], ["পছন্দ", "Favorites"], ["ইমেইল", "Email"], ["ক্রম", "Order"], ["সঠিক", "Correct"], ["বাকি", "Remaining"], ["লগইন", "Log in"], ["অপশন", "Option"], ["টপিক", "Topic"], ["হোম", "Home"], ["ভুল", "Wrong"], ["মোট", "Total"], ["সব", "All"]];
+var TR_PAIRS=[["বিষয়ভিত্তিক অগ্রগতি","Progress by topic"],["ক্লিক করে ভুল প্রশ্ন দেখুন","Tap to view wrong questions"],["প্রশ্ন দেওয়া হয়েছে","questions attempted"],["মোট নির্ভুলতা","overall accuracy"],["বর্তমানে ভুল","currently wrong"],["আপনার অগ্রগতি অ্যাকাউন্টে সেভ হচ্ছে।","Your progress is saved to your account."],["আপনার উত্তর","Your answer"],["সঠিক উত্তর দিলে এখান থেকে সরে যাবে।","Answer correctly to remove it from here."],["যে টপিকে বেশি ভুল, সেটি উপরে।","Topics with the most mistakes come first."],["উত্তর যাচাই হয়নি","Answer not verified"],["নির্ভুল","Accuracy"],["দেওয়া","Attempted"],["উত্তর সেভ হয়েছে। ফলাফল শেষে দেখতে পারবেন।", "Answer saved. You can see the result at the end."], ["পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে", "Show topic with questions in exam"], ["আগে থেকে অ্যাকাউন্ট আছে, লগইন করুন", "Already have an account? Log in"], ["এই সময়ে কোনো পরীক্ষা শেষ হয়নি।", "No exam finished in this period."], ["এগুলো দিয়ে পরীক্ষা শুরু করুন", "Start exam with these"], ["শুধু নতুন (এখনো দেওয়া হয়নি)", "New only (not yet attempted)"], ["যে টপিকে বেশি ভুল, সেটি উপরে।", "Topics with most mistakes appear first."], ["পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)", "Password (min 6 characters)"], ["এই ফিল্টারে কোনো প্রশ্ন নেই।", "No questions for this filter."], ["এখনো কোনো পরীক্ষা শেষ হয়নি।", "No exam finished yet."], ["নির্বাচিতগুলো উত্তরসহ দেখুন", "View selected with answers"], ["কোনো চলমান পরীক্ষা নেই।", "No running exams."], ["প্রতিটা প্রশ্নের পরপরই", "After each question"], ["বিষয় ও টপিক বেছে নিন।", "Choose subjects and topics."], ["নতুন অ্যাকাউন্ট খুলুন", "Create account"], ["পরীক্ষা শেষ করার পর", "After finishing the exam"], ["এমসিকিউ প্র্যাকটিস", "MCQ Practice"], ["বর্তমান ভুল প্রশ্ন", "Current wrong questions"], ["গত ১ মাসের পরীক্ষা", "Exams in the last 1 month"], ["পরীক্ষা শুরু করুন", "Start exam"], ["← পরীক্ষার তালিকা", "← Exam list"], ["পরীক্ষা শেষ করুন", "Finish exam"], ["উত্তর কখন দেখাবে", "When to show answers"], ["← সব ব্যবহারকারী", "← All users"], ["অ্যাকাউন্ট খুলুন", "Create account"], ["কোন প্রশ্ন আসবে", "Which questions"], ["পরীক্ষার ইতিহাস", "Exam history"], ["সর্বশেষ ইমপোর্ট", "Latest import"], ["পছন্দের প্রশ্ন", "Favorite questions"], ["ভুল করা প্রশ্ন", "Wrong questions"], ["প্রশ্ন সংখ্যা", "Number of questions"], ["টপিক বেছে নিন", "Choose topics"], ["চলমান পরীক্ষা", "Running exams"], ["ছাত্রের উত্তর", "Student's answer"], ["পরীক্ষার নাম", "Exam name"], ["উত্তর দেওয়া", "Answered"], ["আগে ভুল করা", "Previously wrong"], ["চালিয়ে যান", "Continue"], ["ফলাফল দেখুন", "View result"], ["ব্যবহারকারী", "Users"], ["বাতিল করুন", "Cancel"], ["মুছে ফেলুন", "Delete"], ["সঠিক উত্তর", "Correct answer"], ["সঠিক করেছে", "Corrected"], ["ভুল প্রশ্ন", "Wrong questions"], ["হোমে ফিরুন", "Back to home"], ["বাংলা অর্থ", "Bangla meaning"], ["লোড হচ্ছে…", "Loading…"], ["সব প্রশ্ন", "All questions"], ["র‍্যান্ডম", "Random"], ["নির্বাচিত", "Selected"], ["← সব টপিক", "← All topics"], ["আরও দেখুন", "Show more"], ["পুরনো আগে", "Oldest first"], ["সিরিয়াল", "Serial"], ["এখনো ভুল", "Still wrong"], ["ফিরে যান", "Go back"], ["ব্যাখ্যা", "Explanation"], ["কম দেখুন", "Show less"], ["নতুন আগে", "Newest first"], ["মূল ক্রম", "Original order"], ["অগ্রগতি", "Progress"], ["পরীক্ষা", "Exams"], ["লগ আউট", "Log out"], ["প্রশ্ন", "Question"], ["সাজানো", "Sort"], ["খুঁজুন", "Search"], ["মুছুন", "Delete"], ["স্কিপ", "Skipped"], ["নম্বর", "Score"], ["ফলাফল", "Result"], ["পছন্দ", "Favorites"], ["ইমেইল", "Email"], ["ক্রম", "Order"], ["সঠিক", "Correct"], ["বাকি", "Remaining"], ["লগইন", "Log in"], ["অপশন", "Option"], ["টপিক", "Topic"], ["হোম", "Home"], ["ভুল", "Wrong"], ["মোট", "Total"], ["সব", "All"]];
 function tr(html){
   if((S.lang||"en")!=="en")return html;
+  html=html.replace(/(\d)\s*(টি|জন)/g,"$1");
   for(var i=0;i<TR_PAIRS.length;i++){html=html.split(TR_PAIRS[i][0]).join(TR_PAIRS[i][1]);}
   return html;
 }
+function trDom(root){
+  if((S.lang||"en")!=="en")return;
+  var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null),nodes=[];
+  while(w.nextNode())nodes.push(w.currentNode);
+  nodes.forEach(function(n){
+    var p=n.parentNode;
+    if(p&&p.closest&&p.closest(".q,.opt span,.exp,[data-notr]"))return;
+    var t=n.nodeValue;
+    if(!/[\u0980-\u09FF]/.test(t))return;
+    n.nodeValue=tr(t);
+  });
+  root.querySelectorAll("[placeholder]").forEach(function(el){el.placeholder=tr(el.placeholder);});
+}
 function render(){
+  document.documentElement.lang=(S.lang==="bn")?"bn":"en";
   var s=V.screen,y=app.scrollTop;
   if(!booted){document.getElementById("nav").innerHTML="";app.innerHTML='<p class="meta">লোড হচ্ছে…</p>';return;}
   if(!UID){document.getElementById("nav").innerHTML="";app.innerHTML=authScreen();return;}
-  app.innerHTML=(s==="exam"?exam():s==="result"?result():s==="browse"?browse():V.tab==="home"?home():V.tab==="users"&&ADMIN?usrView():V.tab==="exams"?examsView():V.tab==="prog"?prog():V.tab==="admin"&&ADMIN?adminView():listTab(V.tab==="admin"?"fav":V.tab));
-  app.innerHTML=tr(app.innerHTML);
+  app.innerHTML=(s==="wrong"?wrongView():s==="exam"?exam():s==="result"?result():s==="browse"?browse():V.tab==="home"?home():V.tab==="users"&&ADMIN?usrView():V.tab==="exams"?examsView():V.tab==="prog"?prog():V.tab==="admin"&&ADMIN?adminView():listTab(V.tab==="admin"?"fav":V.tab));
+  trDom(app);
   nav();
-  var nv=document.getElementById("nav");nv.innerHTML=tr(nv.innerHTML);
+  trDom(document.getElementById("nav"));
   app.scrollTop=(s==="exam")?y:0;
   V.lastRendered=snap();
 }
@@ -1225,6 +1274,8 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="usrback"){V.usrSel=null;V.usrExam=null;V.usrTopic="";return render();}
   if(t.dataset.act==="lang"){S.lang=(S.lang==="bn")?"en":"bn";save();return render();}
   if(t.dataset.act==="usrmore"){V.usrMore=!V.usrMore;return render();}
+  if(t.dataset.act==="wrongopen"){V.usrTopic="";V.screen="wrong";push();render();app.scrollTop=0;return;}
+  if(t.dataset.act==="wrongback"){history.back();return;}
   if(t.dataset.act==="usrtop"){V.usrTopic=t.dataset.key;return render();}
   if(t.dataset.act==="uexam"){V.usrExam=t.dataset.exid;V.usrFilter="wrong";return render();}
   if(t.dataset.act==="ubackexam"){V.usrExam=null;return render();}
