@@ -517,10 +517,26 @@ function authScreen(){
 var bn=function(n){return String(n).replace(/\d/g,function(d){return "০১২৩৪৫৬৭৮৯"[d];});};
 var L=["ক","খ","গ","ঘ"];
 var app=document.getElementById("app");
-var V={tab:"home",screen:null,cfg:{topics:{},pool:"new",inst:"",n:10,order:"rand",showTopic:false,reveal:"instant"},ex:null,list:null,title:""};
+var V={tab:"home",screen:null,cfg:{topics:{},pool:"new",inst:"",n:10,order:"rand",showTopic:false,reveal:"instant"},ex:null,list:null,title:"",lsel:{}};
 var insts=[];Q.forEach(function(x){if(x.i&&insts.indexOf(x.i)<0)insts.push(x.i);});
 function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t;}return a;}
 function tree(){var T={};Q.forEach(function(x){(T[x.s]=T[x.s]||{});(T[x.s][x.t]=T[x.s][x.t]||[]).push(x);});return T;}
+function gname(x){
+  if(x.s==="English"){
+    if(x.t==="Literature")return "Literature";
+    return "Grammar";
+  }
+  return x.s;
+}
+function tlabel(t){return t.indexOf("Grammar: ")===0?t.slice(9):t;}
+function groupTree(list){
+  var T={};
+  (list||Q).forEach(function(x){
+    var g=gname(x);
+    T[x.s]=T[x.s]||{}; T[x.s][g]=T[x.s][g]||{}; (T[x.s][g][x.t]=T[x.s][g][x.t]||[]).push(x);
+  });
+  return T;
+}
 
 function pool(){
   var c=V.cfg;
@@ -594,7 +610,7 @@ function nav(){
 
 /* ===== স্ক্রিন ===== */
 function home(){
-  var c=V.cfg,T=tree(),p=pool(),h='<h1>এমসিকিউ প্র্যাকটিস</h1>'+runBanner()+'<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="exname" placeholder="যেমন: Verb Test 1"></div>';
+  var c=V.cfg,T=groupTree(),p=pool(),h='<h1>এমসিকিউ প্র্যাকটিস</h1>'+runBanner()+'<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="exname" placeholder="যেমন: Verb Test 1"></div>';
   h+='<div class="row"><label>কোন প্রশ্ন আসবে</label><select data-cfg="pool"><option value="new"'+(c.pool==="new"?" selected":"")+'>শুধু নতুন (এখনো দেওয়া হয়নি)</option><option value="all"'+(c.pool==="all"?" selected":"")+'>সব প্রশ্ন</option><option value="wrong"'+(c.pool==="wrong"?" selected":"")+'>আগে ভুল করা</option></select></div>';
   if(insts.length>1)h+='<div class="row"><label>প্রতিষ্ঠান</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div>';
   h+='<div class="row"><label>প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(p.length)+')</label><input type="number" min="1" data-cfg="n" value="'+c.n+'"></div>';
@@ -604,22 +620,49 @@ function home(){
   h+='<button class="btn" id="start"'+(p.length?'':' disabled')+'>'+(p.length?'পরীক্ষা শুরু করুন':'টপিক বেছে নিন')+'</button></div>';
   h+='<div class="meta">এক বা একাধিক টপিক বেছে নিন। প্রতি ভুল উত্তরে '+bn(NEG)+' নম্বর কাটা যায়।</div>';
   Object.keys(T).forEach(function(s){
-    var ts=Object.keys(T[s]),all=ts.every(function(t){return c.topics[s+"||"+t];});
+    var gs=Object.keys(T[s]),allT=[];
+    gs.forEach(function(g){Object.keys(T[s][g]).forEach(function(t){allT.push(t);});});
+    var all=allT.every(function(t){return c.topics[s+"||"+t];});
     h+='<div class="panel"><label class="sub"><input type="checkbox" data-sub="'+s+'"'+(all?" checked":"")+'>'+s+'</label>';
-    ts.forEach(function(t){
-      var qs=T[s][t],nw=qs.filter(function(x){return !S.seen[x.id];}).length;
-      h+='<label class="top"><input type="checkbox" data-top="'+s+'||'+t+'"'+(c.topics[s+"||"+t]?" checked":"")+'><span>'+t+'</span><small>'+bn(qs.length)+'টি, নতুন '+bn(nw)+'</small></label>';
+    gs.forEach(function(g){
+      if(g!==s)h+='<div style="font-weight:600;margin:10px 0 2px;color:var(--muted)">'+g+'</div>';
+      Object.keys(T[s][g]).forEach(function(t){
+        var qs=T[s][g][t],nw=qs.filter(function(x){return !S.seen[x.id];}).length;
+        h+='<label class="top"><input type="checkbox" data-top="'+s+'||'+t+'"'+(c.topics[s+"||"+t]?" checked":"")+'><span>'+tlabel(t)+'</span><small>'+bn(qs.length)+'টি, নতুন '+bn(nw)+'</small></label>';
+      });
     });
     h+='</div>';
   });
   return h;
 }
+function lsOn(kind,key){var m=V.lsel[kind];return !m||m[key]===undefined?true:!!m[key];}
+function selIds(kind){return Q.filter(function(x){return S[kind][x.id]&&lsOn(kind,x.s+"||"+x.t);}).map(function(x){return x.id;});}
 function listTab(kind){
-  var ids=Q.filter(function(x){return S[kind][x.id];}).map(function(x){return x.id;});
   var name=kind==="fav"?"পছন্দের প্রশ্ন":"ভুল করা প্রশ্ন";
-  var h='<h1>'+name+'</h1><p class="meta">'+bn(ids.length)+'টি প্রশ্ন</p>';
-  if(!ids.length)return h+'<div class="panel">'+(kind==="fav"?'প্রশ্নের পাশের ☆ চাপলে এখানে জমা হবে।':'পরীক্ষায় ভুল করা প্রশ্ন এখানে নিজে থেকে জমা হবে। পরে ঠিক উত্তর দিলে সরে যাবে।')+'</div>';
-  return h+'<button class="btn" data-go="exam" data-kind="'+kind+'">এগুলো দিয়ে পরীক্ষা দিন</button><button class="btn alt" data-go="browse" data-kind="'+kind+'">প্রশ্নগুলো উত্তরসহ দেখুন</button>';
+  var all=Q.filter(function(x){return S[kind][x.id];});
+  var h='<h1>'+name+'</h1><p class="meta">'+bn(all.length)+'টি প্রশ্ন</p>';
+  if(!all.length)return h+'<div class="panel">'+(kind==="fav"?'প্রশ্নের পাশের ☆ চাপলে এখানে জমা হবে।':'পরীক্ষায় ভুল করা প্রশ্ন এখানে নিজে থেকে জমা হবে। পরে ঠিক উত্তর দিলে সরে যাবে।')+'</div>';
+  var sel=selIds(kind);
+  h+='<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="lname" placeholder="যেমন: ভুল রিভিশন ১"></div>';
+  h+='<div class="meta">বিষয় ও টপিক বেছে নিন। নির্বাচিত '+bn(sel.length)+'টি প্রশ্ন।</div></div>';
+  var T=groupTree(all);
+  Object.keys(T).forEach(function(s){
+    var gs=Object.keys(T[s]),keys=[];
+    gs.forEach(function(g){Object.keys(T[s][g]).forEach(function(t){keys.push(s+"||"+t);});});
+    var allOn=keys.every(function(k){return lsOn(kind,k);});
+    h+='<div class="panel"><label class="sub"><input type="checkbox" data-lkind="'+kind+'" data-lsub="'+s+'"'+(allOn?" checked":"")+'>'+s+'</label>';
+    gs.forEach(function(g){
+      if(g!==s)h+='<div style="font-weight:600;margin:10px 0 2px;color:var(--muted)">'+g+'</div>';
+      Object.keys(T[s][g]).forEach(function(t){
+        var key=s+"||"+t;
+        h+='<label class="top"><input type="checkbox" data-lkind="'+kind+'" data-ltop="'+key+'"'+(lsOn(kind,key)?" checked":"")+'><span>'+tlabel(t)+'</span><small>'+bn(T[s][g][t].length)+'টি</small></label>';
+      });
+    });
+    h+='</div>';
+  });
+  h+='<button class="btn" data-go="exam" data-kind="'+kind+'"'+(sel.length?'':' disabled')+'>এগুলো দিয়ে পরীক্ষা শুরু করুন</button>';
+  h+='<button class="btn alt" data-go="browse" data-kind="'+kind+'"'+(sel.length?'':' disabled')+'>নির্বাচিতগুলো উত্তরসহ দেখুন</button>';
+  return h;
 }
 function exam(){
   var e=V.ex,n=0;
@@ -938,14 +981,25 @@ app.addEventListener("click",function(e){
   if(t.id==="redo")return begin(shuffle(V.ex.bad),"ভুলগুলো আবার");
   if(t.dataset.filter){V.filter=t.dataset.filter;return render();}
   if(t.id==="home"){V.screen=null;render();return;}
-  if(t.dataset.go){var kind=t.dataset.kind,ids2=Q.filter(function(x){return S[kind][x.id];}).map(function(x){return x.id;});V.title=kind==="fav"?"পছন্দের প্রশ্ন":"ভুল করা প্রশ্ন";
-    if(t.dataset.go==="exam")return begin(shuffle(ids2),V.title);V.list=ids2;V.screen="browse";return render();}
+  if(t.dataset.go){
+    var kind=t.dataset.kind,ids2=selIds(kind);
+    var nm=((document.getElementById("lname")||{}).value||"").trim();
+    if(!ids2.length)return;
+    if(t.dataset.go==="exam")return begin(shuffle(ids2),nm||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")));
+    V.title=nm||(kind==="fav"?"পছন্দের প্রশ্ন":"ভুল প্রশ্ন"); V.list=ids2; V.screen="browse"; return render();
+  }
   if(t.dataset.tab){V.tab=t.dataset.tab;V.screen=null;render();}
 });
 app.addEventListener("change",function(e){
   var t=e.target,c=V.cfg;
-  if(t.id&&/^(a_|imp|em|pw|exname)/.test(t.id))return;
+  if(t.id&&/^(a_|imp|em|pw|exname|lname)/.test(t.id))return;
   if(t.dataset.adm){V.admFilter=V.admFilter||{};V.admFilter[t.dataset.adm]=t.value;return render();}
+  if(t.dataset.lkind){
+    var k=t.dataset.lkind;V.lsel=V.lsel||{};V.lsel[k]=V.lsel[k]||{};var m=V.lsel[k];
+    if(t.dataset.ltop){m[t.dataset.ltop]=t.checked;}
+    else if(t.dataset.lsub){Q.forEach(function(x){if(x.s===t.dataset.lsub&&S[k][x.id])m[x.s+"||"+x.t]=t.checked;});}
+    var y0=app.scrollTop;render();app.scrollTop=y0;return;
+  }
   if(t.dataset.cfg){c[t.dataset.cfg]=t.type==="checkbox"?t.checked:t.value;}
   else if(t.dataset.top){c.topics[t.dataset.top]=t.checked;}
   else if(t.dataset.sub){Q.forEach(function(x){if(x.s===t.dataset.sub)c.topics[x.s+"||"+x.t]=t.checked;});}
