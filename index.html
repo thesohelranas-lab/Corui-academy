@@ -479,10 +479,10 @@ function hs(s){var n=5381;for(var j=0;j<s.length;j++)n=((n<<5)+n+s.charCodeAt(j)
 var BY={};Q.forEach(function(x){x.id=hs(x.q+x.o.join("|"));BY[x.id]=x;});
 
 /* ===== সংরক্ষণ (এই ডিভাইসের ব্রাউজারে) ===== */
-var S={seen:{},wrong:{},fav:{},st:{},hist:[],exams:[]};
+var S={seen:{},wrong:{},fav:{},st:{},hist:[],exams:[],lang:"en"};
 var UID=null,DB=null,booted=false,saveTimer=null;
 var V_AUTH={mode:"login",msg:""};
-function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[]};}
+function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[],lang:d.lang||"en"};}
 function save(){
   if(!UID||!DB)return;
   var u=UID,d=DB,snapshot=JSON.parse(JSON.stringify(S));
@@ -516,7 +516,7 @@ function authScreen(){
 }
 
 
-var bn=function(n){return String(n).replace(/\d/g,function(d){return "০১২৩৪৫৬৭৮৯"[d];});};
+var bn=function(n){if((S.lang||"en")==="en")return String(n);return String(n).replace(/\d/g,function(d){return "০১২৩৪৫৬৭৮৯"[d];});};
 var L=["ক","খ","গ","ঘ"];
 var app=document.getElementById("app");
 var V={tab:"home",screen:null,cfg:{topics:{},pool:"new",inst:"",n:10,order:"rand",showTopic:false,reveal:"instant"},ex:null,list:null,title:"",lsel:{},saved:{},draft:{},stk:{}};
@@ -642,7 +642,7 @@ function nav(){
 
 /* ===== স্ক্রিন ===== */
 function home(){
-  var c=V.cfg,T=groupTree(),p=pool(),h='<h1>এমসিকিউ প্র্যাকটিস</h1>'+runBanner()+'<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="exname" placeholder="যেমন: Verb Test 1" value="'+esc(V.draft.exname||"")+'"></div>';
+  var c=V.cfg,T=groupTree(),p=pool(),h='<h1>এমসিকিউ প্র্যাকটিস</h1><button class="btn alt" data-act="lang" style="margin:0 0 10px;width:auto;padding:8px 14px">'+((S.lang||"en")==="bn"?"English":"বাংলা")+'</button>'+runBanner()+'<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="exname" placeholder="যেমন: Verb Test 1" value="'+esc(V.draft.exname||"")+'"></div>';
   h+='<div class="row"><label>কোন প্রশ্ন আসবে</label><select data-cfg="pool"><option value="new"'+(c.pool==="new"?" selected":"")+'>শুধু নতুন (এখনো দেওয়া হয়নি)</option><option value="all"'+(c.pool==="all"?" selected":"")+'>সব প্রশ্ন</option><option value="wrong"'+(c.pool==="wrong"?" selected":"")+'>আগে ভুল করা</option></select></div>';
   if(insts.length>1)h+='<div class="row"><label>প্রতিষ্ঠান</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div>';
   h+='<div class="row"><label>প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(p.length)+')</label><input type="number" min="1" data-cfg="n" value="'+c.n+'"></div>';
@@ -683,6 +683,7 @@ function listTab(kind){
   if(!all.length)return h+'<div class="panel">'+(kind==="fav"?'প্রশ্নের পাশের ☆ চাপলে এখানে জমা হবে।':'পরীক্ষায় ভুল করা প্রশ্ন এখানে নিজে থেকে জমা হবে। পরে ঠিক উত্তর দিলে সরে যাবে।')+'</div>';
   var sel=selIds(kind);
   h+='<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="lname" placeholder="যেমন: ভুল রিভিশন ১" value="'+esc(V.draft.lname||"")+'"></div>';
+  h+='<div class="row"><label>উত্তর কখন দেখাবে</label><select data-cfg="reveal"><option value="instant"'+(V.cfg.reveal==="instant"?" selected":"")+'>প্রতিটা প্রশ্নের পরপরই</option><option value="end"'+(V.cfg.reveal==="end"?" selected":"")+'>পরীক্ষা শেষ করার পর</option></select></div>';
   h+='<div class="meta">বিষয় ও টপিক বেছে নিন। নির্বাচিত '+bn(sel.length)+'টি প্রশ্ন।</div></div>';
   var T=groupTree(all);
   Object.keys(T).forEach(function(s){
@@ -1101,15 +1102,17 @@ function usrDetail(){
   h+='<div class="panel"><div class="total">'+bn(seen)+' / '+bn(Q.length)+'</div><div class="meta">প্রশ্ন দেওয়া হয়েছে · মোট নির্ভুলতা '+bn(acc)+'% · বর্তমানে ভুল '+bn(wrongAll.length)+'টি · গত ১ মাসে '+bn(ex.length)+'টি পরীক্ষা</div></div>';
   h+='<h2>গত ১ মাসের পরীক্ষা ('+bn(ex.length)+'টি)</h2>';
   if(!ex.length)h+='<div class="panel meta">এই সময়ে কোনো পরীক্ষা শেষ হয়নি।</div>';
-  ex.forEach(function(x){
+  ex.slice(0,V.usrMore?ex.length:3).forEach(function(x){
     var ok=x.ids.filter(function(id){return BY[id];}),c=0,w=0;
     ok.forEach(function(id){var a=x.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
     h+='<div class="card"><b>'+esc(x.name)+'</b><div class="meta">'+fmt(x.finishedAt)+' · সঠিক '+bn(c)+', ভুল '+bn(w)+', স্কিপ '+bn(ok.length-c-w)+' · নম্বর '+bn((c-w*NEG).toFixed(2))+'/'+bn(ok.length)+'</div>';
     h+='<button class="btn alt" data-act="uexam" data-exid="'+x.id+'" style="margin:0">প্রশ্নগুলো দেখুন (ভুল ফিল্টার)</button></div>';
   });
+  if(ex.length>3)h+='<button class="btn alt" data-act="usrmore" style="margin:0 0 12px">'+(V.usrMore?'কম দেখুন':'আরও দেখুন')+' ('+bn(ex.length)+'টি)</button>';
   h+='<h2>বর্তমান ভুল প্রশ্ন ('+bn(wrongAll.length)+'টি)</h2><p class="meta">সঠিক উত্তর দিলে এখান থেকে সরে যাবে।</p>';
-  var keys=[];wrongAll.forEach(function(q){var k=q.s+"||"+q.t;if(keys.indexOf(k)<0)keys.push(k);});
-  h+='<div class="row"><label>টপিক</label><select data-usrtopic="1"><option value="">সব টপিক</option>'+keys.map(function(k){var p=k.split("||");return '<option value="'+esc(k)+'"'+(V.usrTopic===k?' selected':'')+'>'+esc(p[0])+' – '+esc(tlabel(p[1]))+'</option>';}).join("")+'</select></div>';
+  var cnt={}; wrongAll.forEach(function(q){var k=q.s+"||"+q.t;cnt[k]=(cnt[k]||0)+1;});
+  var keys=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];});
+  h+='<p class="meta">যে টপিকে বেশি ভুল, সেটি উপরে।</p><div class="chips"><button class="chip" data-act="usrtop" data-key="" aria-pressed="'+(!V.usrTopic)+'">সব ('+bn(wrongAll.length)+')</button>'+keys.map(function(k){var p=k.split("||");return '<button class="chip" data-act="usrtop" data-key="'+esc(k)+'" aria-pressed="'+(V.usrTopic===k)+'">'+esc(tlabel(p[1]))+' ('+bn(cnt[k])+')</button>';}).join("")+'</div>';
   var list=wrongAll.filter(function(q){return !V.usrTopic||(q.s+"||"+q.t)===V.usrTopic;});
   if(!list.length)h+='<div class="panel meta">এই টপিকে কোনো ভুল প্রশ্ন নেই।</div>';
   var T=groupTree(list);
@@ -1158,12 +1161,20 @@ function usrExamView(){
   return h;
 }
 
+var TR_PAIRS=[["উত্তর সেভ হয়েছে। ফলাফল শেষে দেখতে পারবেন।", "Answer saved. You can see the result at the end."], ["পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে", "Show topic with questions in exam"], ["আগে থেকে অ্যাকাউন্ট আছে, লগইন করুন", "Already have an account? Log in"], ["এই সময়ে কোনো পরীক্ষা শেষ হয়নি।", "No exam finished in this period."], ["এগুলো দিয়ে পরীক্ষা শুরু করুন", "Start exam with these"], ["শুধু নতুন (এখনো দেওয়া হয়নি)", "New only (not yet attempted)"], ["যে টপিকে বেশি ভুল, সেটি উপরে।", "Topics with most mistakes appear first."], ["পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)", "Password (min 6 characters)"], ["এই ফিল্টারে কোনো প্রশ্ন নেই।", "No questions for this filter."], ["এখনো কোনো পরীক্ষা শেষ হয়নি।", "No exam finished yet."], ["নির্বাচিতগুলো উত্তরসহ দেখুন", "View selected with answers"], ["কোনো চলমান পরীক্ষা নেই।", "No running exams."], ["প্রতিটা প্রশ্নের পরপরই", "After each question"], ["বিষয় ও টপিক বেছে নিন।", "Choose subjects and topics."], ["নতুন অ্যাকাউন্ট খুলুন", "Create account"], ["পরীক্ষা শেষ করার পর", "After finishing the exam"], ["এমসিকিউ প্র্যাকটিস", "MCQ Practice"], ["বর্তমান ভুল প্রশ্ন", "Current wrong questions"], ["গত ১ মাসের পরীক্ষা", "Exams in the last 1 month"], ["পরীক্ষা শুরু করুন", "Start exam"], ["← পরীক্ষার তালিকা", "← Exam list"], ["পরীক্ষা শেষ করুন", "Finish exam"], ["উত্তর কখন দেখাবে", "When to show answers"], ["← সব ব্যবহারকারী", "← All users"], ["অ্যাকাউন্ট খুলুন", "Create account"], ["কোন প্রশ্ন আসবে", "Which questions"], ["পরীক্ষার ইতিহাস", "Exam history"], ["সর্বশেষ ইমপোর্ট", "Latest import"], ["পছন্দের প্রশ্ন", "Favorite questions"], ["ভুল করা প্রশ্ন", "Wrong questions"], ["প্রশ্ন সংখ্যা", "Number of questions"], ["টপিক বেছে নিন", "Choose topics"], ["চলমান পরীক্ষা", "Running exams"], ["ছাত্রের উত্তর", "Student's answer"], ["পরীক্ষার নাম", "Exam name"], ["উত্তর দেওয়া", "Answered"], ["আগে ভুল করা", "Previously wrong"], ["চালিয়ে যান", "Continue"], ["ফলাফল দেখুন", "View result"], ["ব্যবহারকারী", "Users"], ["বাতিল করুন", "Cancel"], ["মুছে ফেলুন", "Delete"], ["সঠিক উত্তর", "Correct answer"], ["সঠিক করেছে", "Corrected"], ["ভুল প্রশ্ন", "Wrong questions"], ["হোমে ফিরুন", "Back to home"], ["বাংলা অর্থ", "Bangla meaning"], ["লোড হচ্ছে…", "Loading…"], ["সব প্রশ্ন", "All questions"], ["র‍্যান্ডম", "Random"], ["নির্বাচিত", "Selected"], ["← সব টপিক", "← All topics"], ["আরও দেখুন", "Show more"], ["পুরনো আগে", "Oldest first"], ["সিরিয়াল", "Serial"], ["এখনো ভুল", "Still wrong"], ["ফিরে যান", "Go back"], ["ব্যাখ্যা", "Explanation"], ["কম দেখুন", "Show less"], ["নতুন আগে", "Newest first"], ["মূল ক্রম", "Original order"], ["অগ্রগতি", "Progress"], ["পরীক্ষা", "Exams"], ["লগ আউট", "Log out"], ["প্রশ্ন", "Question"], ["সাজানো", "Sort"], ["খুঁজুন", "Search"], ["মুছুন", "Delete"], ["স্কিপ", "Skipped"], ["নম্বর", "Score"], ["ফলাফল", "Result"], ["পছন্দ", "Favorites"], ["ইমেইল", "Email"], ["ক্রম", "Order"], ["সঠিক", "Correct"], ["বাকি", "Remaining"], ["লগইন", "Log in"], ["অপশন", "Option"], ["টপিক", "Topic"], ["হোম", "Home"], ["ভুল", "Wrong"], ["মোট", "Total"], ["সব", "All"]];
+function tr(html){
+  if((S.lang||"en")!=="en")return html;
+  for(var i=0;i<TR_PAIRS.length;i++){html=html.split(TR_PAIRS[i][0]).join(TR_PAIRS[i][1]);}
+  return html;
+}
 function render(){
   var s=V.screen,y=app.scrollTop;
   if(!booted){document.getElementById("nav").innerHTML="";app.innerHTML='<p class="meta">লোড হচ্ছে…</p>';return;}
   if(!UID){document.getElementById("nav").innerHTML="";app.innerHTML=authScreen();return;}
   app.innerHTML=(s==="exam"?exam():s==="result"?result():s==="browse"?browse():V.tab==="home"?home():V.tab==="users"&&ADMIN?usrView():V.tab==="exams"?examsView():V.tab==="prog"?prog():V.tab==="admin"&&ADMIN?adminView():listTab(V.tab==="admin"?"fav":V.tab));
+  app.innerHTML=tr(app.innerHTML);
   nav();
+  var nv=document.getElementById("nav");nv.innerHTML=tr(nv.innerHTML);
   app.scrollTop=(s==="exam")?y:0;
   V.lastRendered=snap();
 }
@@ -1202,6 +1213,9 @@ app.addEventListener("click",function(e){
   }
   if(t.dataset.act==="usr"){V.usrSel=t.dataset.uid;return render();}
   if(t.dataset.act==="usrback"){V.usrSel=null;V.usrExam=null;V.usrTopic="";return render();}
+  if(t.dataset.act==="lang"){S.lang=(S.lang==="bn")?"en":"bn";save();return render();}
+  if(t.dataset.act==="usrmore"){V.usrMore=!V.usrMore;return render();}
+  if(t.dataset.act==="usrtop"){V.usrTopic=t.dataset.key;return render();}
   if(t.dataset.act==="uexam"){V.usrExam=t.dataset.exid;V.usrFilter="wrong";return render();}
   if(t.dataset.act==="ubackexam"){V.usrExam=null;return render();}
   if(t.dataset.ufilter){V.usrFilter=t.dataset.ufilter;return render();}
