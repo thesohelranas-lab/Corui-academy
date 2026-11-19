@@ -488,7 +488,7 @@ function save(){
   var u=UID,d=DB,snapshot=JSON.parse(JSON.stringify(S));
   clearTimeout(saveTimer);
   saveTimer=setTimeout(function(){
-    d.collection("users").doc(u).set({state:snapshot,updated:Date.now()}).catch(function(err){console.warn(err);});
+    d.collection("users").doc(u).set({state:snapshot,updated:Date.now(),email:((firebase.auth().currentUser)||{}).email||""}).catch(function(err){console.warn(err);});
   },400);
 }
 function boot(){
@@ -636,6 +636,7 @@ function card(q,sel,mode){
 function nav(){
   var T=[["home","হোম"],["exams","পরীক্ষা"],["fav","পছন্দ"],["wrong","ভুল"],["prog","অগ্রগতি"]];
   if(ADMIN)T.push(["admin","ড্যাশবোর্ড"]);
+  if(ADMIN)T.push(["users","ব্যবহারকারী"]);
   document.getElementById("nav").innerHTML=T.map(function(x){return '<button data-tab="'+x[0]+'"'+(V.tab===x[0]&&!V.screen?' aria-current="page"':'')+'>'+x[1]+'</button>';}).join("");
 }
 
@@ -1041,16 +1042,127 @@ function goTab(tab){
   V.saved[V.tab]=mem;
   var st=Object.assign({screen:null},V.saved[tab]||{});
   st.tab=tab;
+  if(tab==="users")V.usrList=null;
   history.pushState({g:1},"","#"+tab);
   applyState(st);
 }
 window.addEventListener("popstate",onBack);
 
+function latestAnswer(exams,id){
+  var list=exams.slice().sort(function(a,b){return (b.at||0)-(a.at||0);});
+  for(var i=0;i<list.length;i++){if(list[i].a&&list[i].a[id]!==undefined)return list[i].a[id];}
+  return undefined;
+}
+function loadUsers(){
+  V.usrLoading=true;
+  DB.collection("users").get().then(function(snap){
+    V.usrList=[]; snap.forEach(function(d){V.usrList.push({uid:d.id,data:d.data()||{}});});
+    V.usrLoading=false; V.usrErr=""; render();
+  }).catch(function(err){V.usrLoading=false;V.usrErr="লোড হয়নি: "+err.message;render();});
+}
+function userCtx(){
+  var u=V.usrList.filter(function(x){return x.uid===V.usrSel;})[0];
+  if(!u)return null;
+  return {u:u,st:normalize(u.data.state)};
+}
+function userName(u){return u.data.email||("ব্যবহারকারী "+u.uid.slice(0,6));}
+function usrView(){
+  if(V.usrSel)return usrDetail();
+  if(!V.usrList){
+    if(!V.usrLoading)loadUsers();
+    return '<h1>ব্যবহারকারী</h1><p class="meta">লোড হচ্ছে…</p>';
+  }
+  var q=(V.usrQ||"").trim().toLowerCase();
+  var list=V.usrList.filter(function(u){return !q||(String(u.data.email||"")+" "+u.uid).toLowerCase().indexOf(q)>=0;});
+  var h='<h1>ব্যবহারকারী</h1><p class="meta">মোট '+bn(V.usrList.length)+' জন। ইমেইল লিখে খুঁজে নিতে পারেন।</p>';
+  h+='<div class="panel"><div class="row"><label>খুঁজুন (ইমেইল)</label><input type="text" data-usrq="1" value="'+esc(V.usrQ||"")+'"></div></div>';
+  if(V.usrErr)h+='<div class="panel" style="color:var(--bad)">'+esc(V.usrErr)+'</div>';
+  var cutoff=Date.now()-30*864e5;
+  if(!list.length)h+='<div class="panel meta">এই নামে কোনো ব্যবহারকারী নেই।</div>';
+  list.forEach(function(u){
+    var st=normalize(u.data.state);
+    var n=st.exams.filter(function(x){return x.status==="done"&&(x.finishedAt||0)>=cutoff;}).length;
+    h+='<button class="card" data-act="usr" data-uid="'+esc(u.uid)+'" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer;margin-bottom:8px"><b>'+esc(userName(u))+'</b><div class="meta">গত ১ মাসে '+bn(n)+'টি পরীক্ষা · ভুল প্রশ্ন '+bn(Object.keys(st.wrong).length)+'টি</div></button>';
+  });
+  return h;
+}
+function usrDetail(){
+  if(V.usrExam)return usrExamView();
+  var ctx=userCtx();
+  if(!ctx)return '<p class="meta">ব্যবহারকারী পাওয়া যায়নি।</p><button class="btn alt" data-act="usrback">ফিরে যান</button>';
+  var u=ctx.u, st=ctx.st, cutoff=Date.now()-30*864e5;
+  var ex=st.exams.filter(function(x){return x.status==="done"&&(x.finishedAt||0)>=cutoff;}).sort(function(a,b){return (b.finishedAt||0)-(a.finishedAt||0);});
+  var tot=0,right=0;
+  Object.keys(st.st).forEach(function(id){var s=st.st[id];if(s){tot+=s[0]+s[1];right+=s[0];}});
+  var acc=tot?Math.round(right/tot*100):0;
+  var wrongAll=Object.keys(st.wrong).filter(function(id){return BY[id];}).map(function(id){return BY[id];});
+  var seen=Object.keys(st.seen).filter(function(id){return BY[id];}).length;
+  var h='<button class="btn alt" data-act="usrback" style="margin:0 0 10px">← সব ব্যবহারকারী</button><h1>'+esc(userName(u))+'</h1>';
+  h+='<div class="panel"><div class="total">'+bn(seen)+' / '+bn(Q.length)+'</div><div class="meta">প্রশ্ন দেওয়া হয়েছে · মোট নির্ভুলতা '+bn(acc)+'% · বর্তমানে ভুল '+bn(wrongAll.length)+'টি · গত ১ মাসে '+bn(ex.length)+'টি পরীক্ষা</div></div>';
+  h+='<h2>গত ১ মাসের পরীক্ষা ('+bn(ex.length)+'টি)</h2>';
+  if(!ex.length)h+='<div class="panel meta">এই সময়ে কোনো পরীক্ষা শেষ হয়নি।</div>';
+  ex.forEach(function(x){
+    var ok=x.ids.filter(function(id){return BY[id];}),c=0,w=0;
+    ok.forEach(function(id){var a=x.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
+    h+='<div class="card"><b>'+esc(x.name)+'</b><div class="meta">'+fmt(x.finishedAt)+' · সঠিক '+bn(c)+', ভুল '+bn(w)+', স্কিপ '+bn(ok.length-c-w)+' · নম্বর '+bn((c-w*NEG).toFixed(2))+'/'+bn(ok.length)+'</div>';
+    h+='<button class="btn alt" data-act="uexam" data-exid="'+x.id+'" style="margin:0">প্রশ্নগুলো দেখুন (ভুল ফিল্টার)</button></div>';
+  });
+  h+='<h2>বর্তমান ভুল প্রশ্ন ('+bn(wrongAll.length)+'টি)</h2><p class="meta">সঠিক উত্তর দিলে এখান থেকে সরে যাবে।</p>';
+  var keys=[];wrongAll.forEach(function(q){var k=q.s+"||"+q.t;if(keys.indexOf(k)<0)keys.push(k);});
+  h+='<div class="row"><label>টপিক</label><select data-usrtopic="1"><option value="">সব টপিক</option>'+keys.map(function(k){var p=k.split("||");return '<option value="'+esc(k)+'"'+(V.usrTopic===k?' selected':'')+'>'+esc(p[0])+' – '+esc(tlabel(p[1]))+'</option>';}).join("")+'</select></div>';
+  var list=wrongAll.filter(function(q){return !V.usrTopic||(q.s+"||"+q.t)===V.usrTopic;});
+  if(!list.length)h+='<div class="panel meta">এই টপিকে কোনো ভুল প্রশ্ন নেই।</div>';
+  var T=groupTree(list);
+  Object.keys(T).forEach(function(s){Object.keys(T[s]).forEach(function(g){Object.keys(T[s][g]).forEach(function(t){
+    h+='<h3>'+esc(s)+' – '+esc(g)+' – '+esc(tlabel(t))+' ('+bn(T[s][g][t].length)+'টি)</h3>';
+    T[s][g][t].forEach(function(q){
+      var last=latestAnswer(st.exams,q.id);
+      h+='<div class="card"><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
+      q.o.forEach(function(o,k){
+        var c=k===q.a?"opt ok":(k===last?"opt bad":"opt");
+        h+='<div class="'+c+'"><b>'+L[k]+'</b><span>'+esc(o)+'</span><i>'+(k===last?'ছাত্রের উত্তর':'')+'</i></div>';
+      });
+      h+='</div>';
+    });
+  });});});
+  return h;
+}
+function usrExamView(){
+  var ctx=userCtx();
+  var x=ctx?ctx.st.exams.filter(function(e){return e.id===V.usrExam;})[0]:null;
+  if(!x)return '<button class="btn alt" data-act="ubackexam">← ফিরে যান</button><p class="meta">পরীক্ষা পাওয়া যায়নি।</p>';
+  var f=V.usrFilter||"wrong", rows=[], cnt={all:0,wrong:0,right:0,skip:0};
+  x.ids.forEach(function(id){
+    var q=BY[id]; if(!q)return;
+    var a=x.a[id], kind=a===undefined?"skip":(a===q.a?"right":"wrong");
+    cnt.all++; cnt[kind]++;
+    rows.push({q:q,a:a,kind:kind,stillWrong:!!ctx.st.wrong[id]});
+  });
+  var h='<button class="btn alt" data-act="ubackexam" style="margin:0 0 10px">← পরীক্ষার তালিকা</button>';
+  h+='<h1>'+esc(x.name)+'</h1><p class="meta">'+fmt(x.finishedAt||x.at)+' · মোট '+bn(cnt.all)+'টি</p>';
+  var labels=[["wrong","ভুল"],["right","সঠিক"],["skip","স্কিপ"],["all","সব"]];
+  h+='<div class="chips">'+labels.map(function(l){return '<button class="chip" data-ufilter="'+l[0]+'" aria-pressed="'+(f===l[0])+'">'+l[1]+' ('+bn(cnt[l[0]])+')</button>';}).join("")+'</div>';
+  var shown=rows.filter(function(r){return f==="all"||r.kind===f;});
+  if(!shown.length)h+='<div class="panel meta">এই ফিল্টারে কোনো প্রশ্ন নেই।</div>';
+  shown.forEach(function(r){
+    var q=r.q;
+    h+='<div class="card"><div class="tags"><span>'+esc(q.s)+' – '+esc(tlabel(q.t))+'</span>'+(r.stillWrong?'<span>এখনো ভুল</span>':(r.kind==="wrong"?'<span>সঠিক করেছে</span>':''))+'</div><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
+    q.o.forEach(function(o,k){
+      var c=k===q.a?"opt ok":(k===r.a&&r.kind==="wrong"?"opt bad":"opt");
+      var tag=k===q.a?'সঠিক':(k===r.a?'ছাত্রের উত্তর':'');
+      h+='<div class="'+c+'"><b>'+L[k]+'</b><span>'+esc(o)+'</span><i>'+tag+'</i></div>';
+    });
+    if(r.kind==="skip")h+='<div class="meta">এই প্রশ্নের উত্তর দেওয়া হয়নি</div>';
+    h+='</div>';
+  });
+  return h;
+}
+
 function render(){
   var s=V.screen,y=app.scrollTop;
   if(!booted){document.getElementById("nav").innerHTML="";app.innerHTML='<p class="meta">লোড হচ্ছে…</p>';return;}
   if(!UID){document.getElementById("nav").innerHTML="";app.innerHTML=authScreen();return;}
-  app.innerHTML=(s==="exam"?exam():s==="result"?result():s==="browse"?browse():V.tab==="home"?home():V.tab==="exams"?examsView():V.tab==="prog"?prog():V.tab==="admin"&&ADMIN?adminView():listTab(V.tab==="admin"?"fav":V.tab));
+  app.innerHTML=(s==="exam"?exam():s==="result"?result():s==="browse"?browse():V.tab==="home"?home():V.tab==="users"&&ADMIN?usrView():V.tab==="exams"?examsView():V.tab==="prog"?prog():V.tab==="admin"&&ADMIN?adminView():listTab(V.tab==="admin"?"fav":V.tab));
   nav();
   app.scrollTop=(s==="exam")?y:0;
   V.lastRendered=snap();
@@ -1088,6 +1200,11 @@ app.addEventListener("click",function(e){
     if(V.ex&&V.ex.id===t.dataset.exid){V.ex=null;V.screen=null;}
     save(); render(); return;
   }
+  if(t.dataset.act==="usr"){V.usrSel=t.dataset.uid;return render();}
+  if(t.dataset.act==="usrback"){V.usrSel=null;V.usrExam=null;V.usrTopic="";return render();}
+  if(t.dataset.act==="uexam"){V.usrExam=t.dataset.exid;V.usrFilter="wrong";return render();}
+  if(t.dataset.act==="ubackexam"){V.usrExam=null;return render();}
+  if(t.dataset.ufilter){V.usrFilter=t.dataset.ufilter;return render();}
   if(t.dataset.act==="topic"){V.adm={key:t.dataset.key,sort:"new",text:""};return render();}
   if(t.dataset.act==="back"){V.adm=null;return render();}
   if(t.id==="adm-undo"){return admUndo();}
@@ -1113,6 +1230,8 @@ app.addEventListener("click",function(e){
 app.addEventListener("change",function(e){
   var t=e.target,c=V.cfg;
   if(t.id&&/^(a_|imp|em|pw|exname|lname)/.test(t.id))return;
+  if(t.dataset.usrq!==undefined){V.usrQ=t.value;return render();}
+  if(t.dataset.usrtopic!==undefined){V.usrTopic=t.value;return render();}
   if(t.dataset.admsort){V.adm.sort=t.value;return render();}
   if(t.dataset.admtext){V.adm.text=t.value;return render();}
   if(t.dataset.grp){
