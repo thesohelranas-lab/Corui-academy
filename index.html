@@ -1100,15 +1100,6 @@ function usrDetail(){
   var seen=Object.keys(st.seen).filter(function(id){return BY[id];}).length;
   var h='<button class="btn alt" data-act="usrback" style="margin:0 0 10px">← সব ব্যবহারকারী</button><h1>'+esc(userName(u))+'</h1>';
   h+='<div class="panel"><div class="total">'+bn(seen)+' / '+bn(Q.length)+'</div><div class="meta">প্রশ্ন দেওয়া হয়েছে · মোট নির্ভুলতা '+bn(acc)+'% · বর্তমানে ভুল '+bn(wrongAll.length)+'টি · গত ১ মাসে '+bn(ex.length)+'টি পরীক্ষা</div></div>';
-  h+='<h2>গত ১ মাসের পরীক্ষা ('+bn(ex.length)+'টি)</h2>';
-  if(!ex.length)h+='<div class="panel meta">এই সময়ে কোনো পরীক্ষা শেষ হয়নি।</div>';
-  ex.slice(0,V.usrMore?ex.length:3).forEach(function(x){
-    var ok=x.ids.filter(function(id){return BY[id];}),c=0,w=0;
-    ok.forEach(function(id){var a=x.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
-    h+='<div class="card"><b>'+esc(x.name)+'</b><div class="meta">'+fmt(x.finishedAt)+' · সঠিক '+bn(c)+', ভুল '+bn(w)+', স্কিপ '+bn(ok.length-c-w)+' · নম্বর '+bn((c-w*NEG).toFixed(2))+'/'+bn(ok.length)+'</div>';
-    h+='<button class="btn alt" data-act="uexam" data-exid="'+x.id+'" style="margin:0">প্রশ্নগুলো দেখুন (ভুল ফিল্টার)</button></div>';
-  });
-  if(ex.length>3)h+='<button class="btn alt" data-act="usrmore" style="margin:0 0 12px">'+(V.usrMore?'কম দেখুন':'আরও দেখুন')+' ('+bn(ex.length)+'টি)</button>';
   h+='<h2>বর্তমান ভুল প্রশ্ন ('+bn(wrongAll.length)+'টি)</h2><p class="meta">সঠিক উত্তর দিলে এখান থেকে সরে যাবে।</p>';
   var cnt={}; wrongAll.forEach(function(q){var k=q.s+"||"+q.t;cnt[k]=(cnt[k]||0)+1;});
   var keys=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];});
@@ -1128,6 +1119,15 @@ function usrDetail(){
       h+='</div>';
     });
   });});});
+  h+='<h2>গত ১ মাসের পরীক্ষা ('+bn(ex.length)+'টি)</h2>';
+  if(!ex.length)h+='<div class="panel meta">এই সময়ে কোনো পরীক্ষা শেষ হয়নি।</div>';
+  ex.slice(0,V.usrMore?ex.length:3).forEach(function(x){
+    var ok=x.ids.filter(function(id){return BY[id];}),c=0,w=0;
+    ok.forEach(function(id){var a=x.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
+    h+='<div class="card"><b>'+esc(x.name)+'</b><div class="meta">'+fmt(x.finishedAt)+' · সঠিক '+bn(c)+', ভুল '+bn(w)+', স্কিপ '+bn(ok.length-c-w)+' · নম্বর '+bn((c-w*NEG).toFixed(2))+'/'+bn(ok.length)+'</div>';
+    h+='<button class="btn alt" data-act="uexam" data-exid="'+x.id+'" style="margin:0">প্রশ্নগুলো দেখুন (ভুল ফিল্টার)</button></div>';
+  });
+  if(ex.length>3)h+='<button class="btn alt" data-act="usrmore" style="margin:0 0 12px">'+(V.usrMore?'কম দেখুন':'আরও দেখুন')+' ('+bn(ex.length)+'টি)</button>';
   return h;
 }
 function usrExamView(){
