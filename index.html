@@ -971,12 +971,13 @@ function push(){history.pushState(snap(),"","#"+V.tab);}
 function applyState(st){
   st=st||{tab:"home",screen:null};
   V.tab=st.tab||"home"; V.screen=st.screen||null; V.list=st.list||null; V.title=st.title||V.title;
-  if(st.exid){var ex=S.exams.filter(function(x){return x.id===st.exid;})[0];V.ex=ex||null;if(!ex)V.screen=null;}
-  render(); app.scrollTop=0;
+  if(st.exid){var ex=S.exams.filter(function(x){return x.id===st.exid;})[0];V.ex=ex||null;}
+  if((V.screen==="exam"||V.screen==="result")&&!V.ex)V.screen=null;
+  render(); app.scrollTop=st.scroll||0;
 }
 function goTab(tab){
-  // remember where the current tab was (a running exam is kept in the exam bar, so it is not remembered as the tab screen)
-  var mem=V.screen==="exam"?{tab:V.tab,screen:null}:snap();
+  // remember exactly where this tab was: screen, running/result exam, list, drafts (kept in V.draft) and scroll position
+  var mem=snap(); mem.scroll=app.scrollTop;
   V.saved[V.tab]=mem;
   var st=Object.assign({screen:null},V.saved[tab]||{});
   st.tab=tab;
