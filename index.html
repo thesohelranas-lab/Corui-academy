@@ -666,7 +666,7 @@ function prog(){
   h+='</table><h2>সাম্প্রতিক পরীক্ষা</h2>';
   if(!S.hist.length)h+='<div class="panel">এখনো কোনো পরীক্ষা দেওয়া হয়নি।</div>';
   else{h+='<table><tr><th>তারিখ</th><th>সঠিক/মোট</th><th>নম্বর</th></tr>'+S.hist.slice(0,10).map(function(x){return '<tr><td>'+bn(new Date(x.d).toLocaleDateString("en-GB"))+'</td><td>'+bn(x.c)+'/'+bn(x.n)+'</td><td>'+bn(x.sc.toFixed(2))+'</td></tr>';}).join("")+'</table>';}
-  return h+'<p class="meta" style="margin-top:14px">আপনার অগ্রগতি অ্যাকাউন্টে সেভ হচ্ছে।</p><button class="btn alt" id="logout">লগ আউট</button><p class="meta">';
+  return h+'<p class="meta" style="margin-top:14px">আপনার অগ্রগতি অ্যাকাউন্টে সেভ হচ্ছে।</p><button class="btn alt" id="logout">লগ আউট</button>';
 }
 /* ===== অ্যাডমিন: প্রশ্ন লোড, সেভ ও ড্যাশবোর্ড ===== */
 var ADMIN=false, ADMIN_EMAIL="thesohelranas@gmail.com";
@@ -820,7 +820,7 @@ app.addEventListener("click",function(e){
 });
 app.addEventListener("change",function(e){
   var t=e.target,c=V.cfg;
-  if(t.id&&if(t.id&&/^(a_|imp|em|pw)/.test(t.id))return;.test(t.id))return;
+  if(t.id&&/^(a_|imp|em|pw)/.test(t.id))return;
   if(t.dataset.adm){V.admFilter=V.admFilter||{};V.admFilter[t.dataset.adm]=t.value;return render();}
   if(t.dataset.cfg){c[t.dataset.cfg]=t.type==="checkbox"?t.checked:t.value;}
   else if(t.dataset.top){c.topics[t.dataset.top]=t.checked;}
