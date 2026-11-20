@@ -814,18 +814,30 @@ function clean(x){
   Object.keys(c).forEach(function(k){if(c[k]===""||c[k]===null)delete c[k];});
   return c;
 }
+function idb(){return new Promise(function(res,rej){var r=indexedDB.open("corui-quiz",1);r.onupgradeneeded=function(){r.result.createObjectStore("kv");};r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};});}
+function cacheGet(){return idb().then(function(db){return new Promise(function(res){var t=db.transaction("kv").objectStore("kv").get("questions");t.onsuccess=function(){res(t.result||null);};t.onerror=function(){res(null);};});}).catch(function(){return null;});}
+function cachePut(v){return idb().then(function(db){return new Promise(function(res){var t=db.transaction("kv","readwrite");t.objectStore("kv").put(v,"questions");t.oncomplete=function(){res();};t.onerror=function(){res();};});}).catch(function(){});}
+function cacheClear(){return idb().then(function(db){return new Promise(function(res){var t=db.transaction("kv","readwrite");t.objectStore("kv").delete("questions");t.oncomplete=function(){res();};t.onerror=function(){res();};});}).catch(function(){});}
+function buildFrom(map){
+  var out={};
+  SEED.forEach(function(x,i){out[x.id]=Object.assign({},x,{ord:x.ord||(i+1)});});
+  Object.keys(map).forEach(function(id){var data=map[id];if(data.deleted){delete out[id];return;}out[id]=Object.assign({},data,{id:id});});
+  var arr=Object.keys(out).map(function(k){return out[k];});
+  arr.sort(function(a,b){return (a.ord||0)-(b.ord||0);});
+  setQuestions(arr);
+}
 function loadQuestions(){
-  return DB.collection("questions").get().then(function(snap){
-    RAW={};var map={};
-    SEED.forEach(function(x,i){map[x.id]=Object.assign({},x,{ord:x.ord||(i+1)});});
-    snap.forEach(function(d){
-      var data=d.data();RAW[d.id]=data;
-      if(data.deleted){delete map[d.id];return;}
-      map[d.id]=Object.assign({},data,{id:d.id});
+  return cacheGet().then(function(c){
+    var have=(c&&c.ver===1&&c.map)?c:null, map=have?have.map:{}, maxUpd=have?(have.maxUpd||0):0;
+    var qy=have?DB.collection("questions").where("upd",">",maxUpd):DB.collection("questions");
+    return qy.get().then(function(snap){
+      snap.forEach(function(d){var data=d.data();map[d.id]=data;if((data.upd||0)>maxUpd)maxUpd=data.upd||0;});
+      RAW=map; buildFrom(map);
+      return cachePut({ver:1,map:map,maxUpd:maxUpd,at:Date.now()});
+    }).catch(function(err){
+      if(have){RAW=map;buildFrom(map);console.warn("ক্যাশ থেকে চালানো হলো",err);return;}
+      throw err;
     });
-    var arr=Object.keys(map).map(function(k){return map[k];});
-    arr.sort(function(a,b){return (a.ord||0)-(b.ord||0);});
-    setQuestions(arr);
   });
 }
 function logChanges(changes,label){
@@ -836,9 +848,9 @@ function logChanges(changes,label){
   });
 }
 function snapOf(id){return RAW[id]?JSON.parse(JSON.stringify(RAW[id])):null;}
-function writeAll(arr,label){
+function writeAll(arr,label,keepBatch){
   var bid=Date.now();
-  arr.forEach(function(x,i){if(!x.ord)x.ord=i+1;x.ib=bid;});
+  arr.forEach(function(x,i){if(!x.ord)x.ord=i+1;if(!keepBatch)x.ib=bid;x.upd=bid;});
   var changes=arr.map(function(x){return {id:x.id,before:snapOf(x.id),after:clean(x)};});
   var chunks=[]; for(var i=0;i<changes.length;i+=400)chunks.push(changes.slice(i,i+400));
   var total=chunks.length;
@@ -864,7 +876,7 @@ function admUndo(){
     var b=DB.batch();
     entry.changes.forEach(function(c){
       var ref=DB.collection("questions").doc(c.id);
-      if(c.before===null)b.delete(ref); else b.set(ref,c.before);
+      if(c.before===null)b.set(ref,{deleted:true,id:c.id,upd:Date.now()}); else b.set(ref,Object.assign({},c.before,{upd:Date.now()}));
     });
     return b.commit()
       .then(function(){return DB.collection("adminRedo").add({at:Date.now(),label:entry.label,changes:entry.changes});})
@@ -901,7 +913,7 @@ function admSave(){
   var isNew=V.edit==="new", id=isNew?"q"+Date.now().toString(36):V.edit, old=isNew?{}:(BY[id]||{});
   var obj={s:g("a_s"),t:g("a_t"),q:q,o:o,a:+document.getElementById("a_ans").value,i:g("a_i"),y:g("a_y"),
     bn:g("a_bn"),e:g("a_e"),ex:old.ex,rule:old.rule,v:document.getElementById("a_v").checked?0:1,ord:old.ord||(Q.length+1),ib:isNew?Date.now():(old.ib||0)};
-  var before=snapOf(id),after=clean(obj);
+  obj.upd=Date.now();var before=snapOf(id),after=clean(obj);
   DB.collection("questions").doc(id).set(after).then(function(){
     RAW[id]=after;logChanges([{id:id,before:before,after:after}],(isNew?"নতুন প্রশ্ন যোগ: ":"প্রশ্ন এডিট: ")+q.slice(0,40));
     obj.id=id;
@@ -912,7 +924,7 @@ function admSave(){
 }
 function admDelete(id){
   if(!confirm("এই প্রশ্নটি মুছে ফেলবেন?"))return;
-  var before=snapOf(id),after={deleted:true,id:id};
+  var before=snapOf(id),after={deleted:true,id:id,upd:Date.now()};
   DB.collection("questions").doc(id).set(after).then(function(){
     RAW[id]=after;logChanges([{id:id,before:before,after:after}],"প্রশ্ন মুছে ফেলা");
     setQuestions(Q.filter(function(x){return x.id!==id;}));
@@ -927,7 +939,7 @@ function admRedo(){
     var b=DB.batch();
     entry.changes.forEach(function(c){
       var ref=DB.collection("questions").doc(c.id);
-      if(c.after===null)b.delete(ref); else b.set(ref,c.after);
+      if(c.after===null)b.set(ref,{deleted:true,id:c.id,upd:Date.now()}); else b.set(ref,Object.assign({},c.after,{upd:Date.now()}));
     });
     return b.commit()
       .then(function(){return DB.collection("adminLog").add({at:Date.now(),label:entry.label,changes:entry.changes});})
@@ -936,6 +948,14 @@ function admRedo(){
       .then(function(){alert("আবার করা হয়েছে: "+entry.label);render();});
   }).catch(function(err){alert("আবার করা হয়নি: "+err.message);});
 }
+function admSeedCopy(){
+  var missing=SEED.filter(function(x){return !RAW[x.id];});
+  if(!missing.length){alert("ফাইলের ভেতরের সব প্রশ্ন আগে থেকেই ডেটাবেসে আছে।");return;}
+  if(!confirm(missing.length+"টি প্রশ্ন ডেটাবেসে কপি হবে। ডেটাবেসে আগে থেকে থাকা বা আপনার এডিট করা প্রশ্ন বদলাবে না। চালিয়ে যাবেন?"))return;
+  var copy=missing.map(function(x){var c=Object.assign({},x);c.ord=SEED.indexOf(x)+1;return c;});
+  writeAll(copy,"ফাইলের প্রশ্ন ডেটাবেসে কপি",true);
+}
+function dbCount(){return Object.keys(RAW).filter(function(id){return !RAW[id].deleted;}).length;}
 function admExport(){
   var data=JSON.stringify(Q.map(function(x){var c=clean(x);c.id=x.id;return c;}),null,2);
   var a=document.createElement("a");
@@ -968,10 +988,10 @@ function fmtDay(ms){return bn(new Date(ms).toLocaleDateString("en-GB"));}
 function importPanel(){
   return '<div class="panel" style="margin-top:12px"><h2 style="margin-top:0">ইমপোর্ট ও ব্যাকআপ</h2>'+
     '<textarea id="imp" rows="5" style="width:100%;font:inherit;padding:8px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink)" placeholder="প্রশ্নের JSON তালিকা এখানে পেস্ট করুন"></textarea>'+
-    '<button class="btn alt" id="adm-import">JSON থেকে ইমপোর্ট</button><button class="btn alt" id="adm-export">ব্যাকআপ ডাউনলোড</button></div>';
+    '<button class="btn" id="adm-seedcopy">ফাইলের প্রশ্ন ডেটাবেসে কপি করুন</button><button class="btn alt" id="adm-import">JSON থেকে ইমপোর্ট</button><button class="btn alt" id="adm-export">ব্যাকআপ ডাউনলোড</button><button class="btn alt" id="adm-clearcache">ক্যাশ মুছে ডেটাবেস থেকে নতুন করে আনুন</button></div>';
 }
 function topicTree(){
-  var h='<h1>ড্যাশবোর্ড</h1><p class="meta">মোট '+bn(Q.length)+'টি প্রশ্ন। টপিক বেছে প্রশ্ন দেখুন।</p>';
+  var h='<h1>ড্যাশবোর্ড</h1><p class="meta">মোট '+bn(Q.length)+'টি প্রশ্ন · ডেটাবেসে '+bn(dbCount())+'টি · ফাইলের ভেতরে '+bn(SEED.length)+'টি। টপিক বেছে প্রশ্ন দেখুন।</p>';
   h+='<div class="panel"><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
   var T=groupTree(Q);
   Object.keys(T).forEach(function(s){
@@ -1316,6 +1336,12 @@ app.addEventListener("click",function(e){
   if(t.dataset.ufilter){V.usrFilter=t.dataset.ufilter;return render();}
   if(t.dataset.act==="topic"){V.adm={key:t.dataset.key,sort:"new",text:""};return render();}
   if(t.dataset.act==="back"){V.adm=null;return render();}
+  if(t.id==="adm-clearcache"){
+    if(!confirm("ফোনের জমানো প্রশ্ন মুছে ডেটাবেস থেকে সব প্রশ্ন আবার আনা হবে। এতে প্রশ্ন সংখ্যার সমান রিড খরচ হবে। চালিয়ে যাবেন?"))return;
+    cacheClear().then(function(){return loadQuestions();}).then(function(){alert("নতুন করে আনা হয়েছে: "+Q.length+"টি প্রশ্ন");render();}).catch(function(err){alert("সমস্যা: "+err.message);});
+    return;
+  }
+  if(t.id==="adm-seedcopy"){return admSeedCopy();}
   if(t.id==="adm-undo"){return admUndo();}
   if(t.id==="adm-redo"){return admRedo();}
   if(t.id==="logout"){firebase.auth().signOut();return;}
