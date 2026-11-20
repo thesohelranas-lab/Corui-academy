@@ -62,10 +62,10 @@ table{width:100%;border-collapse:collapse;background:var(--surface);border:1px s
 th,td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line)}
 th{font-weight:600;color:var(--muted);font-size:14px}
 td:first-child,th:first-child{text-align:left;padding-left:10px}
-nav{display:flex;overflow-x:auto;scrollbar-width:none;border-top:1px solid var(--line);background:var(--surface);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav{display:flex;gap:4px;padding:5px 6px calc(5px + env(safe-area-inset-bottom,0px));overflow-x:auto;scrollbar-width:none;border-top:1px solid var(--line);background:var(--surface)}
 nav::-webkit-scrollbar{display:none}
-nav button{flex:1 0 auto;min-width:68px;font:inherit;font-size:14px;font-weight:500;color:var(--muted);background:none;border:0;padding:12px 8px;white-space:nowrap;cursor:pointer}
-nav button[aria-current="page"]{color:var(--accent);font-weight:700;box-shadow:inset 0 3px 0 var(--accent)}
+nav button{flex:1 0 auto;min-width:64px;font:inherit;font-size:14px;font-weight:500;color:var(--muted);background:none;border:0;border-radius:10px;padding:9px 10px;white-space:nowrap;cursor:pointer;transition:.15s}
+nav button[aria-current="page"]{background:var(--accent);color:var(--accent-ink);font-weight:700}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .opt.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
 .opt i{font-style:normal;font-size:13px;color:var(--muted);white-space:nowrap}
@@ -109,7 +109,7 @@ function setQuestions(arr){
 
 /* ===== সংরক্ষণ, লাইভ প্রেজেন্স ও নোটিফিকেশন ===== */
 var S={seen:{},wrong:{},fav:{},st:{},hist:[],exams:[],lang:"en",theme:"auto"};
-var UID=null,DB=null,booted=false,saveTimer=null,hbTimer=null,usrUnsub=null,reqUnsub=null,hasGuard=false;
+var UID=null,DB=null,booted=false,saveTimer=null,hbTimer=null,usrUnsub=null,reqUnsub=null;
 var V_AUTH={mode:"login",msg:""};
 function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[],lang:d.lang||"en",theme:d.theme||"auto"};}
 function applyTheme(){
@@ -140,8 +140,7 @@ function save(){
   },400);
 }
 function boot(){
-  history.replaceState({base:1},"","#home");
-  hasGuard=false;
+  history.replaceState(snap(),"","#home");
   try{firebase.initializeApp(FIREBASE_CONFIG);}
   catch(err){booted=true;V_AUTH={mode:"login",msg:"Firebase কনফিগারেশন বসানো হয়নি"};render();return;}
   firebase.auth().onAuthStateChanged(function(user){
@@ -149,11 +148,11 @@ function boot(){
     if(!user){UID=null;DB=null;ADMIN=false;S=normalize(null);applyTheme();booted=true;render();return;}
     UID=user.uid;DB=firebase.firestore();ADMIN=(user.email||"").toLowerCase()===ADMIN_EMAIL.toLowerCase();booted=false;render();
     DB.collection("users").doc(UID).get()
-      .then(function(snap){var d=snap.data()||{};S=normalize(d.state);applyTheme();var del=d.adminDeleted||[];if(del.length)S.exams=S.exams.filter(function(x){return del.indexOf(x.id)<0;});})
+      .then(function(snapData){var d=snapData.data()||{};S=normalize(d.state);applyTheme();var del=d.adminDeleted||[];if(del.length)S.exams=S.exams.filter(function(x){return del.indexOf(x.id)<0;});})
       .catch(function(err){console.warn(err);})
       .then(function(){startPresence();if(ADMIN)watchPendingReqs();return loadQuestions();})
       .catch(function(err){console.warn(err);})
-      .then(function(){booted=true;render();});
+      .then(function(){booted=true;render();history.replaceState(snap(),"","#"+V.tab);});
   });
 }
 function authScreen(){
@@ -169,21 +168,15 @@ function authScreen(){
 var bn=function(n){if((S.lang||"en")==="en")return String(n);return String(n).replace(/\d/g,function(d){return "০১২৩৪৫৬৭৮৯"[d];});};
 function optL(){return (S.lang||"en")==="en"?["A","B","C","D"]:["ক","খ","গ","ঘ"];}
 var app=document.getElementById("app");
-var V={tab:"home",screen:null,cfg:{topics:{},pool:"new",inst:"",n:10,order:"rand",showTopic:false,reveal:"instant"},ex:null,list:null,title:"",filter:"all",lsel:{},saved:{},draft:{},stk:{},homeQ:"",homeShowAns:{},admAllQ:"",editReqs:[],pendingCnt:0};
+var V={tab:"home",screen:null,cfg:{topics:{},pool:"new",inst:"",n:10,order:"rand",showTopic:false,reveal:"instant"},ex:null,list:null,title:"",filter:"all",lsel:{},saved:{},draft:{},homeQ:"",homeShowAns:{},admAllQ:"",editReqs:[],pendingCnt:0};
 
-/* ===== ন্যাভিগেশন ও ব্যাক হ্যান্ডলিং ===== */
-function isAtHomeRoot(){
-  return V.tab==="home"&&!V.screen&&!V.edit&&(!V.stk.home||!V.stk.home.length);
-}
-function ensureGuard(){
-  if(!hasGuard){hasGuard=true;history.pushState({g:1},"","#"+V.tab);}
-}
+/* ===== ন্যাভিগেশন ও ব্রাউজার হিস্ট্রি ===== */
 function snap(){
   return {
     tab:V.tab, screen:V.screen||null, exid:V.ex?V.ex.id:null, list:V.list||null, title:V.title||"", filter:V.filter||"all",
     edit:V.edit||null, admReqs:!!V.admReqs, adm:V.adm?{key:V.adm.key,sort:V.adm.sort,text:V.adm.text}:null, admAllQ:V.admAllQ||"",
     usrSel:V.usrSel||null, usrExam:V.usrExam||null, usrFilter:V.usrFilter||"wrong", usrTopic:V.usrTopic||"", usrMore:!!V.usrMore, usrQ:V.usrQ||"", selfView:!!V.selfView,
-    reqId:V.reqId||null, reqBackScreen:V.reqBackScreen||null, homeQ:V.homeQ||"", scroll:app.scrollTop
+    reqId:V.reqId||null, homeQ:V.homeQ||"", scroll:app.scrollTop
   };
 }
 function applyState(st){
@@ -191,66 +184,50 @@ function applyState(st){
   V.tab=st.tab||"home"; V.screen=st.screen||null; V.list=st.list||null; V.title=st.title||""; V.filter=st.filter||"all";
   V.edit=st.edit||null; V.admReqs=!!st.admReqs; V.adm=st.adm?Object.assign({},st.adm):null; V.admAllQ=st.admAllQ||"";
   V.usrSel=st.usrSel||null; V.usrExam=st.usrExam||null; V.usrFilter=st.usrFilter||"wrong"; V.usrTopic=st.usrTopic||""; V.usrMore=!!st.usrMore; V.usrQ=st.usrQ||""; V.selfView=!!st.selfView;
-  V.reqId=st.reqId||null; V.reqBackScreen=st.reqBackScreen||null; V.homeQ=st.homeQ||"";
+  V.reqId=st.reqId||null; V.homeQ=st.homeQ||"";
   if(st.exid){var ex=S.exams.filter(function(x){return x.id===st.exid;})[0];V.ex=ex||null;}else V.ex=null;
   if((V.screen==="exam"||V.screen==="result")&&!V.ex)V.screen=null;
   if(V.tab!=="users")stopUsersWatch();
+  else if(ADMIN&&!usrUnsub)watchUsers();
   render(); app.scrollTop=st.scroll||0;
 }
-function pushPage(){
-  var prev=V.lastRendered||snap();
-  prev.scroll=app.scrollTop;
-  V.stk[V.tab]=(V.stk[V.tab]||[]).concat([prev]);
-  ensureGuard();
+function navPush(fn){
+  history.replaceState(snap(),"","#"+V.tab);
+  fn();
+  render();
+  app.scrollTop=0;
+  history.pushState(snap(),"","#"+V.tab);
 }
-function handleBack(){
-  var cur=V.tab, stk=V.stk[cur]||[];
-  if(stk.length){
-    var prev=stk.pop(); V.stk[cur]=stk;
-    applyState(prev);
-    if(!isAtHomeRoot())ensureGuard();
-    return;
-  }
-  if(cur!=="home"){
-    var hm=Object.assign({tab:"home",screen:null},V.saved.home||{});
-    hm.tab="home";
-    applyState(hm);
-    if(!isAtHomeRoot())ensureGuard();
-    return;
-  }
-  if(V.screen||V.edit){
-    applyState({tab:"home",screen:null});
-  }
+function navReplace(fn){
+  fn();
+  render();
+  app.scrollTop=0;
+  history.replaceState(snap(),"","#"+V.tab);
 }
 function stepBack(){
-  if(hasGuard)history.back();
-  else handleBack();
+  history.back();
 }
 function goTab(tab){
   if(tab===V.tab){
-    if(V.stk[tab]&&V.stk[tab].length){
-      var root=V.stk[tab][0]; V.stk[tab]=[];
-      applyState(root);
-      if(!isAtHomeRoot())ensureGuard();
-    }else if(V.screen||V.edit||V.admReqs||V.adm||V.usrSel){
-      applyState({tab:tab,screen:null});
-      if(!isAtHomeRoot())ensureGuard();
+    if(V.screen||V.edit||V.admReqs||V.adm||V.usrSel){
+      navPush(function(){
+        V.screen=null;V.edit=null;V.admReqs=false;V.adm=null;V.usrSel=null;V.usrExam=null;V.reqId=null;
+      });
     }
     return;
   }
-  var mem=snap(); mem.scroll=app.scrollTop;
-  V.saved[V.tab]=mem;
-  var st=Object.assign({screen:null},V.saved[tab]||{});
-  st.tab=tab;
-  if(tab!=="users")stopUsersWatch();
-  if(tab==="users")V.usrList=null;
-  if(tab==="admin"&&ADMIN)loadPendingCount();
-  applyState(st);
-  if(!isAtHomeRoot())ensureGuard();
+  navPush(function(){
+    V.tab=tab;
+    V.screen=null; V.edit=null; V.admReqs=false; V.adm=null; V.usrSel=null; V.usrExam=null; V.reqId=null;
+    if(tab!=="users")stopUsersWatch();
+    if(tab==="users"){V.usrList=null;}
+    if(tab==="admin"&&ADMIN)loadPendingCount();
+  });
 }
-window.addEventListener("popstate",function(){
-  hasGuard=false;
-  handleBack();
+window.addEventListener("popstate",function(e){
+  if(e.state&&e.state.tab){
+    applyState(e.state);
+  }
 });
 
 function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t;}return a;}
@@ -312,16 +289,18 @@ function weightedPick(list,n){
   return shuffle(result);
 }
 function begin(ids,title){
-  pushPage();
   var ex={id:"e"+Date.now().toString(36),name:title||"পরীক্ষা",at:Date.now(),ids:ids,a:{},status:"running"};
-  S.exams.unshift(ex); V.ex=ex; V.filter="all"; V.title=ex.name; V.screen="exam";
-  save(); render(); app.scrollTop=0;
+  S.exams.unshift(ex);
+  save();
+  navPush(function(){
+    V.ex=ex; V.filter="all"; V.title=ex.name; V.screen="exam";
+  });
 }
 function answer(id,k){
   V.ex.a[id]=k;S.seen[id]=1;save();render();
 }
 function finish(){
-  if(V.ex.status==="done"){V.screen="result";return render();}
+  if(V.ex.status==="done"){navReplace(function(){V.screen="result";});return;}
   var ids=V.ex.ids,c=0,w=0;
   ids.forEach(function(id){if(!BY[id])return;var a=V.ex.a[id];if(a===undefined)return;var st=S.st[id]=S.st[id]||[0,0];if(a===BY[id].a){st[0]++;delete S.wrong[id];}else{st[1]++;S.wrong[id]=1;}});
   ids.forEach(function(id){if(!BY[id])return;var a=V.ex.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
@@ -333,7 +312,8 @@ function finish(){
     var old=done.sort(function(a,b){return a.finishedAt-b.finishedAt;}).slice(0,done.length-20).map(function(x){return x.id;});
     S.exams=S.exams.filter(function(x){return old.indexOf(x.id)<0;});
   }
-  save(); V.screen="result"; render(); app.scrollTop=0;
+  save();
+  navReplace(function(){V.screen="result";});
 }
 function exLine(x,label){
   if(!x)return '';
@@ -374,7 +354,7 @@ function nav(){
   var T=[["home","হোম"],["exams","পরীক্ষা"],["fav","পছন্দ"],["wrong","ভুল"],["prog","অগ্রগতি"]];
   if(ADMIN)T.push(["admin","ড্যাশবোর্ড"]);
   if(ADMIN)T.push(["users","ব্যবহারকারী"]);
-  document.getElementById("nav").innerHTML=T.map(function(x){return '<button data-tab="'+x[0]+'"'+(V.tab===x[0]&&!V.screen?' aria-current="page"':'')+'>'+x[1]+'</button>';}).join("");
+  document.getElementById("nav").innerHTML=T.map(function(x){return '<button data-tab="'+x[0]+'"'+(V.tab===x[0]?' aria-current="page"':'')+'>'+x[1]+'</button>';}).join("");
 }
 
 /* ===== পিডিএফ ===== */
@@ -1335,7 +1315,6 @@ function render(){
   nav();
   trDom(document.getElementById("nav"));
   app.scrollTop=(s==="exam")?y:0;
-  V.lastRendered=snap();
 }
 
 /* ===== ইভেন্ট ===== */
@@ -1349,24 +1328,26 @@ app.addEventListener("click",function(e){
     p.catch(function(err){V_AUTH={mode:isLogin?"login":"signup",msg:"ত্রুটি: "+err.message};render();});
     return;
   }
-  if(t.id==="adm-new"){pushPage();V.edit="new";return render();}
+  if(t.id==="adm-new"){navPush(function(){V.edit="new";});return;}
   if(t.id==="adm-cancel"){return stepBack();}
   if(t.id==="adm-save"){return admSave();}
   if(t.id==="adm-import"){return admImportText();}
   if(t.id==="adm-export"){return admExport();}
   if(t.id==="req-submit"){return submitEditReq();}
   if(t.id==="req-cancel"){return stepBack();}
-  if(t.dataset.act==="reqedit"){pushPage();V.reqId=t.dataset.qid;V.screen="reqedit";render();app.scrollTop=0;return;}
+  if(t.dataset.act==="reqedit"){navPush(function(){V.reqId=t.dataset.qid;V.screen="reqedit";});return;}
   if(t.dataset.act==="go-reqs"){
-    V.saved.home=snap(); V.saved.home.scroll=app.scrollTop;
-    V.tab="admin"; V.screen=null; V.edit=null; V.adm=null; V.admReqs=true; V.stk.admin=[];
-    ensureGuard(); loadPendingCount(); render(); app.scrollTop=0; return;
+    navPush(function(){
+      V.tab="admin"; V.screen=null; V.edit=null; V.adm=null; V.admReqs=true;
+      loadPendingCount();
+    });
+    return;
   }
-  if(t.dataset.act==="adm-reqs"){pushPage();V.admReqs=true;loadPendingCount();return render();}
+  if(t.dataset.act==="adm-reqs"){navPush(function(){V.admReqs=true;loadPendingCount();});return;}
   if(t.dataset.act==="reqs-back"){return stepBack();}
   if(t.dataset.act==="req-approve"){return approveReq(t.dataset.rid);}
   if(t.dataset.act==="req-reject"){return rejectReq(t.dataset.rid);}
-  if(t.dataset.act==="edit"||t.dataset.act==="uedit"){pushPage();V.edit=t.dataset.qid;return render();}
+  if(t.dataset.act==="edit"||t.dataset.act==="uedit"){navPush(function(){V.edit=t.dataset.qid;});return;}
   if(t.dataset.act==="del"){return admDelete(t.dataset.qid);}
   if(t.dataset.act==="pdf-q"||t.dataset.act==="pdf-a"){
     var exP=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0]||(V.ex&&V.ex.id===t.dataset.exid?V.ex:null);
@@ -1378,7 +1359,8 @@ app.addEventListener("click",function(e){
   }
   if(t.dataset.act==="hsearch-browse"){
     var list2=homeMatches(); if(!list2.length)return;
-    pushPage(); V.title="খোঁজা প্রশ্ন: "+V.homeQ.trim(); V.list=list2.map(function(x){return x.id;}); V.screen="browse"; return render();
+    navPush(function(){V.title="খোঁজা প্রশ্ন: "+V.homeQ.trim(); V.list=list2.map(function(x){return x.id;}); V.screen="browse";});
+    return;
   }
   if(t.dataset.act==="htogans"){
     var qid=t.dataset.qid; V.homeShowAns[qid]=!V.homeShowAns[qid];
@@ -1387,10 +1369,11 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="resume"||t.dataset.act==="exres"){
     var ex=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0];
     if(!ex)return;
-    pushPage();
-    V.ex=ex; V.title=ex.name; V.filter="all";
-    V.screen=(t.dataset.act==="resume"&&ex.status!=="done")?"exam":"result";
-    render(); app.scrollTop=0; return;
+    navPush(function(){
+      V.ex=ex; V.title=ex.name; V.filter="all";
+      V.screen=(t.dataset.act==="resume"&&ex.status!=="done")?"exam":"result";
+    });
+    return;
   }
   if(t.dataset.act==="exdel"){
     var tgt=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0];
@@ -1400,12 +1383,12 @@ app.addEventListener("click",function(e){
     if(V.ex&&V.ex.id===t.dataset.exid){V.ex=null;V.screen=null;}
     save(); render(); return;
   }
-  if(t.dataset.act==="usr"){pushPage();V.usrSel=t.dataset.uid;return render();}
+  if(t.dataset.act==="usr"){navPush(function(){V.usrSel=t.dataset.uid;});return;}
   if(t.dataset.act==="usrback"){return stepBack();}
   if(t.dataset.act==="lang"){S.lang=(S.lang==="bn")?"en":"bn";save();return render();}
   if(t.dataset.act==="theme"){S.theme=(S.theme==="dark")?"light":(S.theme==="light"?"auto":"dark");applyTheme();save();return render();}
   if(t.dataset.act==="usrmore"){V.usrMore=!V.usrMore;return render();}
-  if(t.dataset.act==="uwrongopen"){pushPage();V.usrTopic="";V.screen="uwrong";render();app.scrollTop=0;return;}
+  if(t.dataset.act==="uwrongopen"){navPush(function(){V.usrTopic="";V.screen="uwrong";});return;}
   if(t.dataset.act==="uwrongback"){return stepBack();}
   if(t.dataset.act==="uexdel"){
     var ctx2=userCtx(); if(!ctx2)return;
@@ -1420,13 +1403,13 @@ app.addEventListener("click",function(e){
       }).catch(function(err){alert("মোছা যায়নি: "+err.message);});
     return;
   }
-  if(t.dataset.act==="wrongopen"){pushPage();V.usrTopic="";V.screen="wrong";render();app.scrollTop=0;return;}
+  if(t.dataset.act==="wrongopen"){navPush(function(){V.usrTopic="";V.screen="wrong";});return;}
   if(t.dataset.act==="wrongback"){return stepBack();}
   if(t.dataset.act==="usrtop"){V.usrTopic=t.dataset.key;return render();}
-  if(t.dataset.act==="uexam"){pushPage();V.usrExam=t.dataset.exid;V.usrFilter="wrong";return render();}
+  if(t.dataset.act==="uexam"){navPush(function(){V.usrExam=t.dataset.exid;V.usrFilter="wrong";});return;}
   if(t.dataset.act==="ubackexam"){return stepBack();}
   if(t.dataset.ufilter){V.usrFilter=t.dataset.ufilter;return render();}
-  if(t.dataset.act==="topic"){pushPage();V.adm={key:t.dataset.key,sort:"new",text:""};return render();}
+  if(t.dataset.act==="topic"){navPush(function(){V.adm={key:t.dataset.key,sort:"new",text:""};});return;}
   if(t.dataset.act==="back"){return stepBack();}
   if(t.id==="adm-clearcache"){
     if(!confirm("ফোনের জমানো প্রশ্ন মুছে ডেটাবেস থেকে সব প্রশ্ন আবার আনা হবে। এতে প্রশ্ন সংখ্যার সমান রিড খরচ হবে। চালিয়ে যাবেন?"))return;
@@ -1448,7 +1431,8 @@ app.addEventListener("click",function(e){
     var nm=((document.getElementById("lname")||{}).value||"").trim();
     if(!ids2.length)return;
     if(t.dataset.go==="exam")return begin(shuffle(ids2),nm||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")));
-    pushPage(); V.title=nm||(kind==="fav"?"পছন্দের প্রশ্ন":"ভুল প্রশ্ন"); V.list=ids2; V.screen="browse"; return render();
+    navPush(function(){V.title=nm||(kind==="fav"?"পছন্দের প্রশ্ন":"ভুল প্রশ্ন"); V.list=ids2; V.screen="browse";});
+    return;
   }
   if(t.dataset.tab){goTab(t.dataset.tab);return;}
 });
