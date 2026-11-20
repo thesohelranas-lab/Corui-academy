@@ -34,6 +34,8 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent)}
 .btn.sm{width:auto;padding:7px 12px;font-size:14px;border-radius:10px;margin:0}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.notif-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:4px}
+.notif-cnt{background:var(--bad);color:#fff;font-size:11px;font-weight:700;min-width:18px;height:18px;line-height:18px;border-radius:999px;padding:0 5px;text-align:center}
 .tags{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin-bottom:6px;flex-wrap:wrap}
 .tags span{background:var(--bg);border-radius:999px;padding:2px 10px}
 .star{margin-left:auto;border:0;background:none;font-size:26px;color:var(--accent);line-height:1;padding:0 4px;cursor:pointer}
@@ -54,7 +56,8 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent)}
 .live-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
 .off-badge{display:inline-block;font-size:12px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:999px;vertical-align:middle}
-.diff-box{background:var(--bg);border-radius:10px;padding:8px 10px;font-size:14px;margin-top:6px;border-left:3px solid var(--accent)}
+.diff-box{background:var(--bg);border-radius:10px;padding:8px 10px;font-size:14px;margin-top:6px;border-left:3px solid var(--muted)}
+.edit-box{background:var(--bg);border-radius:10px;padding:10px;margin-top:8px;border-left:3px solid var(--ok)}
 table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);font-size:15px}
 th,td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line)}
 th{font-weight:600;color:var(--muted);font-size:14px}
@@ -104,9 +107,9 @@ function setQuestions(arr){
   Q.forEach(function(x){if(!x.id)x.id=hs((x.q||"")+(x.o||[]).join("|")); BY[x.id]=x; if(x.i&&insts.indexOf(x.i)<0)insts.push(x.i);});
 }
 
-/* ===== সংরক্ষণ ও লাইভ প্রেজেন্স ===== */
+/* ===== সংরক্ষণ, লাইভ প্রেজেন্স ও নোটিফিকেশন ===== */
 var S={seen:{},wrong:{},fav:{},st:{},hist:[],exams:[],lang:"en",theme:"auto"};
-var UID=null,DB=null,booted=false,saveTimer=null,hbTimer=null,usrUnsub=null;
+var UID=null,DB=null,booted=false,saveTimer=null,hbTimer=null,usrUnsub=null,reqUnsub=null,hasGuard=false;
 var V_AUTH={mode:"login",msg:""};
 function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[],lang:d.lang||"en",theme:d.theme||"auto"};}
 function applyTheme(){
@@ -137,19 +140,18 @@ function save(){
   },400);
 }
 function boot(){
-  history.replaceState({tab:"home",screen:null},"","#home");
-  history.pushState({g:1},"","#home");
+  history.replaceState({base:1},"","#home");
+  hasGuard=false;
   try{firebase.initializeApp(FIREBASE_CONFIG);}
   catch(err){booted=true;V_AUTH={mode:"login",msg:"Firebase কনফিগারেশন বসানো হয়নি"};render();return;}
   firebase.auth().onAuthStateChanged(function(user){
-    stopUsersWatch(); stopPresence();
+    stopUsersWatch(); stopPresence(); stopReqsWatch();
     if(!user){UID=null;DB=null;ADMIN=false;S=normalize(null);applyTheme();booted=true;render();return;}
     UID=user.uid;DB=firebase.firestore();ADMIN=(user.email||"").toLowerCase()===ADMIN_EMAIL.toLowerCase();booted=false;render();
     DB.collection("users").doc(UID).get()
       .then(function(snap){var d=snap.data()||{};S=normalize(d.state);applyTheme();var del=d.adminDeleted||[];if(del.length)S.exams=S.exams.filter(function(x){return del.indexOf(x.id)<0;});})
       .catch(function(err){console.warn(err);})
-      .then(function(){startPresence();return loadQuestions();})
-      .then(function(){if(ADMIN)loadPendingCount();})
+      .then(function(){startPresence();if(ADMIN)watchPendingReqs();return loadQuestions();})
       .catch(function(err){console.warn(err);})
       .then(function(){booted=true;render();});
   });
@@ -167,7 +169,89 @@ function authScreen(){
 var bn=function(n){if((S.lang||"en")==="en")return String(n);return String(n).replace(/\d/g,function(d){return "০১২৩৪৫৬৭৮৯"[d];});};
 function optL(){return (S.lang||"en")==="en"?["A","B","C","D"]:["ক","খ","গ","ঘ"];}
 var app=document.getElementById("app");
-var V={tab:"home",screen:null,cfg:{topics:{},pool:"new",inst:"",n:10,order:"rand",showTopic:false,reveal:"instant"},ex:null,list:null,title:"",lsel:{},saved:{},draft:{},stk:{},homeQ:"",homeShowAns:{},admAllQ:"",editReqs:[],pendingCnt:0};
+var V={tab:"home",screen:null,cfg:{topics:{},pool:"new",inst:"",n:10,order:"rand",showTopic:false,reveal:"instant"},ex:null,list:null,title:"",filter:"all",lsel:{},saved:{},draft:{},stk:{},homeQ:"",homeShowAns:{},admAllQ:"",editReqs:[],pendingCnt:0};
+
+/* ===== ন্যাভিগেশন ও ব্যাক হ্যান্ডলিং ===== */
+function isAtHomeRoot(){
+  return V.tab==="home"&&!V.screen&&!V.edit&&(!V.stk.home||!V.stk.home.length);
+}
+function ensureGuard(){
+  if(!hasGuard){hasGuard=true;history.pushState({g:1},"","#"+V.tab);}
+}
+function snap(){
+  return {
+    tab:V.tab, screen:V.screen||null, exid:V.ex?V.ex.id:null, list:V.list||null, title:V.title||"", filter:V.filter||"all",
+    edit:V.edit||null, admReqs:!!V.admReqs, adm:V.adm?{key:V.adm.key,sort:V.adm.sort,text:V.adm.text}:null, admAllQ:V.admAllQ||"",
+    usrSel:V.usrSel||null, usrExam:V.usrExam||null, usrFilter:V.usrFilter||"wrong", usrTopic:V.usrTopic||"", usrMore:!!V.usrMore, usrQ:V.usrQ||"", selfView:!!V.selfView,
+    reqId:V.reqId||null, reqBackScreen:V.reqBackScreen||null, homeQ:V.homeQ||"", scroll:app.scrollTop
+  };
+}
+function applyState(st){
+  st=st||{tab:"home",screen:null};
+  V.tab=st.tab||"home"; V.screen=st.screen||null; V.list=st.list||null; V.title=st.title||""; V.filter=st.filter||"all";
+  V.edit=st.edit||null; V.admReqs=!!st.admReqs; V.adm=st.adm?Object.assign({},st.adm):null; V.admAllQ=st.admAllQ||"";
+  V.usrSel=st.usrSel||null; V.usrExam=st.usrExam||null; V.usrFilter=st.usrFilter||"wrong"; V.usrTopic=st.usrTopic||""; V.usrMore=!!st.usrMore; V.usrQ=st.usrQ||""; V.selfView=!!st.selfView;
+  V.reqId=st.reqId||null; V.reqBackScreen=st.reqBackScreen||null; V.homeQ=st.homeQ||"";
+  if(st.exid){var ex=S.exams.filter(function(x){return x.id===st.exid;})[0];V.ex=ex||null;}else V.ex=null;
+  if((V.screen==="exam"||V.screen==="result")&&!V.ex)V.screen=null;
+  if(V.tab!=="users")stopUsersWatch();
+  render(); app.scrollTop=st.scroll||0;
+}
+function pushPage(){
+  var prev=V.lastRendered||snap();
+  prev.scroll=app.scrollTop;
+  V.stk[V.tab]=(V.stk[V.tab]||[]).concat([prev]);
+  ensureGuard();
+}
+function handleBack(){
+  var cur=V.tab, stk=V.stk[cur]||[];
+  if(stk.length){
+    var prev=stk.pop(); V.stk[cur]=stk;
+    applyState(prev);
+    if(!isAtHomeRoot())ensureGuard();
+    return;
+  }
+  if(cur!=="home"){
+    var hm=Object.assign({tab:"home",screen:null},V.saved.home||{});
+    hm.tab="home";
+    applyState(hm);
+    if(!isAtHomeRoot())ensureGuard();
+    return;
+  }
+  if(V.screen||V.edit){
+    applyState({tab:"home",screen:null});
+  }
+}
+function stepBack(){
+  if(hasGuard)history.back();
+  else handleBack();
+}
+function goTab(tab){
+  if(tab===V.tab){
+    if(V.stk[tab]&&V.stk[tab].length){
+      var root=V.stk[tab][0]; V.stk[tab]=[];
+      applyState(root);
+      if(!isAtHomeRoot())ensureGuard();
+    }else if(V.screen||V.edit||V.admReqs||V.adm||V.usrSel){
+      applyState({tab:tab,screen:null});
+      if(!isAtHomeRoot())ensureGuard();
+    }
+    return;
+  }
+  var mem=snap(); mem.scroll=app.scrollTop;
+  V.saved[V.tab]=mem;
+  var st=Object.assign({screen:null},V.saved[tab]||{});
+  st.tab=tab;
+  if(tab!=="users")stopUsersWatch();
+  if(tab==="users")V.usrList=null;
+  if(tab==="admin"&&ADMIN)loadPendingCount();
+  applyState(st);
+  if(!isAtHomeRoot())ensureGuard();
+}
+window.addEventListener("popstate",function(){
+  hasGuard=false;
+  handleBack();
+});
 
 function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t;}return a;}
 function tree(){var T={};Q.forEach(function(x){(T[x.s]=T[x.s]||{});(T[x.s][x.t]=T[x.s][x.t]||[]).push(x);});return T;}
@@ -228,9 +312,10 @@ function weightedPick(list,n){
   return shuffle(result);
 }
 function begin(ids,title){
+  pushPage();
   var ex={id:"e"+Date.now().toString(36),name:title||"পরীক্ষা",at:Date.now(),ids:ids,a:{},status:"running"};
   S.exams.unshift(ex); V.ex=ex; V.filter="all"; V.title=ex.name; V.screen="exam";
-  save(); push(); render(); app.scrollTop=0;
+  save(); render(); app.scrollTop=0;
 }
 function answer(id,k){
   V.ex.a[id]=k;S.seen[id]=1;save();render();
@@ -248,7 +333,7 @@ function finish(){
     var old=done.sort(function(a,b){return a.finishedAt-b.finishedAt;}).slice(0,done.length-20).map(function(x){return x.id;});
     S.exams=S.exams.filter(function(x){return old.indexOf(x.id)<0;});
   }
-  save(); V.screen="result"; render();
+  save(); V.screen="result"; render(); app.scrollTop=0;
 }
 function exLine(x,label){
   if(!x)return '';
@@ -292,7 +377,7 @@ function nav(){
   document.getElementById("nav").innerHTML=T.map(function(x){return '<button data-tab="'+x[0]+'"'+(V.tab===x[0]&&!V.screen?' aria-current="page"':'')+'>'+x[1]+'</button>';}).join("");
 }
 
-/* ===== পিডিএফ (প্রিন্ট-টু-PDF, বাংলা যুক্তাক্ষরসহ ১০০% নিখুঁত) ===== */
+/* ===== পিডিএফ ===== */
 function printExamPdf(ex,withAns){
   if(!ex)return;
   var L=optL();
@@ -367,8 +452,9 @@ function renderHomeSearch(){
 /* ===== স্ক্রিন ===== */
 function home(){
   var c=V.cfg,T=groupTree(),p=pool();
-  var thLabel=(S.theme==="dark")?"☀️ লাইট মোড":(S.theme==="light"?"🌙 ডার্ক মোড":"🌓 থিম: অটো");
-  var h='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h1 style="margin:0">এমসিকিউ প্র্যাকটিস</h1><div style="display:flex;gap:6px"><button class="btn alt sm" data-act="theme">'+thLabel+'</button><button class="btn alt sm" data-act="lang">'+((S.lang||"en")==="bn"?"English":"বাংলা")+'</button></div></div>';
+  var thLabel=(S.theme==="dark")?"☀️ লাইট":(S.theme==="light"?"🌙 ডার্ক":"🌓 অটো");
+  var notifBtn=ADMIN?'<button class="btn alt sm notif-btn" data-act="go-reqs" aria-label="সংশোধন অনুরোধ">🔔<span id="home-notif-cnt" class="notif-cnt" style="'+(V.pendingCnt?'':'display:none')+'">'+bn(V.pendingCnt||0)+'</span></button>':'';
+  var h='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h1 style="margin:0">এমসিকিউ প্র্যাকটিস</h1><div style="display:flex;gap:6px;align-items:center">'+notifBtn+'<button class="btn alt sm" data-act="theme">'+thLabel+'</button><button class="btn alt sm" data-act="lang">'+((S.lang||"en")==="bn"?"English":"বাংলা")+'</button></div></div>';
   h+=runBanner();
   h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label><b>সব প্রশ্ন থেকে খুঁজুন</b></label></div><input type="text" id="home-q" placeholder="প্রশ্ন, অপশন বা টপিক লিখে খুঁজুন…" value="'+esc(V.homeQ||"")+'"></div><div id="home-search-res"></div>';
   h+='<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="exname" placeholder="যেমন: Verb Test 1" value="'+esc(V.draft.exname||"")+'"></div>';
@@ -470,7 +556,7 @@ function result(){
   var L2=[["all","সব"],["right","সঠিক"],["wrong","ভুল"],["skip","স্কিপ"]];
   h+='<div class="chips">'+L2.map(function(x){return '<button class="chip" data-filter="'+x[0]+'" aria-pressed="'+(f===x[0])+'">'+x[1]+' ('+bn(cats[x[0]].length)+')</button>';}).join("")+'</div>';
   if(V.ex.bad.length)h+='<button class="btn" id="redo">ভুল ও স্কিপগুলো আবার দিন</button>';
-  h+='<button class="btn alt" id="home">হোমে ফিরুন</button>';
+  h+='<button class="btn alt" id="home">ফিরে যান</button>';
   var list=cats[f]||[];
   if(!list.length)h+='<div class="panel" style="margin-top:12px">এই ফিল্টারে কোনো প্রশ্ন নেই।</div>';
   list.forEach(function(id){h+=card(BY[id],V.ex.a[id]);});
@@ -550,8 +636,26 @@ function submitEditReq(){
     proposed:proposed
   }).then(function(){
     alert(S.lang==="bn"?"সংশোধন প্রস্তাব অ্যাডমিনের কাছে পাঠানো হয়েছে।":"Edit request sent to admin.");
-    V.reqId=null; V.screen=V.reqBackScreen||null; render();
+    stepBack();
   }).catch(function(err){alert("পাঠানো যায়নি: "+err.message);});
+}
+function stopReqsWatch(){if(reqUnsub){reqUnsub();reqUnsub=null;}}
+function updateNotifBadges(){
+  var c=V.pendingCnt||0;
+  var hEl=document.getElementById("home-notif-cnt");
+  if(hEl){hEl.textContent=bn(c);hEl.style.display=c?"":"none";}
+  var aEl=document.getElementById("adm-notif-cnt");
+  if(aEl){aEl.textContent=bn(c);}
+}
+function watchPendingReqs(){
+  if(reqUnsub||!ADMIN||!DB)return;
+  reqUnsub=DB.collection("editRequests").where("status","==","pending").onSnapshot(function(snap){
+    V.pendingCnt=snap.size;
+    V.editReqs=[]; snap.forEach(function(d){V.editReqs.push(Object.assign({rid:d.id},d.data()));});
+    V.editReqs.sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
+    if(V.tab==="admin"&&V.admReqs){render();}
+    else{updateNotifBadges();}
+  },function(err){console.warn(err);});
 }
 function loadPendingCount(){
   if(!ADMIN||!DB)return;
@@ -559,21 +663,28 @@ function loadPendingCount(){
     V.pendingCnt=snap.size;
     V.editReqs=[]; snap.forEach(function(d){V.editReqs.push(Object.assign({rid:d.id},d.data()));});
     V.editReqs.sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
-    render();
+    if(V.tab==="admin"&&V.admReqs)render();
+    else updateNotifBadges();
   }).catch(function(err){console.warn(err);});
 }
 function admReqsView(){
   var L=optL();
-  var h='<button class="btn alt" data-act="reqs-back" style="margin:0 0 10px">← ড্যাশবোর্ডে ফিরুন</button>';
+  var h='<button class="btn alt" data-act="reqs-back" style="margin:0 0 10px">← ফিরে যান</button>';
   h+='<h1>সংশোধন অনুরোধ ('+bn(V.editReqs.length)+')</h1>';
   if(!V.editReqs.length)return h+'<div class="panel meta">কোনো পেন্ডিং অনুরোধ নেই।</div>';
   V.editReqs.forEach(function(r){
     var cur=BY[r.qid]||r.original||{};
-    var p=r.proposed||{};
+    var p=r.proposed||{}, po=(p.o||[]).concat(["","","",""]).slice(0,4);
     h+='<div class="card"><div class="tags"><span>'+esc(r.topic||cur.t||"")+'</span><span>'+esc(r.email||r.uid||"")+'</span><span>'+fmt(r.createdAt)+'</span></div>';
     h+='<div class="diff-box"><b>আগে:</b> '+esc(cur.q)+'<br><b>অপশন:</b> '+(cur.o||[]).map(function(x,k){return L[k]+') '+esc(x);}).join(' · ')+'<br><b>সঠিক:</b> '+L[cur.a||0]+'<br><b>বাংলা অর্থ:</b> '+esc(cur.bn||'—')+'<br><b>ব্যাখ্যা:</b> '+esc(cur.e||'—')+'</div>';
-    h+='<div class="diff-box" style="border-left-color:var(--ok)"><b>প্রস্তাবিত:</b> '+esc(p.q)+'<br><b>অপশন:</b> '+(p.o||[]).map(function(x,k){return L[k]+') '+esc(x);}).join(' · ')+'<br><b>সঠিক:</b> '+L[p.a||0]+'<br><b>বাংলা অর্থ:</b> '+esc(p.bn||'—')+'<br><b>ব্যাখ্যা:</b> '+esc(p.e||'—')+(r.note?'<br><b>মন্তব্য:</b> '+esc(r.note):'')+'</div>';
-    h+='<div class="btn-row"><button class="btn sm" data-act="req-approve" data-rid="'+r.rid+'">✓ অনুমোদন করুন</button><button class="btn alt sm" data-act="req-reject" data-rid="'+r.rid+'" style="color:var(--bad)">✕ বাতিল</button></div></div>';
+    h+='<div class="edit-box"><b>প্রস্তাবিত (এডিট করে অনুমোদন করুন):</b>'+(r.note?'<div class="meta" style="margin:4px 0"><b>মন্তব্য:</b> '+esc(r.note)+'</div>':'');
+    h+=area("প্রশ্ন","rq_"+r.rid,p.q||"");
+    po.forEach(function(val,k){h+=fld("অপশন "+L[k],"ro"+k+"_"+r.rid,val);});
+    h+='<div class="row" style="margin-top:8px"><label>সঠিক উত্তর</label><select id="ra_'+r.rid+'">'+[0,1,2,3].map(function(k){return '<option value="'+k+'"'+((+p.a)===k?' selected':'')+'>'+L[k]+'</option>';}).join("")+'</select></div>';
+    h+=area("বাংলা অর্থ","rbn_"+r.rid,p.bn||"");
+    h+=area("ব্যাখ্যা","re_"+r.rid,p.e||"");
+    h+='</div>';
+    h+='<div class="btn-row"><button class="btn sm" data-act="req-approve" data-rid="'+r.rid+'">✓ অনুমোদন ও সেভ</button><button class="btn alt sm" data-act="req-reject" data-rid="'+r.rid+'" style="color:var(--bad)">✕ বাতিল</button></div></div>';
   });
   return h;
 }
@@ -582,18 +693,23 @@ function approveReq(rid){
   if(!r)return;
   var cur=BY[r.qid];
   if(!cur){alert("মূল প্রশ্নটি ডেটাবেসে পাওয়া যায়নি।");return;}
-  var p=r.proposed, now=Date.now();
-  var updated=Object.assign({},cur,{q:p.q,o:p.o,a:p.a,bn:p.bn,e:p.e,upd:now});
+  var g=function(id){var el=document.getElementById(id);return el?el.value.trim():"";};
+  var nq=g("rq_"+rid), no=[0,1,2,3].map(function(k){return g("ro"+k+"_"+rid);});
+  if(!nq||no.some(function(v){return !v;})){alert("প্রশ্ন ও চারটি অপশন ফাঁকা রাখা যাবে না।");return;}
+  var na=+(document.getElementById("ra_"+rid)||{}).value||0;
+  var nbn=g("rbn_"+rid), ne=g("re_"+rid);
+  var now=Date.now();
+  var updated=Object.assign({},cur,{q:nq,o:no,a:na,bn:nbn,e:ne,upd:now});
   var before=snapOf(cur.id), after=clean(updated);
   DB.collection("questions").doc(cur.id).set(after)
     .then(function(){
       RAW[cur.id]=after;
-      logChanges([{id:cur.id,before:before,after:after}],"অনুরোধ অনুমোদন: "+p.q.slice(0,35));
+      logChanges([{id:cur.id,before:before,after:after}],"অনুরোধ অনুমোদন: "+nq.slice(0,35));
       updated.id=cur.id;
       var arr=Q.filter(function(x){return x.id!==cur.id;}); arr.push(updated);
       arr.sort(function(a,b){return (a.ord||0)-(b.ord||0);});
       setQuestions(arr);
-      return DB.collection("editRequests").doc(rid).update({status:"approved",reviewedAt:now});
+      return DB.collection("editRequests").doc(rid).update({status:"approved",reviewedAt:now,final:{q:nq,o:no,a:na,bn:nbn,e:ne}});
     })
     .then(function(){
       V.editReqs=V.editReqs.filter(function(x){return x.rid!==rid;});
@@ -711,15 +827,6 @@ function admImportText(){
   if(!toWrite.length){alert("লেখার মতো কিছু নেই");return;}
   writeAll(toWrite,"JSON ইমপোর্ট");
 }
-function finishAdmEdit(){
-  V.edit=null;
-  if(V.editRet){
-    var r=V.editRet; V.editRet=null;
-    V.tab=r.tab; V.screen=r.screen; V.usrSel=r.usrSel; V.usrExam=r.usrExam;
-    V.usrFilter=r.usrFilter; V.usrTopic=r.usrTopic; V.selfView=r.selfView;
-  }
-  render();
-}
 function admSave(){
   var g=function(id){return document.getElementById(id).value.trim();};
   var o=[0,1,2,3].map(function(k){return g("a_o"+k);});
@@ -734,7 +841,7 @@ function admSave(){
     obj.id=id;
     var arr=Q.filter(function(x){return x.id!==id;}); arr.push(obj);
     arr.sort(function(a,b){return (a.ord||0)-(b.ord||0);});
-    setQuestions(arr); finishAdmEdit();
+    setQuestions(arr); stepBack();
   }).catch(function(err){alert("সেভ হয়নি: "+err.message);});
 }
 function admDelete(id){
@@ -743,7 +850,7 @@ function admDelete(id){
   DB.collection("questions").doc(id).set(after).then(function(){
     RAW[id]=after;logChanges([{id:id,before:before,after:after}],"প্রশ্ন মুছে ফেলা");
     setQuestions(Q.filter(function(x){return x.id!==id;}));
-    finishAdmEdit();
+    stepBack();
   }).catch(function(err){alert("মোছা যায়নি: "+err.message);});
 }
 function admRedo(){
@@ -815,7 +922,7 @@ function renderAdmSearch(){
 }
 function topicTree(){
   var h='<h1>ড্যাশবোর্ড</h1><p class="meta">মোট '+bn(Q.length)+'টি প্রশ্ন (ডেটাবেসে '+bn(dbCount())+'টি)।</p>';
-  h+='<div class="panel"><button class="btn" data-act="adm-reqs" style="margin-top:0">সংশোধন অনুরোধ ('+bn(V.pendingCnt||0)+')</button><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn alt" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
+  h+='<div class="panel"><button class="btn" data-act="adm-reqs" style="margin-top:0">সংশোধন অনুরোধ (<span id="adm-notif-cnt">'+bn(V.pendingCnt||0)+'</span>)</button><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn alt" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
   h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label><b>সব টপিক থেকে প্রশ্ন খুঁজুন</b></label></div><input type="text" id="adm-all-q" placeholder="প্রশ্ন, অপশন বা টপিক লিখুন…" value="'+esc(V.admAllQ||"")+'"></div><div id="adm-all-res"></div>';
   var T=groupTree(Q);
   Object.keys(T).forEach(function(s){
@@ -901,47 +1008,6 @@ function examsView(){
   return h;
 }
 
-function snap(){return {tab:V.tab,screen:V.screen,exid:V.ex?V.ex.id:null,list:V.list||null,title:V.title};}
-function push(){
-  var prev=V.lastRendered;
-  if(prev&&prev.tab===V.tab){V.stk[V.tab]=(V.stk[V.tab]||[]).concat([prev]);}
-  history.pushState({g:1},"","#"+V.tab);
-}
-function onBack(){
-  var cur=V.tab, stk=V.stk[cur]||[];
-  if(stk.length){
-    var prev=stk.pop(); V.stk[cur]=stk;
-    history.pushState({g:1},"","#"+cur);
-    applyState(prev); return;
-  }
-  if(cur!=="home"){
-    history.pushState({g:1},"","#home");
-    var hm=Object.assign({screen:null},V.saved.home||{}); hm.tab="home";
-    applyState(hm); return;
-  }
-  history.back();
-}
-function applyState(st){
-  st=st||{tab:"home",screen:null};
-  V.tab=st.tab||"home"; V.screen=st.screen||null; V.list=st.list||null; V.title=st.title||V.title;
-  if(st.exid){var ex=S.exams.filter(function(x){return x.id===st.exid;})[0];V.ex=ex||null;}
-  if((V.screen==="exam"||V.screen==="result")&&!V.ex)V.screen=null;
-  if(V.tab!=="users")stopUsersWatch();
-  render(); app.scrollTop=st.scroll||0;
-}
-function goTab(tab){
-  var mem=snap(); mem.scroll=app.scrollTop;
-  V.saved[V.tab]=mem;
-  var st=Object.assign({screen:null},V.saved[tab]||{});
-  st.tab=tab;
-  if(tab!=="users")stopUsersWatch();
-  if(tab==="users")V.usrList=null;
-  if(tab==="admin"&&ADMIN)loadPendingCount();
-  history.pushState({g:1},"","#"+tab);
-  applyState(st);
-}
-window.addEventListener("popstate",onBack);
-
 /* ===== ব্যবহারকারী ও লাইভ মনিটরিং ===== */
 function latestAnswer(exams,id){
   var list=exams.slice().sort(function(a,b){return (b.at||0)-(a.at||0);});
@@ -959,8 +1025,8 @@ function watchUsers(){
   usrUnsub=DB.collection("users").onSnapshot(function(snap){
     V.usrList=[]; snap.forEach(function(d){V.usrList.push({uid:d.id,data:d.data()||{}});});
     V.usrLoading=false; V.usrErr="";
-    if(V.tab==="users"&&!V.usrSel&&!V.screen){renderUserList();}
-    else if(V.tab==="users"){render();}
+    if(V.tab==="users"&&!V.usrSel&&!V.screen&&!V.edit){renderUserList();}
+    else if(V.tab==="users"&&!V.edit){render();}
   },function(err){V.usrLoading=false;V.usrErr="লোড হয়নি: "+err.message;render();});
 }
 function stOf(u){
@@ -1092,6 +1158,7 @@ function usrExamView(){
 
 var TR_PAIRS=[
   ["প্রশ্ন, অপশন বা ব্যাখ্যায় ভুল থাকলে ঠিক করে অ্যাডমিনের কাছে পাঠান।","Fix mistakes in question, options, or explanation and send to admin."],
+  ["প্রস্তাবিত (এডিট করে অনুমোদন করুন):","Proposed (Edit & Approve):"],
   ["উত্তর সেভ হয়েছে। ফলাফল শেষে দেখতে পারবেন।","Answer saved. You can see the result at the end."],
   ["জমা দেওয়া পরীক্ষা ৭ দিন পর মুছতে পারবেন","Submitted exams can be deleted after 7 days"],
   ["আগে থেকে অ্যাকাউন্ট আছে, লগইন করুন","Already have an account? Log in"],
@@ -1131,6 +1198,7 @@ var TR_PAIRS=[
   ["অ্যাকাউন্ট খুলুন","Create account"],
   ["এমসিকিউ প্র্যাকটিস","MCQ Practice"],
   ["সংশোধন প্রস্তাব","Suggest edit"],
+  ["অনুমোদন ও সেভ","Approve & Save"],
   ["কোন প্রশ্ন আসবে","Which questions"],
   ["সংশোধন অনুরোধ","Edit requests"],
   ["পরীক্ষার ইতিহাস","Exam history"],
@@ -1193,6 +1261,7 @@ var TR_PAIRS=[
   ["খুঁজুন","Search"],
   ["মুছুন","Delete"],
   ["দেওয়া","Attempted"],
+  ["মন্তব্য:","Note:"],
   ["বাতিল","Cancel"],
   ["স্কিপ","Skipped"],
   ["নম্বর","Score"],
@@ -1200,6 +1269,9 @@ var TR_PAIRS=[
   ["পছন্দ","Favorites"],
   ["ইমেইল","Email"],
   ["লাইভ","Live"],
+  ["লাইট","Light"],
+  ["ডার্ক","Dark"],
+  ["অটো","Auto"],
   ["সর্বশেষ:","Last:"],
   ["ক্রম","Order"],
   ["সঠিক","Correct"],
@@ -1207,6 +1279,7 @@ var TR_PAIRS=[
   ["লগইন","Log in"],
   ["অপশন","Option"],
   ["টপিক","Topic"],
+  ["আগে:","Before:"],
   ["হোম","Home"],
   ["ভুল","Wrong"],
   ["মোট","Total"],
@@ -1276,23 +1349,24 @@ app.addEventListener("click",function(e){
     p.catch(function(err){V_AUTH={mode:isLogin?"login":"signup",msg:"ত্রুটি: "+err.message};render();});
     return;
   }
-  if(t.id==="adm-new"){V.edit="new";V.editRet=null;return render();}
-  if(t.id==="adm-cancel"){return finishAdmEdit();}
+  if(t.id==="adm-new"){pushPage();V.edit="new";return render();}
+  if(t.id==="adm-cancel"){return stepBack();}
   if(t.id==="adm-save"){return admSave();}
   if(t.id==="adm-import"){return admImportText();}
   if(t.id==="adm-export"){return admExport();}
   if(t.id==="req-submit"){return submitEditReq();}
-  if(t.id==="req-cancel"){V.reqId=null;V.screen=V.reqBackScreen||null;return render();}
-  if(t.dataset.act==="reqedit"){V.reqId=t.dataset.qid;V.reqBackScreen=V.screen;V.screen="reqedit";push();render();app.scrollTop=0;return;}
-  if(t.dataset.act==="adm-reqs"){V.admReqs=true;loadPendingCount();return render();}
-  if(t.dataset.act==="reqs-back"){V.admReqs=false;return render();}
+  if(t.id==="req-cancel"){return stepBack();}
+  if(t.dataset.act==="reqedit"){pushPage();V.reqId=t.dataset.qid;V.screen="reqedit";render();app.scrollTop=0;return;}
+  if(t.dataset.act==="go-reqs"){
+    V.saved.home=snap(); V.saved.home.scroll=app.scrollTop;
+    V.tab="admin"; V.screen=null; V.edit=null; V.adm=null; V.admReqs=true; V.stk.admin=[];
+    ensureGuard(); loadPendingCount(); render(); app.scrollTop=0; return;
+  }
+  if(t.dataset.act==="adm-reqs"){pushPage();V.admReqs=true;loadPendingCount();return render();}
+  if(t.dataset.act==="reqs-back"){return stepBack();}
   if(t.dataset.act==="req-approve"){return approveReq(t.dataset.rid);}
   if(t.dataset.act==="req-reject"){return rejectReq(t.dataset.rid);}
-  if(t.dataset.act==="edit"){V.edit=t.dataset.qid;V.editRet=null;return render();}
-  if(t.dataset.act==="uedit"){
-    V.editRet={tab:V.tab,screen:V.screen,usrSel:V.usrSel,usrExam:V.usrExam,usrFilter:V.usrFilter,usrTopic:V.usrTopic,selfView:V.selfView};
-    V.edit=t.dataset.qid; return render();
-  }
+  if(t.dataset.act==="edit"||t.dataset.act==="uedit"){pushPage();V.edit=t.dataset.qid;return render();}
   if(t.dataset.act==="del"){return admDelete(t.dataset.qid);}
   if(t.dataset.act==="pdf-q"||t.dataset.act==="pdf-a"){
     var exP=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0]||(V.ex&&V.ex.id===t.dataset.exid?V.ex:null);
@@ -1304,7 +1378,7 @@ app.addEventListener("click",function(e){
   }
   if(t.dataset.act==="hsearch-browse"){
     var list2=homeMatches(); if(!list2.length)return;
-    V.title="খোঁজা প্রশ্ন: "+V.homeQ.trim(); V.list=list2.map(function(x){return x.id;}); V.screen="browse"; push(); return render();
+    pushPage(); V.title="খোঁজা প্রশ্ন: "+V.homeQ.trim(); V.list=list2.map(function(x){return x.id;}); V.screen="browse"; return render();
   }
   if(t.dataset.act==="htogans"){
     var qid=t.dataset.qid; V.homeShowAns[qid]=!V.homeShowAns[qid];
@@ -1313,9 +1387,10 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="resume"||t.dataset.act==="exres"){
     var ex=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0];
     if(!ex)return;
+    pushPage();
     V.ex=ex; V.title=ex.name; V.filter="all";
     V.screen=(t.dataset.act==="resume"&&ex.status!=="done")?"exam":"result";
-    push(); render(); app.scrollTop=0; return;
+    render(); app.scrollTop=0; return;
   }
   if(t.dataset.act==="exdel"){
     var tgt=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0];
@@ -1325,13 +1400,13 @@ app.addEventListener("click",function(e){
     if(V.ex&&V.ex.id===t.dataset.exid){V.ex=null;V.screen=null;}
     save(); render(); return;
   }
-  if(t.dataset.act==="usr"){V.usrSel=t.dataset.uid;return render();}
-  if(t.dataset.act==="usrback"){V.usrSel=null;V.usrExam=null;V.usrTopic="";return render();}
+  if(t.dataset.act==="usr"){pushPage();V.usrSel=t.dataset.uid;return render();}
+  if(t.dataset.act==="usrback"){return stepBack();}
   if(t.dataset.act==="lang"){S.lang=(S.lang==="bn")?"en":"bn";save();return render();}
   if(t.dataset.act==="theme"){S.theme=(S.theme==="dark")?"light":(S.theme==="light"?"auto":"dark");applyTheme();save();return render();}
   if(t.dataset.act==="usrmore"){V.usrMore=!V.usrMore;return render();}
-  if(t.dataset.act==="uwrongopen"){V.usrTopic="";V.screen="uwrong";push();render();app.scrollTop=0;return;}
-  if(t.dataset.act==="uwrongback"){history.back();return;}
+  if(t.dataset.act==="uwrongopen"){pushPage();V.usrTopic="";V.screen="uwrong";render();app.scrollTop=0;return;}
+  if(t.dataset.act==="uwrongback"){return stepBack();}
   if(t.dataset.act==="uexdel"){
     var ctx2=userCtx(); if(!ctx2)return;
     var ex2=ctx2.st.exams.filter(function(x){return x.id===t.dataset.exid;})[0];
@@ -1345,14 +1420,14 @@ app.addEventListener("click",function(e){
       }).catch(function(err){alert("মোছা যায়নি: "+err.message);});
     return;
   }
-  if(t.dataset.act==="wrongopen"){V.usrTopic="";V.screen="wrong";push();render();app.scrollTop=0;return;}
-  if(t.dataset.act==="wrongback"){history.back();return;}
+  if(t.dataset.act==="wrongopen"){pushPage();V.usrTopic="";V.screen="wrong";render();app.scrollTop=0;return;}
+  if(t.dataset.act==="wrongback"){return stepBack();}
   if(t.dataset.act==="usrtop"){V.usrTopic=t.dataset.key;return render();}
-  if(t.dataset.act==="uexam"){V.usrExam=t.dataset.exid;V.usrFilter="wrong";return render();}
-  if(t.dataset.act==="ubackexam"){V.usrExam=null;return render();}
+  if(t.dataset.act==="uexam"){pushPage();V.usrExam=t.dataset.exid;V.usrFilter="wrong";return render();}
+  if(t.dataset.act==="ubackexam"){return stepBack();}
   if(t.dataset.ufilter){V.usrFilter=t.dataset.ufilter;return render();}
-  if(t.dataset.act==="topic"){V.adm={key:t.dataset.key,sort:"new",text:""};return render();}
-  if(t.dataset.act==="back"){V.adm=null;return render();}
+  if(t.dataset.act==="topic"){pushPage();V.adm={key:t.dataset.key,sort:"new",text:""};return render();}
+  if(t.dataset.act==="back"){return stepBack();}
   if(t.id==="adm-clearcache"){
     if(!confirm("ফোনের জমানো প্রশ্ন মুছে ডেটাবেস থেকে সব প্রশ্ন আবার আনা হবে। এতে প্রশ্ন সংখ্যার সমান রিড খরচ হবে। চালিয়ে যাবেন?"))return;
     cacheClear().then(function(){return loadQuestions();}).then(function(){alert("নতুন করে আনা হয়েছে: "+Q.length+"টি প্রশ্ন");render();}).catch(function(err){alert("সমস্যা: "+err.message);});
@@ -1360,27 +1435,27 @@ app.addEventListener("click",function(e){
   }
   if(t.id==="adm-undo"){return admUndo();}
   if(t.id==="adm-redo"){return admRedo();}
-  if(t.id==="logout"){pingPresence(false);firebase.auth().signOut();return;}
+  if(t.id==="logout"){pingPresence(false);stopReqsWatch();stopUsersWatch();firebase.auth().signOut();return;}
   if(t.dataset.fav){var id=t.dataset.fav;if(S.fav[id])delete S.fav[id];else S.fav[id]=1;save();t.textContent=S.fav[id]?"★":"☆";return;}
   if(t.dataset.k!==undefined)return answer(t.dataset.id,+t.dataset.k);
   if(t.id==="start"){var p=pool(),n=Math.max(1,Math.min(+V.cfg.n||1,p.length));var ids=(V.cfg.order==="rand"?weightedPick(p,n):p.slice(0,n)).map(function(x){return x.id;});var nm=((document.getElementById("exname")||{}).value||"").trim();return begin(ids,nm||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")));}
   if(t.id==="quit")return finish();
   if(t.id==="redo")return begin(shuffle(V.ex.bad),"ভুলগুলো আবার");
   if(t.dataset.filter){V.filter=t.dataset.filter;return render();}
-  if(t.id==="home"){V.screen=null;render();return;}
+  if(t.id==="home"){return stepBack();}
   if(t.dataset.go){
     var kind=t.dataset.kind,ids2=selIds(kind);
     var nm=((document.getElementById("lname")||{}).value||"").trim();
     if(!ids2.length)return;
     if(t.dataset.go==="exam")return begin(shuffle(ids2),nm||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")));
-    V.title=nm||(kind==="fav"?"পছন্দের প্রশ্ন":"ভুল প্রশ্ন"); V.list=ids2; V.screen="browse"; push(); return render();
+    pushPage(); V.title=nm||(kind==="fav"?"পছন্দের প্রশ্ন":"ভুল প্রশ্ন"); V.list=ids2; V.screen="browse"; return render();
   }
   if(t.dataset.tab){goTab(t.dataset.tab);return;}
 });
 
 app.addEventListener("change",function(e){
   var t=e.target,c=V.cfg;
-  if(t.id&&/^(a_|r_|imp|em|pw|exname|lname|home-q|adm-all-q|usr-q)/.test(t.id))return;
+  if(t.id&&/^(a_|r_|rq_|ro|ra_|rbn_|re_|imp|em|pw|exname|lname|home-q|adm-all-q|usr-q)/.test(t.id))return;
   if(t.dataset.usrtopic!==undefined){V.usrTopic=t.value;return render();}
   if(t.dataset.admsort){V.adm.sort=t.value;return render();}
   if(t.dataset.admtext){V.adm.text=t.value;return render();}
