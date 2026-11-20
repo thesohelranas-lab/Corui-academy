@@ -18,6 +18,7 @@ body{background:var(--bg);color:var(--ink);font-family:"Inter","Noto Sans Bengal
 main{flex:1;overflow-y:auto;padding:16px 16px 24px;max-width:600px;width:100%;margin:0 auto}
 h1{font-size:22px;margin:4px 0 12px;font-weight:700}
 h2{font-size:17px;margin:18px 0 8px;font-weight:700}
+h3{font-size:16px;margin:14px 0 8px;font-weight:600;color:var(--muted)}
 .meta{color:var(--muted);font-size:15px;margin-bottom:12px}
 .panel,.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
 .row{display:flex;gap:10px;align-items:center;margin-bottom:8px}
@@ -28,28 +29,39 @@ input[type=number]{width:90px;min-width:0}
 .top{display:flex;gap:10px;align-items:center;padding:6px 0 6px 6px;border-top:1px solid var(--line)}
 .top span{flex:1}.top small{color:var(--muted)}
 input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent)}
-.btn{width:100%;font:inherit;font-weight:600;background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:13px;margin-top:6px}
+.btn{width:100%;font:inherit;font-weight:600;background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:12px 14px;margin-top:6px;cursor:pointer}
 .btn.alt{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
-.btn:disabled{opacity:.45}
+.btn.sm{width:auto;padding:7px 12px;font-size:14px;border-radius:10px;margin:0}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .tags{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin-bottom:6px;flex-wrap:wrap}
-.tags span{background:var(--bg);border-radius:999px;padding:1px 10px}
-.star{margin-left:auto;border:0;background:none;font-size:26px;color:var(--accent);line-height:1;padding:0 4px}
+.tags span{background:var(--bg);border-radius:999px;padding:2px 10px}
+.star{margin-left:auto;border:0;background:none;font-size:26px;color:var(--accent);line-height:1;padding:0 4px;cursor:pointer}
 .q{font-size:19px;font-weight:600;line-height:1.5;margin:0 0 12px}
-.opt{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:8px;min-height:48px}
+.opt{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:8px;min-height:48px;cursor:pointer}
 .opt b{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-size:14px;font-weight:600}
 .opt.ok{background:var(--okbg);border-color:var(--ok)}.opt.ok b{background:var(--ok);border-color:var(--ok);color:#fff}
 .opt.bad{background:var(--badbg);border-color:var(--bad)}.opt.bad b{background:var(--bad);border-color:var(--bad);color:#fff}
 .opt:disabled{opacity:1}.opt i{margin-left:auto;font-style:normal}
-.exp{background:var(--bg);border-radius:10px;padding:8px 12px;font-size:15px;margin-top:4px}
+.exp{background:var(--bg);border-radius:10px;padding:8px 12px;font-size:15px;margin-top:6px}
 .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-bottom:6px}
 .bar i{display:block;height:100%;background:var(--accent)}
 .total{font-size:34px;font-weight:700;margin:2px 0}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
+.chip{font:inherit;font-size:14px;font-weight:600;padding:6px 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;transition:.15s}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.live-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--ok);background:var(--okbg);padding:2px 9px;border-radius:999px;vertical-align:middle}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.off-badge{display:inline-block;font-size:12px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:999px;vertical-align:middle}
+.diff-box{background:var(--bg);border-radius:10px;padding:8px 10px;font-size:14px;margin-top:6px;border-left:3px solid var(--accent)}
 table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);font-size:15px}
 th,td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line)}
 th{font-weight:600;color:var(--muted);font-size:14px}
 td:first-child,th:first-child{text-align:left;padding-left:10px}
-nav{display:flex;border-top:1px solid var(--line);background:var(--surface);padding-bottom:env(safe-area-inset-bottom,0px)}
-nav button{flex:1;font:inherit;font-weight:500;color:var(--muted);background:none;border:0;padding:12px 0}
+nav{display:flex;overflow-x:auto;scrollbar-width:none;border-top:1px solid var(--line);background:var(--surface);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:1 0 auto;min-width:68px;font:inherit;font-size:14px;font-weight:500;color:var(--muted);background:none;border:0;padding:12px 8px;white-space:nowrap;cursor:pointer}
 nav button[aria-current="page"]{color:var(--accent);font-weight:700;box-shadow:inset 0 3px 0 var(--accent)}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .opt.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
@@ -68,7 +80,7 @@ button,input,select,textarea{font-family:inherit;font-variant-ligatures:common-l
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
-/* ===== Firebase কনফিগারেশন: Firebase Console থেকে কপি করা মানগুলো এখানে বসান ===== */
+/* ===== Firebase কনফিগারেশন ===== */
 var FIREBASE_CONFIG={
   apiKey: "AIzaSyBOHxjgB36M-sOZwNHtiij3LMa804A908o",
   authDomain: "corui-academy.firebaseapp.com",
@@ -77,421 +89,51 @@ var FIREBASE_CONFIG={
   messagingSenderId: "683649317136",
   appId: "1:683649317136:web:13d30d9a77ad109ad44d95"
 };
-/* ===== প্রশ্নব্যাংক =====
-   s=বিষয়, t=টপিক, q=প্রশ্ন, o=অপশন, a=সঠিক উত্তরের ক্রম (০ থেকে), i=প্রতিষ্ঠান, y=সাল, e=ব্যাখ্যা
-   v=1 মানে উত্তর PDF-এ ছিল না, যাচাই বাকি। যাচাই হলে v মুছে দিন। */
-var NEG=0.25;
-var Q=[
-{"s":"English","t":"Grammar: Sentence Correction","q":"He discussed about/on the matter. Find the mistake.","o":["discussed","about/on","the","Matter"],"a":1,"v":1,"e":"discuss সকর্মক verb, সরাসরি object নেয়; তাই about/on বাদ যাবে: discussed the matter।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"One of my friends-----a lawyer.","o":["is","are"],"a":0,"v":1,"e":"One of + plural noun-এর পর verb singular হয়: One of my friends is।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"A number of students ------ absent today.","o":["is","was","were","are"],"a":3,"v":1,"e":"Subject-verb agreement: A number of + plural noun-এর পর plural verb: are।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The number of accidents ------ decreased.","o":["is","has","have","was"],"a":1,"v":1,"e":"Subject-verb agreement: The number of + plural noun-এর পর singular verb: has।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"I wish i....the wings of a bird","o":["have","shall have","had","have had"],"a":2,"v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: wish-এর পর অবাস্তব ইচ্ছায় past form বসে: I wish I had the wings।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"I wish i.... a bird","o":["have","shall have","were","have had"],"a":2,"v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: I wish I were a bird (to be হলে were)।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The reading of books is a good practice. Here the reading of is a","o":["verbal noun","gerund","participle","simple verb"],"a":0,"v":1,"e":"the + V-ing + of গঠনে verbal noun হয়; gerund-এ the/of থাকে না।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"Which is the correct form to express a present unreal wish about being a king?","o":["I wish I am a king.","I wish I were a king.","I wish I was a king.","I wish I will be a king."],"a":1,"v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: বর্তমানের অবাস্তব ইচ্ছা: I wish I were a king।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"Which of the following sentences correctly express unreal wishes?","o":["I wish I had a car.","I wish I have a car.","I wish I were taller.","I wish I will have a car."],"a":0,"v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: I wish I had a car এবং I wish I were taller—দুটোই সঠিক। (ক ও গ—দুটোই সঠিক।)"},
-{"s":"English","t":"Grammar: Preposition","q":"She is good ___ singing.","o":["about","in","at","for"],"a":2,"v":1,"e":"সঠিক expression: ‘good at’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Preposition","q":"He is good ___ English.","o":["about","in","at","for"],"a":2,"v":1,"e":"সঠিক expression: ‘good at’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Preposition","q":"Vegetables are good ___ health.","o":["about","in","at","for"],"a":3,"v":1,"e":"সঠিক expression: ‘good for’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Preposition","q":"I’m good ___ the meeting time.","o":["about","in","at","for"],"a":0,"v":1,"e":"সঠিক expression: ‘good about’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"He talks as if he ______ everything.","o":["knows","knew","has known","is knowing"],"a":1,"v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: as if he knew everything"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"I would rather die than ______ to that dishonest person.","o":["apologize","apologizing","apologized","to apologize"],"a":0,"v":1,"e":"would rather-এর পর base verb (to ছাড়া) বসে: would rather die than apologize"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"They behaved as if nothing ______.","o":["happened","had happened","has happened","happens"],"a":1,"v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: as if nothing had happened (আগের ঘটনা, তাই past perfect)"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"I would rather you ______ home right now.","o":["go","went","gone","to go"],"a":1,"v":1,"e":"would rather + subject + past verb বর্তমানের ইচ্ছা বোঝায়: you went home।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"A patriot would rather starve than ______ money in a corrupted way.","o":["earning","earned","earn","to earn"],"a":2,"v":1,"e":"would rather-এর পর base verb (to ছাড়া) বসে: than earn"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"She spent money as though she ______ a millionaire.","o":["is","has been","were","will be"],"a":2,"v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: as though she were a millionaire"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"She commands me as though I ______ her servant.","o":["am","was","were","have been"],"a":2,"v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: as though I were her servant"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"He would rather beg than ______ his self-respect.","o":["lose","lost","losing","to lose"],"a":0,"v":1,"e":"would rather-এর পর base verb (to ছাড়া) বসে: than lose"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"The man looks as if he ______ the ghost.","o":["saw","had seen","sees","has seen"],"a":1,"v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: as if he had seen the ghost"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"It looks as if it ______ going to rain.","o":["were","is","had been","was"],"a":1,"v":1,"e":"বাস্তব সম্ভাবনা বোঝালে as if-এর পর সাধারণ tense: it is going to rain।"},
-{"s":"English","t":"Grammar: Preposition","q":"Congratulations ___ your success.","o":["for","to","on","of"],"a":2,"v":1,"e":"সঠিক expression: ‘Congratulations on’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Would you mind.....a song.","o":["for","sing","in","singing"],"a":3,"v":1,"e":"Would you mind + V-ing: singing।"},
-{"s":"English","t":"Idioms & Phrases","q":"\"Man of parts\" means_______","o":["honest","sincere","talented","worthless"],"a":2,"v":1,"e":"Man of parts = প্রতিভাবান।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"It is i who.....to blame.","o":["is","are","am","were"],"a":2,"v":1,"e":"It is I who am: who-এর verb আগের pronoun অনুযায়ী।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I love reading books and _________ football.","o":["to play","play","playing","to have played"],"a":2,"v":1,"e":"and-এর দুই পাশে একই গঠন: reading … and playing।"},
-{"s":"English","t":"Idioms & Phrases","q":"\"A piece of cake\" - phrase টির বাংলা অর্থ কী?","o":["কেকের এক টুকরা","খুব সহজ কাজ","অংশগ্রহণ করা","পার্টি করা"],"a":1,"v":1,"e":"A piece of cake = খুব সহজ কাজ।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"A.....of fish.","o":["troops","wad","school","fleet"],"a":2,"v":1,"e":"a school of fish = মাছের ঝাঁক।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Teacher said, 'The earth — round the sun.'","o":["moves","moved","has moved","will be moving"],"a":0,"v":1,"e":"চিরন্তন সত্য সবসময় Present Indefinite: moves।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"আমি তাকে পড়তে শুনলাম।","o":["I heard him to read","I heard him reading","I have heard him reading","I saw him reading"],"a":1,"v":1,"e":"hear + object + V-ing (চলমান কাজ): I heard him reading।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I fancy I (turn) trifle pale.","o":["turn","turned","would turn","were turned"],"a":0,"v":1,"e":"fancy-এর পর বর্তমান ভাব, simple present: turn।"},
-{"s":"English","t":"Idioms & Phrases","q":"'To keep one's head' means___","o":["to save oneself","to be self-respectful","to keep calm","None of these"],"a":2,"v":1,"e":"To keep one's head = শান্ত থাকা।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He advised me _____ smoking.","o":["to give up","to stop","from giving up","Give up"],"a":0,"v":1,"e":"advise + object + to-infinitive: advised me to give up।"},
-{"s":"English","t":"Grammar: Preposition","q":"The meeting will start ________ Monday _______ 9:00 a.m.","o":["at, in","on, at","in, at","on, on"],"a":1,"v":1,"e":"নির্দিষ্ট দিনের আগে on, সময়ের আগে at: on Monday at 9:00।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The _____ of the story is very interesting.","o":["moral","morals","morally","morality"],"a":0,"v":1,"e":"moral (নৈতিক শিক্ষা) noun: The moral of the story।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The glass on the table contains _______ water.","o":["a little","a few","many","several"],"a":0,"v":1,"e":"uncountable noun-এর আগে a little: a little water।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"It is high time he (change) his habits.","o":["has been changing","Is changing","has changed","changed"],"a":3,"v":1,"e":"It is high time-এর পর subject + V2 (past form) বসে: changed"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"_________ is not the only things that tourists want to see.","o":["A scenery","Sceneries","the sceneries","Scenery"],"a":3,"v":1,"e":"Scenery uncountable noun, তাই article/plural নেই।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"Jerry was deprived of motherly affection. Here the word 'motherly' is","o":["an adverb","an adjective","a noun","noun"],"a":1,"v":1,"e":"Part of speech বাক্যে শব্দের কাজ দেখে ঠিক হয়: motherly noun-এর আগে বসে গুণ বোঝায়, তাই adjective।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"Which one of the following is the example of verbal noun?","o":["Writing a good letter is difficult.","The writing of a good letter is difficult.","Good letter writing is difficult.","It is very difficult to write a good letter."],"a":1,"v":1,"e":"the + V-ing + of গঠন verbal noun: The writing of a good letter।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I went to the library with a view to _ knowledge.","o":["gain","gaining","gained","be gained"],"a":1,"v":1,"e":"with a view to + V-ing: gaining।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Neither the moon nor the stars ____ visible last night.","o":["was","were","are","had been"],"a":1,"v":1,"e":"Neither/Either…nor/or-এ verb বসে পরের subject অনুযায়ী: nor-এর পরে stars (plural) তাই were।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Neither Rimi nor Sumi ____ present.","o":["are","were","is","have been"],"a":2,"v":1,"e":"Neither/Either…nor/or-এ verb বসে পরের subject অনুযায়ী: nor-এর পরে Sumi (singular) তাই is।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Either they or I ____ correct.","o":["is","are","am","were"],"a":2,"v":1,"e":"Neither/Either…nor/or-এ verb বসে পরের subject অনুযায়ী: or-এর পরে I তাই am।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Either you or I ____ going to the party.","o":["are","is","am","was"],"a":2,"v":1,"e":"Neither/Either…nor/or-এ verb বসে পরের subject অনুযায়ী: or-এর পরে I তাই am।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Either he or his brothers ____.","o":["kneels","kneel","has","is"],"a":1,"v":1,"e":"Neither/Either…nor/or-এ verb বসে পরের subject অনুযায়ী: or-এর পরে his brothers (plural) তাই kneel।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Either he or his classmates ----- completed the assignment","o":["have","has.","is.","were."],"a":0,"v":1,"e":"Neither/Either…nor/or-এ verb বসে পরের subject অনুযায়ী: or-এর পরে classmates (plural) তাই have।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The teacher along with the students _____ present today.","o":["have","were","are","is"],"a":3,"v":1,"e":"along with/as well as-এর আগের মূল subject অনুযায়ী verb বসে: মূল subject teacher (singular) তাই is।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"\"Lovely comes here regularly.\" Here 'Lovely' is:","o":["noun","pronoun","adjective","adverb"],"a":0,"v":1,"e":"Part of speech বাক্যে শব্দের কাজ দেখে ঠিক হয়: Lovely একটি নাম, তাই noun।"},
-{"s":"English","t":"Idioms & Phrases","q":"'Maiden speech' means -------?","o":["Late speech","Early speech","Final speech","First speech"],"a":3,"v":1,"e":"Maiden speech = প্রথম বক্তৃতা।"},
-{"s":"English","t":"Translation","q":"What is the English translation of \"সকাল থেকে বৃষ্টি হচ্ছে\"?","o":["It is raining since morning","It has been raining since morning","It has been raining from morning","It is raining for morning"],"a":1,"v":1,"e":"since + নির্দিষ্ট সময় ও চলমান কাজ: present perfect continuous—It has been raining since morning।"},
-{"s":"English","t":"Translation","q":"What is the English translation of \"সে হাঁপাতে হাঁপাতে এখানে এল\"?","o":["he has come here exhausted.","He had come here runing.","He coame here hurriedly.","He came here panting."],"a":3,"v":1,"e":"হাঁপাতে হাঁপাতে = panting: He came here panting।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Many a student _____ to qualify the driving test on the first try.","o":["fail","fails","pass","passes"],"a":1,"v":1,"e":"Subject-verb agreement: Many a + singular noun-এর পর singular verb: fails।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"None of the students _____ a car.","o":["have","have got","has","own"],"a":2,"v":1,"e":"Subject-verb agreement: None of the + plural noun-এর পর verb singular: has।"},
-{"s":"English","t":"Idioms & Phrases","q":"They have little money\" means:","o":["They have no money at all.","They have almost no money.","They have yet some money.","They have quite some money."],"a":1,"v":1,"e":"little = প্রায় নেই (নেতিবাচক): almost no money।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"My uncle has three sons, _____ work in the same office.","o":["All of them","Who all","They all","all of whom"],"a":3,"v":1,"e":"non-defining clause-এ all of whom: all of whom work।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Choose the correct sentence:","o":["Rahim ate almost the whole fish.","Rahim almost ate the whole fish.","Almost Rahim ate the whole fish.","Rahim ate the whole fish almost."],"a":0,"v":1,"e":"almost whole fish-এর ঠিক আগে বসে: ate almost the whole fish।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I prefer coffee _____ tea.","o":["rather than","rather more that","relative than","to"],"a":3,"v":1,"e":"prefer A to B।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"Which one is an Adverb?","o":["friendly","holy","ugly","wisely"],"a":3,"v":1,"e":"-ly যুক্ত wisely adverb; friendly, holy, ugly adjective।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"We have rights and responsibilities. Here 'responsibilities' is a/an —","o":["a noun","an adjective","an adverb","a verb"],"a":0,"v":1,"e":"responsibilities বহুবচন noun।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Rina and ______ are going to the market.","o":["I","Me","Mine","Myself"],"a":0,"v":1,"e":"যুক্ত subject-এ subjective case: Rina and I।"},
-{"s":"English","t":"Grammar: Word Forms","q":"The plural form of the word 'Crisis'?","o":["crises","crisiss","crisises","none of them"],"a":0,"v":1,"e":"-is শেষ হলে plural -es: crisis → crises।"},
-{"s":"English","t":"Grammar: Preposition","q":"He died ______ cancer.","o":["from","by","of","with"],"a":2,"v":1,"e":"সঠিক expression: ‘died of’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Voice","q":"The active form of the sentence 'Let the book be read by you.' is —","o":["Read the book","You are to read the book","Let read the book by you","Let the book be reading by you"],"a":0,"v":1,"e":"Let the book be read by you-এর active: Read the book।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"If you wanted, I (help) you.","o":["will help","would help","would helped","would have helped"],"a":1,"v":1,"e":"Conditional: If-clause past, তাই main clause-এ would help।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The quality of the oranges — not good.","o":["are","is","was","were"],"a":1,"v":1,"e":"Subject quality (singular): is।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"The past participle of 'tear' is —","o":["teared","torn","torned","tearing"],"a":1,"v":1,"e":"tear–tore–torn।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The man was arrested ______ his wife.","o":["in connection with","by the side of","because of","married to"],"a":0,"v":1,"e":"in connection with = সংক্রান্ত কারণে।"},
-{"s":"English","t":"Idioms & Phrases","q":"'Take forty winks' means —","o":["A short sleep","To wink forty times","To sleep soundly","To be awake"],"a":0,"v":1,"e":"Take forty winks = অল্প ঘুম।"},
-{"s":"English","t":"Vocabulary","q":"The synonym of Franchise is —","o":["privilege","restriction","business","contract"],"a":0,"v":1,"e":"Franchise = privilege (অধিকার)।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"No sooner had we (reach) the station than the bus left.","o":["reach","reaches","reached","reaching"],"a":2,"v":1,"e":"No sooner had + subject + V3: reached।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Sumon normally (take) his breakfast at 9 am.","o":["take","took","takes","taken"],"a":2,"v":1,"e":"অভ্যাস, 3rd person singular: takes।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Identify the right tense: 'My father — before I came.'","o":["would be leaving","had been leaving","had left","will leave"],"a":2,"v":1,"e":"before I came-এর আগের কাজ: had left।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"I would rather — coffee than tea.","o":["with have","have","had","to have"],"a":1,"v":1,"e":"would rather + base verb: have।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I still have ______ money.","o":["a few","a little","few","many"],"a":1,"v":1,"e":"little money = অল্প (ইতিবাচক): a little।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"You had better — a doctor.","o":["to see","see","saw","seen"],"a":1,"v":1,"e":"had better + base verb: see।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Twenty divided by ten — two.","o":["are","were","make","is"],"a":3,"v":1,"e":"গাণিতিক বাক্যে singular verb: is।"},
-{"s":"English","t":"Grammar: Preposition","q":"I finally killed the fly ______ a rolled up newspaper.","o":["by","with","through","from"],"a":1,"v":1,"e":"হাতিয়ার বোঝাতে with: with a newspaper।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"The door opened automatically. The verb in this sentence is —","o":["Transitive","Intransitive","Linking","Modal"],"a":1,"v":1,"e":"opened-এর object নেই, তাই intransitive।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"'I will do it tomorrow' — In this sentence, what Part of Speech is Tomorrow?","o":["Adverb","Adjective","Noun","Verb"],"a":0,"v":1,"e":"tomorrow সময় বোঝায়, তাই adverb।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"I ______ caught the bus if I had hurried.","o":["couldn't have","could have","can't have","can have"],"a":1,"v":1,"e":"Conditional: Type 3: could have caught if I had hurried।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The load is light enough ______","o":["to carry","to measure","to handle","to feel"],"a":0,"v":1,"e":"adjective + enough + to-infinitive: light enough to carry।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The committee _____ divided in its opinion.","o":["are","were","is","have"],"a":2,"v":1,"e":"Subject-verb agreement: committee একক ইউনিট, তাই is।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Even as harvesting was going on _____","o":["the rainy season began","the rainy season was began","the rainy season had began","the rainy season begins"],"a":0,"v":1,"e":"Even as clause-এর সাথে past simple: began।"},
-{"s":"English","t":"Grammar: Preposition","q":"He always remains _____ social activities.","o":["with","from","at","by"],"a":1,"v":1,"e":"aloof from-এর মতো: remains from social activities।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I thought that _ was the last one.","o":["the most prettiest of all","prettiest one of all","the prettiest one from all","the prettiest one of all"],"a":3,"v":1,"e":"Superlative: the prettiest one of all।"},
-{"s":"English","t":"Grammar: Voice","q":"The passive form of the sentence 'Do not hate the poor.' Is -","o":["Let not the poor be hated","Let the poor not be hated","Let not the poor hate","Let poor not be hate"],"a":0,"v":1,"e":"Do not + V-এর passive: Let not + object + be + V3।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Choose the correct sentence.","o":["A few of the three boys got a prize.","Each of the three boys got a prize.","Every of the three boys got a prize.","All of the three boys got a prize."],"a":1,"v":1,"e":"Each of + plural noun-এর পর singular verb; Every of ভুল।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He watched the boat _____ down water.","o":["to float","floating","was floating","had floating"],"a":1,"v":1,"e":"watch + object + V-ing: floating।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He cannot help _____ at the joke.","o":["laughing","to laugh","laugh","laughed"],"a":0,"v":1,"e":"cannot help + V-ing: laughing।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The _____ of the office will be sold.","o":["furniture","the furnitures","piece of furniture","pieces of furnitures"],"a":0,"v":1,"e":"furniture uncountable: The furniture।"},
-{"s":"English","t":"Grammar: Article","q":"_____ moon shines at night.","o":["A","An","The","No article"],"a":2,"v":1,"e":"moon অদ্বিতীয়, তাই the।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He always (go) to school at 8 a.m.","o":["goes","go","went","gone"],"a":0,"v":1,"e":"অভ্যাস: goes।"},
-{"s":"English","t":"Grammar: Preposition","q":"He is averse _____ hard work.","o":["from","to","with","for"],"a":1,"v":1,"e":"সঠিক expression: ‘averse to’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"What is the meaning of 'By hook or by crook'?","o":["Catching fish with a hook","By any means","In a crooked way","Stealing cleverly"],"a":1,"v":1,"e":"By hook or by crook = যেকোনো উপায়ে।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Choose the correct sentence.","o":["The man that said that was a fool.","The man who said that was a fool.","The man, that said that was a fool.","The man which said that was a fool"],"a":1,"v":1,"e":"ব্যক্তির জন্য who; comma ছাড়া restrictive clause।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"Unless you _____ hard, you will fail.","o":["studies","studying","studied","study"],"a":3,"v":1,"e":"Unless + present simple: study।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Rarely _____ such a magnificent performance.","o":["I have seen","have I seen","I had seen","had I saw"],"a":1,"v":1,"e":"Rarely শুরুতে এলে inversion: have I seen।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He has paid the penalty _____ his crimes _____ five years in prison.","o":["about at","for, with","for, in","none of these"],"a":1,"v":1,"e":"penalty for crimes; with five years in prison।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"While I _____ the road, I met an old friend.","o":["crossed","was crossing","cross","had crossed"],"a":1,"v":1,"e":"past continuous + past simple: was crossing।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"Had I known your address, I _____ you a letter.","o":["would send","would have sent","sent","had sent"],"a":1,"v":1,"e":"Conditional: Had I known → would have sent।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Bread and butter ___ my favorite breakfast.","o":["are","is","were","be"],"a":1,"v":1,"e":"Bread and butter একক বস্তু, তাই is।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"He sleeps a sound sleep. Here the word 'sound' is a/an -","o":["Noun","Pronoun","Adjective","Adverb"],"a":2,"v":1,"e":"Part of speech বাক্যে শব্দের কাজ দেখে ঠিক হয়: sound noun-এর গুণ বোঝায়, তাই adjective।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Rabindranath's stories often ___ surprise endings.","o":["had","have","has","have had"],"a":1,"v":1,"e":"stories বহুবচন, তাই have।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Do not worry, English grammar is not ___ to understand.","o":["so difficult","very difficult","too difficult","difficult enough"],"a":0,"v":1,"e":"not so + adjective + to-infinitive: so difficult।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He watched the boat ___ down water.","o":["to float","floating","was floating","had floating"],"a":1,"v":1,"e":"watch + object + V-ing: floating।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He watched the boat ___ down water.","o":["to float","float","is float","to floating"],"a":1,"v":1,"e":"watch + object + bare infinitive: float।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He watched the boat which ___ down water.","o":["floating","was floating","had float","floats"],"a":1,"v":1,"e":"which was floating (relative clause)।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He watched the boat while it ___ down water.","o":["floats","floated","was floating","floating"],"a":2,"v":1,"e":"while it was floating (past continuous)।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The boat was seen ___ down water by him.","o":["float","to float","floated","be float"],"a":1,"v":1,"e":"passive-এ was seen + to float।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I saw a bird ___ in the sky.","o":["flying","to fly","flew","was flying"],"a":0,"v":1,"e":"saw a bird flying (চলমান)।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"While my mother was cooking, I ___ TV.","o":["watched","am watching","was watching","had watched"],"a":2,"v":1,"e":"While … cooking, I was watching (past continuous)।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Some people like coffee, while others ___ tea.","o":["prefer","were preferring","are preferring","preferred"],"a":0,"v":1,"e":"others prefer (present simple)।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He is ___ of the two.","o":["better","as good as","the better","best"],"a":2,"v":1,"e":"দুইজনের মধ্যে: the better।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He ___ at home, because the lights were on.","o":["must have been","should have been","mustn't have been","couldn't have been"],"a":0,"v":1,"e":"আলো জ্বলছিল, তাই নিশ্চিত অনুমান: must have been।"},
-{"s":"English","t":"Translation","q":"Translate into Bengali: 'There is a little milk in the cup.'","o":["পেয়ালায় অল্প দুধ আছে।","পেয়ালায় দুধ নেই বললেই চলে।","পেয়ালায় একটু খানি দুধ নেই।","পেয়ালায় একটু খানি দুধ নাই।"],"a":0,"v":1,"e":"a little milk = অল্প দুধ আছে (ইতিবাচক)।"},
-{"s":"English","t":"Grammar: Voice","q":"Choose the correct passive form of: 'She played on the flute.'","o":["The flute was played by her.","The flute was played on by her.","The flute was played to her.","The flute was being played by her."],"a":1,"v":1,"e":"played on the flute-এর passive: The flute was played on by her।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"You had better ___ there.","o":["gone there","went there","go there","will go there"],"a":2,"v":1,"e":"had better + base verb: go there।"},
-{"s":"English","t":"Literature","q":"Shakespeare's plays are as alive and ___ today as these were in his lifetime.","o":["appealing","appeal","appealed","the appeal of"],"a":0,"v":1,"e":"alive and appealing (সমান গঠন)।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The chairman and secretary ___ present at the last meeting.","o":["were","is","have","was"],"a":3,"v":1,"e":"chairman and secretary (একই ব্যক্তি): was।"},
-{"s":"English","t":"Grammar: Preposition","q":"He has no appetite ___ food.","o":["to","for","with","about"],"a":1,"v":1,"e":"সঠিক expression: ‘appetite for’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The man was ___ for murder.","o":["hung","hang","hanged","hangged"],"a":2,"v":1,"e":"ফাঁসিতে ঝোলানো: hang–hanged–hanged।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The child cried for ___ mother.","o":["its'","his","it's","its"],"a":3,"v":1,"e":"child-এর possessive: its (apostrophe ছাড়া)।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The boy from the village said, 'I ___ starve than beg.'","o":["better","rather","would rather","would better"],"a":2,"v":1,"e":"would rather starve than beg।"},
-{"s":"English","t":"Grammar: Preposition","q":"Julia has been ill ___ three months.","o":["since","about","in","for"],"a":3,"v":1,"e":"সময়কাল বোঝাতে for: for three months।"},
-{"s":"English","t":"Idioms & Phrases","q":"'In black and white' means -","o":["in writing","verbally","falsely","in colour"],"a":0,"v":1,"e":"In black and white = লিখিত আকারে।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He does not ______ book.","o":["Read","Reading","Readed","Reads"],"a":0,"v":1,"e":"does not + V1: read।"},
-{"s":"English","t":"Grammar: Preposition","q":"Man has no escape ______ death.","o":["to","with","in","from"],"a":3,"v":1,"e":"সঠিক expression: ‘escape from’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"'The up train is late.' Here the word 'up' is a/an —","o":["noun","verb","adjective","adverb"],"a":2,"v":1,"e":"up noun-এর আগে বসে, তাই adjective।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Three-fourths of the work ______ finished.","o":["have been","was","has been","were"],"a":2,"v":1,"e":"Subject-verb agreement: work uncountable: Three-fourths … has been।"},
-{"s":"English","t":"Translation","q":"Choose the correct English translation for: \"দুঃখের প্রয়োজনীয়তা মধুর\"","o":["Sweet are the uses of adversity","Sweet is the uses of adversity","Sweet uses of adversity","Sweet do not use the adviersity"],"a":0,"v":1,"e":"Sweet are the uses of adversity (Shakespeare)।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He got his house ______ last month.","o":["to paint","painting","paint","painted"],"a":3,"v":1,"e":"get + object + V3: painted।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"When the bell rang, the students ______ out of the classroom.","o":["walked","walk","have walked","walking"],"a":0,"v":1,"e":"অতীত ঘটনা: walked।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Which one is correct?","o":["One of my friends lives in Brighton.","One of my friend lives in Brighton.","One of my friends live in Brighton.","One of my friend live in Brighton."],"a":0,"v":1,"e":"Subject-verb agreement: One of my friends lives।"},
-{"s":"English","t":"Idioms & Phrases","q":"'Acid test' means ______","o":["real test","poisonous test","sour test","dangerous test"],"a":0,"v":1,"e":"Acid test = কঠিন/আসল পরীক্ষা।"},
-{"s":"English","t":"Idioms & Phrases","q":"'To get along with' means ______","o":["to adjust","to walk","to interest","to accompany"],"a":0,"v":1,"e":"get along with = মানিয়ে চলা।"},
-{"s":"English","t":"Idioms & Phrases","q":"'Hard and fast' means ______","o":["Difficult matter","Loose","Easy matter","Fixed"],"a":3,"v":1,"e":"Hard and fast = অপরিবর্তনীয়।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"She is fond of ______ to music.","o":["listen","listens","listening","listened"],"a":2,"v":1,"e":"fond of + V-ing: listening।"},
-{"s":"English","t":"Idioms & Phrases","q":"'At sixes and sevens' means ______","o":["In order","In confusion","Very happy","Very rich"],"a":1,"v":1,"e":"At sixes and sevens = বিশৃঙ্খল।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"How many eggs have your hens ______ this month?","o":["lain","laid","lay","lied"],"a":1,"v":1,"e":"lay–laid–laid: laid।"},
-{"s":"English","t":"Grammar: Preposition","q":"An industrious boy will shine ______ life.","o":["on","by","to","in"],"a":3,"v":1,"e":"সঠিক expression: ‘shine in life’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Find out the incorrect part in this sentence: 'One of the recommendation made by the committee was accepted by the authorities.'","o":["recommendation","was","accepted by","committee"],"a":0,"v":1,"e":"One of the + plural noun: recommendations।"},
-{"s":"English","t":"Translation","q":"Choose the correct English translation for: জ্ঞানীরা বেশি কথা বলেন না।","o":["The wise do not talks much.","The wise does not talk mach.","The wise do not talk much.","The wise men does not talk much."],"a":2,"v":1,"e":"The wise = বহুবচন: do not talk much।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"'They praised the honesty of the girl.' Here the underlined word 'honesty' is a/an —","o":["material noun","abstract noun","common noun","proper noun"],"a":1,"v":1,"e":"honesty = abstract noun (গুণ)।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"'Are you free tomorrow?' - 'No, I ______ meet my doctor at 10 AM.'","o":["going to","go to","am going to","will be"],"a":2,"v":1,"e":"আগে ঠিক করা পরিকল্পনা: am going to।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I was very tired, ______ I went to bed early.","o":["so","because","but","and"],"a":0,"v":1,"e":"কারণ → ফল: so।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"'I cannot right the wrong.' Here the word 'right' is a —","o":["Noun","Adjective","Verb","Pronoun"],"a":2,"v":1,"e":"right এখানে verb (ঠিক করা)।"},
-{"s":"English","t":"Grammar: Preposition","q":"We are in need ______ furniture.","o":["of","for","from","at"],"a":0,"v":1,"e":"সঠিক expression: ‘in need of’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I ______ to live in London, but now I live in Paris.","o":["use","used","am used","was used"],"a":1,"v":1,"e":"used to + V1 (অতীত অভ্যাস)।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"If you ______ a car, you should get it ______ regularly.","o":["Owned / to service","Will won / servicing","Own / serviced","Had owned / being serviced"],"a":2,"v":1,"e":"If you own a car … get it serviced।"},
-{"s":"English","t":"Idioms & Phrases","q":"'Out and out' means ______","o":["Not at all","Thoroughly","To be last","Man of outside"],"a":1,"v":1,"e":"Out and out = সম্পূর্ণভাবে।"},
-{"s":"English","t":"Grammar: Word Forms","q":"Which one of the followings is a singular noun?","o":["media","opera","alumni","alumna"],"a":1,"v":1,"e":"opera ও alumna—দুটোই একবচন। (খ ও ঘ—দুটোই একবচন।)"},
-{"s":"English","t":"Idioms & Phrases","q":"The phrase 'Achilles' heel' means —","o":["A strong point","A permanent solution","A weak point","A great achievement"],"a":2,"v":1,"e":"Achilles' heel = দুর্বল দিক।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"'He is little known.' Here the word 'little' is a/an —","o":["Pronoun","Verb","Adjective","Adverb"],"a":3,"v":1,"e":"little known: little এখানে adverb।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"In the sentence \"The belief that he would succeed motivated him to work harder\", what type of clause is \"that he would succeed\"?","o":["Adjective clause","Adverb clause","Noun clause","Verb clause"],"a":2,"v":1,"e":"belief-এর ব্যাখ্যা দেয়: noun clause (appositive)।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"We waited until the plane ______.","o":["did not take off","took off","had taken off","had not taken off"],"a":1,"v":1,"e":"until + past simple: took off।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"We had to _______ the meeting because the CEO was sick.","o":["call off","take off","put off","set off"],"a":0,"v":1,"e":"call off = বাতিল করা।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Choose the correct sentence:","o":["It is you who is to pay for the loss","It is you who are to pay for the loss","It is you who has to pay for the loss","It is you who is responsible for the loss."],"a":1,"v":1,"e":"It is you who are to pay।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Telling lies ___ a great sin.","o":["is","are","was","am"],"a":0,"v":1,"e":"Subject-verb agreement: Gerund subject singular: is।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"He contemplated marrying his cousin. Here 'marrying' is a/an —","o":["verb","gerund","infinitive","present participle"],"a":1,"v":1,"e":"contemplated-এর object marrying: gerund।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The cautious ___ not always cowards.","o":["is","was","are","were"],"a":2,"v":1,"e":"The + adjective = বহুবচন: are।"},
-{"s":"English","t":"Idioms & Phrases","q":"What is the meaning of the idiom \"Hard and fast\"?","o":["Difficult matter","Fixed","Easy matter","Loose"],"a":1,"v":1,"e":"Hard and fast = অপরিবর্তনীয়।"},
-{"s":"English","t":"Grammar: Preposition","q":"He was accused ___ killing a young man.","o":["for","with","of","on"],"a":2,"v":1,"e":"সঠিক expression: ‘accused of’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"In the sentence \"He writes a letter\", the verb \"write\" is a/an —","o":["Principal verb","Auxiliary verb","Transitive verb","Intransitive verb"],"a":2,"v":1,"e":"object (a letter) আছে, তাই transitive।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Mark the correct sentence:","o":["He, you and I are to blame.","He, you and I am to blame.","You, he and I are to blame.","I, you and he are to blame."],"a":2,"v":1,"e":"ক্রম: 2nd, 3rd, 1st person: You, he and I।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Three-fourths of the work ........ finished.","o":["have been","was","has been","were"],"a":2,"v":1,"e":"Subject-verb agreement: work uncountable: has been।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He insisted ____ there.","o":["on my going","is to go","over going","to go"],"a":0,"v":1,"e":"insist on + V-ing: on my going।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Choose the correct sentence:","o":["Let he and you be witnesses","Let you and him be witnesses","Let you and he be witnesses","Let him and you be witnesses"],"a":3,"v":1,"e":"Let + objective case: Let him and you।"},
-{"s":"English","t":"Vocabulary","q":"The synonym of \"Brave\" is —","o":["Coward","Fearful","Courageous","Weak"],"a":2,"v":1,"e":"Brave = courageous।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Subina showed ___ her photographs.","o":["me","they","She","his"],"a":0,"v":1,"e":"object pronoun: showed me।"},
-{"s":"English","t":"Idioms & Phrases","q":"\"Kith and kin\" means —","o":["friends","ancestors","family","family and friends"],"a":3,"v":1,"e":"Kith and kin = আত্মীয়স্বজন ও বন্ধু।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He came to Dhaka with a view to ........ a new place.","o":["visit","visiting","watch","look"],"a":1,"v":1,"e":"with a view to + V-ing: visiting।"},
-{"s":"English","t":"Grammar: Preposition","q":"My mother is indifferent ___ politics.","o":["of","to","on","for"],"a":1,"v":1,"e":"সঠিক expression: ‘indifferent to’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"He is one of the boys _______.","o":["who has written the letter","who is written the letter","who is being written the letter","who have written the letter"],"a":3,"v":1,"e":"one of the boys who + plural verb: have।"},
-{"s":"English","t":"Grammar: Word Forms","q":"What is the verb of 'ability'?","o":["ableness","enable","ably","able"],"a":1,"v":1,"e":"ability-র verb = enable।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"It is essential that every student ____ the rules of the institution.","o":["obeys","obey","obeyed","should obey"],"a":1,"v":1,"e":"essential that + subject + base verb: obey।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The jury ____ divided in their opinions regarding the verdict.","o":["was","were","is","has"],"a":1,"v":1,"e":"Subject-verb agreement: jury-র সদস্যরা আলাদা, তাই were।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Neither the teacher nor the students ____ present in the seminar yesterday.","o":["was","were","is","has been"],"a":1,"v":1,"e":"Neither/Either…nor/or-এ verb বসে পরের subject অনুযায়ী: nor-এর পরে students (plural) তাই were।"},
-{"s":"English","t":"Grammar: Preposition","q":"He is abstemious ____ his eating and drinking habits.","o":["in","of","at","with"],"a":0,"v":1,"e":"সঠিক expression: ‘abstemious in’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Preposition","q":"The poor man died ____ overeating.","o":["of","from","by","for"],"a":0,"v":1,"e":"সঠিক expression: ‘died of (from-ও চলে)’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়। (of ও from—দুটোই ব্যবহৃত হয়।)"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"____ I known you were in the hospital, I would have visited you.","o":["If","Had","Did","Have"],"a":1,"v":1,"e":"Conditional: Had I known = If I had known।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"It is no use ____ over spilt milk.","o":["cry","to cry","crying","cried"],"a":2,"v":1,"e":"It is no use + V-ing: crying।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"She got her car ____ by a local mechanic yesterday.","o":["wash","washing","washed","to wash"],"a":2,"v":1,"e":"get + object + V3: washed।"},
-{"s":"English","t":"Grammar: Voice","q":"Active: 'Who taught you English?' — What is the correct passive form?","o":["By whom you were taught English?","By whom were you taught English?","Who was taught English by you?","English was taught to you by whom?"],"a":1,"v":1,"e":"Passive: By whom were you taught English?"},
-{"s":"English","t":"Grammar: Narration","q":"Direct: He said, 'Alas! I am undone.' — What is the indirect speech?","o":["He said that he was undone.","He exclaimed with sorrow that he was undone.","He exclaimed with sorrow that I am undone.","He cried out that he is undone."],"a":1,"v":1,"e":"Alas! → exclaimed with sorrow that + past।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Between you and ____, I do not believe a single word he says.","o":["I","me","mine","myself"],"a":1,"v":1,"e":"preposition-এর পর objective case: me।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"This is the man ____ I know wrote the prize-winning novel.","o":["whom","who","whose","which"],"a":1,"v":1,"e":"I know বাদ দিলে subject দরকার: who।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"She sings very ____, which charmed the entire audience.","o":["beautiful","beautifully","beauty","more beautiful"],"a":1,"v":1,"e":"verb modify করে adverb: beautifully।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Which of the following sentences is free from redundancy?","o":["She returned back from Dhaka yesterday.","The reason why he failed is because he did not study.","He entered into the room quietly.","She returned from Dhaka yesterday."],"a":3,"v":1,"e":"returned back-এ back বাড়তি; returned from সঠিক।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He likes swimming, dancing, and ____.","o":["to cook","cooking","cook","cooks"],"a":1,"v":1,"e":"সমান গঠন: swimming, dancing and cooking।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"While walking in the garden, ____.","o":["a snake bit him","he was bitten by a snake","he saw a poisonous snake","a snake was seen by him"],"a":1,"v":1,"e":"dangling modifier এড়াতে: he was bitten (he saw-ও চলে)। (খ ও গ—দুটোই ব্যাকরণসম্মত।)"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Do you know where ____?","o":["does he live","he lives","did he live","he live"],"a":1,"v":1,"e":"indirect question-এ সাধারণ বাক্যক্রম: he lives।"},
-{"s":"English","t":"Grammar: Article","q":"Copper is ____ useful metal.","o":["a","an","the","no article"],"a":0,"v":1,"e":"consonant sound: a।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"There is ____ milk in the bottle; it is almost empty.","o":["little","a little","few","a few"],"a":0,"v":1,"e":"little = প্রায় নেই: almost empty-র সাথে মেলে।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The outdoor match was ____ due to heavy rainfall.","o":["called off","called on","called out","called for"],"a":0,"v":1,"e":"called off = বাতিল।"},
-{"s":"English","t":"Vocabulary","q":"What is the synonym of the word 'Obdurate'?","o":["Flexible","Stubborn","Gentle","Honest"],"a":1,"v":1,"e":"Obdurate = stubborn (একগুঁয়ে)।"},
-{"s":"English","t":"Vocabulary","q":"The word 'Ephemeral' is closest in meaning to —","o":["Eternal","Short-lived","Mythical","Huge"],"a":1,"v":1,"e":"Ephemeral = short-lived (ক্ষণস্থায়ী)।"},
-{"s":"English","t":"Vocabulary","q":"What is the antonym of 'Altruistic'?","o":["Benevolent","Selfish","Charitable","Generous"],"a":1,"v":1,"e":"Altruistic-এর বিপরীত: Selfish।"},
-{"s":"English","t":"Vocabulary","q":"The antonym of 'Mitigate' is —","o":["Alleviate","Aggravate","Reduce","Relieve"],"a":1,"v":1,"e":"Mitigate-এর বিপরীত: Aggravate।"},
-{"s":"English","t":"Idioms & Phrases","q":"What does the phrase 'Out of the blue' mean?","o":["Intentionally","Unexpectedly","Depressed","Far away"],"a":1,"v":1,"e":"Out of the blue = হঠাৎ।"},
-{"s":"English","t":"Idioms & Phrases","q":"The expression 'In black and white' means —","o":["Briefly","In writing","Partially","Clearly spoken"],"a":1,"v":1,"e":"In black and white = লিখিত।"},
-{"s":"English","t":"Vocabulary","q":"A person who hates mankind is called a/an —","o":["Philanthropist","Misanthrope","Optimist","Misogynist"],"a":1,"v":1,"e":"Misanthrope = মানবদ্বেষী।"},
-{"s":"English","t":"Spelling","q":"Find the correctly spelled word:","o":["Bureaucracy","Burocracy","Beaurocracy","Bureacracy"],"a":0,"v":1,"e":"সঠিক বানান: Bureaucracy"},
-{"s":"English","t":"Spelling","q":"Choose the correct spelling:","o":["Liaison","Liason","Liasion","Liaision"],"a":0,"v":1,"e":"সঠিক বানান: Liaison"},
-{"s":"English","t":"Analogy","q":"SCISSORS : CLOTH :: _____","o":["Pen : Paper","Razor : Beard","Axe : Wood","Hammer : Nail"],"a":2,"v":1,"e":"Scissors দিয়ে cloth কাটা; Axe দিয়ে wood কাটা। (খ ও গ—দুটোই মেলে।)"},
-{"s":"English","t":"Analogy","q":"RETAILER : CUSTOMER :: _____","o":["Manufacturer : Wholesaler","Doctor : Patient","Teacher : School","Lawyer : Court"],"a":1,"v":1,"e":"Retailer-এর সেবা Customer; Doctor-এর সেবা Patient।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Which of the following is the correct sentence?","o":["I prefer tea than coffee.","I prefer tea to coffee.","I prefer tea more than coffee.","I prefer tea over coffee."],"a":1,"v":1,"e":"prefer A to B।"},
-{"s":"English","t":"Literature","q":"Who is known as the 'Poet of Beauty' in English Literature?","o":["William Wordsworth","John Keats","Percy Bysshe Shelley","Lord Byron"],"a":1,"v":1,"e":"John Keats = Poet of Beauty।"},
-{"s":"English","t":"Literature","q":"'To be or not to be, that is the question' — This famous soliloquy is from which play?","o":["Macbeth","Othello","Hamlet","King Lear"],"a":2,"v":1,"e":"Hamlet-এর বিখ্যাত soliloquy।"},
-{"s":"English","t":"Literature","q":"Who is the author of the novel 'Wuthering Heights'?","o":["Jane Austen","Charlotte Bronte","Emily Bronte","George Eliot"],"a":2,"v":1,"e":"Wuthering Heights — Emily Brontë।"},
-{"s":"English","t":"Grammar: Voice","q":"Identify the correct passive form of \"He teaches us English.\":","o":["We are taught English by him.","English is taught us by him.","We were taught English by him.","English has been taught us by him."],"a":0,"v":1,"e":"He teaches us English → We are taught English by him।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"There ____ a lot of people at the party last night.","o":["was","were","has been","is"],"a":1,"i":"BCS","y":"41st","v":1,"e":"a lot of people বহুবচন: were।"},
-{"s":"English","t":"Grammar: Preposition","q":"I congratulated him ____ his success.","o":["for","on","at","with"],"a":1,"i":"DU","y":"19-20","v":1,"e":"সঠিক expression: ‘congratulate on’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Many years have passed since I ____ him last.","o":["met","meet","had met","would meet"],"a":0,"i":"RU","y":"20-21","v":1,"e":"since + past simple: met।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He is not only a talented writer but also ____.","o":["an actor","acting","acts","a great actor"],"a":0,"i":"BCS","y":"38th","v":1,"e":"সমান গঠন: a talented writer … an actor।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The manager insisted that the report ____ submitted by Friday.","o":["be","is","was","should be"],"a":0,"i":"GST","y":"21- 22","v":1,"e":"insist that + subject + base verb: be।"},
-{"s":"English","t":"Grammar: Voice","q":"He gave me a book. (What is the passive form?)","o":["A book was given me by him.","I was given a book by him.","I am given a book by him.","A book is given to me by him."],"a":1,"i":"CU","y":"18-19","v":1,"e":"I was given a book by him।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"You should avoid ____ raw milk.","o":["to drink","drinking","drink","drank"],"a":1,"i":"BCS","y":"35th","v":1,"e":"avoid + V-ing: drinking।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"If I ____ a bird, I would fly in the sky.","o":["was","were","am","had been"],"a":1,"i":"JU","y":"19-20","v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: If I were a bird"},
-{"s":"English","t":"Grammar: Preposition","q":"He is devoid ____ common sense.","o":["of","off","with","in"],"a":0,"i":"RU","y":"18-19","v":1,"e":"সঠিক expression: ‘devoid of’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The harder you work, the ____ you will succeed.","o":["good","better","best","more better"],"a":1,"i":"BCS","y":"40th","v":1,"e":"The + comparative … the + comparative: better।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"One should do ____ duty.","o":["his","her","one's","their"],"a":2,"i":"DU","y":"21-22","v":1,"e":"One … one's।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"This red tie will ____ your blue suit perfectly.","o":["compliment","complement","complete","comply"],"a":1,"i":"CU","y":"19-20","v":1,"e":"complement = পরিপূরক; compliment = প্রশংসা।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Looking out the window, ____.","o":["the mountains were beautiful","he saw the beautiful mountains","a bird was seen","the view was great"],"a":1,"i":"BCS","y":"37th","v":1,"e":"dangling modifier এড়াতে: he saw।"},
-{"s":"English","t":"Grammar: Voice","q":"He ran a race. (What is the passive form?)","o":["A race was run by him.","A race was ran by him.","A race is run by him.","He was run a race."],"a":0,"i":"RU","y":"17-18","v":1,"e":"run–ran–run: A race was run by him।"},
-{"s":"English","t":"Grammar: Preposition","q":"He prefers death ____ dishonor.","o":["than","to","over","for"],"a":1,"i":"DU","y":"18-19","v":1,"e":"সঠিক expression: ‘prefer … to’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The news ____ true.","o":["is","are","were","have been"],"a":0,"i":"BCS","y":"36th","v":1,"e":"news singular: is।"},
-{"s":"English","t":"Grammar: Narration","q":"He said to me, 'Please help me.' (What is the indirect form?)","o":["He told me to please help him.","He requested me to help him.","He requested to help him.","He asked me please help him."],"a":1,"i":"GST","y":"20-21","v":1,"e":"request → requested me to help him।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"He talks as if he ____ everything.","o":["knows","knew","had known","would know"],"a":1,"i":"CU","y":"17-18","v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: as if he knew"},
-{"s":"English","t":"Grammar: Preposition","q":"We must abide ____ the rules.","o":["by","with","of","to"],"a":0,"i":"JU","y":"18-19","v":1,"e":"সঠিক expression: ‘abide by’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Vocabulary","q":"The synonym of 'Benevolent' is —","o":["Kind","Cruel","Miserly","Greedy"],"a":0,"i":"BCS","y":"42nd","v":1,"e":"Benevolent = kind।"},
-{"s":"English","t":"Vocabulary","q":"The antonym of 'Hostile' is —","o":["Friendly","Aggravate","Angry","Bitter"],"a":0,"i":"DU","y":"17-18","v":1,"e":"Hostile-এর বিপরীত: Friendly।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He helped me ____ the work.","o":["do","doing","done","did"],"a":0,"i":"RU","y":"19-20","v":1,"e":"help + object + base verb: do।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Hardly had we reached the station ____ the train left.","o":["when","than","then","after"],"a":0,"i":"BCS","y":"39th","v":1,"e":"Hardly … when।"},
-{"s":"English","t":"Grammar: Question Tag","q":"Let's have a walk, ____?","o":["shall we","will we","don't we","can we"],"a":0,"i":"CU","y":"20-21","v":1,"e":"Let's-এর tag: shall we?"},
-{"s":"English","t":"Grammar: Preposition","q":"She is engaged ____ writing a novel.","o":["in","at","with","on"],"a":0,"i":"JU","y":"20-21","v":1,"e":"সঠিক expression: ‘engaged in’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Word Forms","q":"What is the plural of 'Criterion'?","o":["Criterions","Criteria","Criterias","Criteriones"],"a":1,"i":"BCS","y":"34th","v":1,"e":"Plural-এর নিয়ম: criterion → criteria"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"In the sentence 'He runs fast', the word 'fast' is a/an —","o":["Noun","Adjective","Adverb","Verb"],"a":2,"i":"DU","y":"20-21","v":1,"e":"Part of speech বাক্যে শব্দের কাজ দেখে ঠিক হয়: fast verb modify করে, তাই adverb।"},
-{"s":"English","t":"Idioms & Phrases","q":"The phrase 'A man of straw' means —","o":["A very weak man","A man of no substance","A wealthy man","A useless thing"],"a":1,"i":"BCS","y":"38th","v":1,"e":"A man of straw = সারহীন মানুষ।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I don't know what ____.","o":["does he want","he wants","he wanted","wants he"],"a":1,"i":"RU","y":"21-22","v":1,"e":"indirect question: what he wants।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"Walk fast lest you ____ miss the train.","o":["should","would","will","might"],"a":0,"i":"BCS","y":"35th","v":1,"e":"lest + subject + should।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The chairman, along with his members, ____ present.","o":["was","were","are","have been"],"a":0,"i":"CU","y":"21-22","v":1,"e":"along with/as well as-এর আগের মূল subject অনুযায়ী verb বসে: মূল subject chairman (singular): was।"},
-{"s":"English","t":"Idioms & Phrases","q":"The phrase 'Crying need' means —","o":["An urgent need","A useless cry","A deep sorrow","A minor demand"],"a":0,"i":"BCS","y":"32nd","v":1,"e":"Crying need = জরুরি প্রয়োজন।"},
-{"s":"English","t":"Grammar: Preposition","q":"He is indifferent ____ his studies.","o":["to","for","at","in"],"a":0,"i":"DU","y":"16-17","v":1,"e":"সঠিক expression: ‘indifferent to’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Word Forms","q":"What is the adjective form of the word 'Courage'?","o":["Courages","Courageous","Courageously","Encourage"],"a":1,"i":"RU","y":"16-17","v":1,"e":"Courage → courageous।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The word 'Franchise' is related to —","o":["Privilege","Voting right","Business","Freedom"],"a":1,"i":"BCS","y":"43rd","v":1,"e":"Franchise = ভোটাধিকার।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The doctor recommended that the patient ____ a few days off work.","o":["take","takes","took","should take"],"a":0,"i":"DU","y":"15-16","v":1,"e":"recommend that + base verb: take।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Two-thirds of the work ____ been finished.","o":["has","have","is","are"],"a":0,"i":"BCS","y":"40th","v":1,"e":"Subject-verb agreement: work uncountable: Two-thirds … has।"},
-{"s":"English","t":"Grammar: Preposition","q":"The police are inquiring ____ the case.","o":["into","of","after","to"],"a":0,"i":"RU","y":"15-16","v":1,"e":"সঠিক expression: ‘inquire into’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Would you mind ____ the door?","o":["to open","opening","open","opened"],"a":1,"i":"BCS","y":"38th","v":1,"e":"mind + V-ing: opening।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"Had I been invited, I ____ attended the party.","o":["would","will have","would have","had"],"a":2,"i":"DU","y":"14-15","v":1,"e":"Conditional: Had I been invited → would have attended।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He is the man ____ we thought was dead.","o":["who","whom","which","whose"],"a":0,"i":"RU","y":"14-15","v":1,"e":"we thought বাদ দিলে subject: who।"},
-{"s":"English","t":"Grammar: Voice","q":"Honey tastes sweet. (What is the passive form?)","o":["Honey is sweet when it is tasted.","Honey is sweet to taste.","Honey is tasted sweet.","Honey is being tasted sweet."],"a":1,"i":"CU","y":"15-16","v":1,"e":"Honey is sweet to taste।"},
-{"s":"English","t":"Grammar: Preposition","q":"He prevented me ____ going there.","o":["from","to","for","of"],"a":0,"i":"JU","y":"15-16","v":1,"e":"সঠিক expression: ‘prevent from’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"No sooner had he left ____ it started to rain.","o":["when","than","then","before"],"a":1,"i":"BCS","y":"37th","v":1,"e":"No sooner … than।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"You can either write the essay or ____ the presentation.","o":["delivered","deliver","delivering","to deliver"],"a":1,"i":"RU","y":"13-14","v":1,"e":"either … or-এর পরে সমান গঠন: deliver।"},
-{"s":"English","t":"Grammar: Preposition","q":"The court acquitted him ____ the charge of murder.","o":["from","of","in","at"],"a":1,"i":"BCS","y":"36th","v":1,"e":"সঠিক expression: ‘acquit of’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Standing on the bridge, ____.","o":["a ship was seen","he saw a ship","the view was great","a bird flew away"],"a":1,"i":"DU","y":"13-14","v":1,"e":"dangling modifier এড়াতে: he saw a ship।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Neither the parents nor the teacher ____ satisfied.","o":["is","are","were","have been"],"a":0,"i":"CU","y":"14-15","v":1,"e":"Neither/Either…nor/or-এ verb বসে পরের subject অনুযায়ী: nor-এর পরে teacher (singular) তাই is।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I have not seen him ____.","o":["late","lately","lately of","late of"],"a":1,"i":"BCS","y":"35th","v":1,"e":"lately = সম্প্রতি।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I prefer to play chess rather ____ watch television.","o":["than","to","than to","to play"],"a":0,"i":"DU","y":"12-13","v":1,"e":"prefer to … rather than + base verb।"},
-{"s":"English","t":"Grammar: Narration","q":"He said, 'What a nice bird it is!' (What is the indirect form?)","o":["He exclaimed with wonder that it was a very nice bird.","He told that it is a very nice bird.","He exclaimed that what a nice bird it was.","He said that it was a very nice bird."],"a":0,"i":"RU","y":"12-13","v":1,"e":"What a…! → exclaimed with wonder that।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"In the sentence 'The iron is hard', the word 'hard' is a/an —","o":["Noun","Adjective","Adverb","Verb"],"a":1,"i":"DU","y":"11-12","v":1,"e":"Part of speech বাক্যে শব্দের কাজ দেখে ঠিক হয়: hard adjective (শক্ত)।"},
-{"s":"English","t":"Vocabulary","q":"The synonym of 'Inimical' is —","o":["Friendly","Hostile","Kind","Harmful"],"a":1,"i":"BCS","y":"43rd","v":1,"e":"Inimical = hostile।"},
-{"s":"English","t":"Vocabulary","q":"The antonym of 'Fragile' is —","o":["Weak","Strong","Delicate","Brittle"],"a":1,"i":"BCS","y":"42nd","v":1,"e":"Fragile-এর বিপরীত: Strong।"},
-{"s":"English","t":"Grammar: Voice","q":"Do it. (What is the passive form?)","o":["Let it be done.","Let it do.","It should be done.","You are told to do."],"a":0,"i":"JU","y":"14-15","v":1,"e":"Do it → Let it be done।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"My mother let me ____ to the cinema.","o":["go","to go","going","gone"],"a":0,"i":"CU","y":"13-14","v":1,"e":"let + object + base verb: go।"},
-{"s":"English","t":"Grammar: Question Tag","q":"A barking dog seldom bites, ____?","o":["does it","doesn't it","is it","isn't it"],"a":0,"i":"RU","y":"11-12","v":1,"e":"seldom নেতিবাচক, তাই tag ইতিবাচক: does it?"},
-{"s":"English","t":"Grammar: Preposition","q":"A father is blind ____ his son's faults.","o":["to","of","with","in"],"a":0,"i":"BCS","y":"33rd","v":1,"e":"সঠিক expression: ‘blind to’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The committee ____ accepted the proposal unanimously.","o":["has","have","are","were"],"a":0,"i":"JU","y":"13-14","v":1,"e":"Subject-verb agreement: committee একক ইউনিট: has।"},
-{"s":"English","t":"Idioms & Phrases","q":"The phrase 'Maiden speech' means —","o":["A girl's speech","First speech","Last speech","An angry speech"],"a":1,"i":"BCS","y":"31st","v":1,"e":"Maiden speech = প্রথম বক্তৃতা।"},
-{"s":"English","t":"Grammar: Word Forms","q":"What is the noun form of the word 'Describe'?","o":["Describing","Description","Descriptive","Described"],"a":1,"i":"RU","y":"10-11","v":1,"e":"describe → description।"},
-{"s":"English","t":"Spelling","q":"Choose the correct spelling:","o":["Acomodation","Accommodation","Accomodation","Acommodation"],"a":1,"i":"BCS","y":"30th","v":1,"e":"সঠিক বানান: Accommodation"},
-{"s":"English","t":"Analogy","q":"FIRE : ASHES :: _____","o":["Water : Ice","Explosion : Debris","Wood : Coal","Wind : Storm"],"a":1,"i":"DU","y":"10-11","v":1,"e":"Fire থেকে ashes; Explosion থেকে debris।"},
-{"s":"English","t":"Grammar: Preposition","q":"You must comply ____ the safety regulations.","o":["with","of","to","in"],"a":0,"i":"BCS","y":"28th","v":1,"e":"সঠিক expression: ‘comply with’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"You will fail ____ you study hard.","o":["unless","if","otherwise","as"],"a":0,"i":"CU","y":"12-13","v":1,"e":"unless = if not।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The two brothers quarreled with ____.","o":["each other","one another","themselves","their own"],"a":0,"i":"BCS","y":"27th","v":1,"e":"দুইজনের মধ্যে: each other।"},
-{"s":"English","t":"Vocabulary","q":"The synonym of 'Garrulous' is —","o":["Quiet","Talkative","Shy","Serious"],"a":1,"i":"DU","y":"09-10","v":1,"e":"Garrulous = বাচাল।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Many a man ____ tried to solve the puzzle.","o":["has","have","are","were"],"a":0,"i":"RU","y":"09-10","v":1,"e":"Subject-verb agreement: Many a man has"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I asked him how much the ticket ____.","o":["costs","cost","did cost","did it cost"],"a":1,"i":"CU","y":"11-12","v":1,"e":"reported speech-এ past: cost।"},
-{"s":"English","t":"Literature","q":"Which of the following is a play by William Shakespeare?","o":["The Tempest","Paradise Lost","Dr. Faustus","The Duchess of Malfi"],"a":0,"i":"BCS","y":"41st","v":1,"e":"The Tempest — Shakespeare।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He is as good as ____.","o":["I","me","my","mine"],"a":0,"i":"BCS","y":"40th","v":1,"e":"as good as I (subjective)।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Either he or his brothers ____ responsible for this.","o":["is","are","was","has been"],"a":1,"i":"DU","y":"19-20","v":1,"e":"Neither/Either…nor/or-এ verb বসে পরের subject অনুযায়ী: or-এর পরে his brothers (plural) তাই are।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"It is necessary that he ____ the class.","o":["attend","attends","attended","should attend"],"a":0,"i":"RU","y":"18-19","v":1,"e":"necessary that + base verb: attend।"},
-{"s":"English","t":"Grammar: Preposition","q":"He is inured ____ hard work.","o":["to","at","with","in"],"a":0,"i":"BCS","y":"38th","v":1,"e":"সঠিক expression: ‘inured to’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"If I were you, I ____ accept the offer.","o":["will","would","would have","had"],"a":1,"i":"GST","y":"21-22","v":1,"e":"Conditional: If I were you → would accept।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"It was five years since I ____ her last.","o":["met","meet","had met","would meet"],"a":2,"i":"CU","y":"17-18","v":1,"e":"It was … since + past perfect: had met।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Having finished his homework, ____.","o":["the TV was turned on by him","he turned on the TV","the TV was turned on","he was turned on the TV"],"a":1,"i":"BCS","y":"35th","v":1,"e":"dangling modifier এড়াতে: he turned on the TV।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The teacher expects us to listen attentively, take notes, and ____ the questions.","o":["answer","to answer","answering","answered"],"a":0,"i":"JU","y":"19-20","v":1,"e":"সমান গঠন: listen, take, answer।"},
-{"s":"English","t":"Grammar: Voice","q":"They are building a house. (What is the passive form?)","o":["A house is being built by them.","A house was built by them.","A house is built by them.","A house was being built by them."],"a":0,"i":"CU","y":"19-20","v":1,"e":"continuous passive: is being built।"},
-{"s":"English","t":"Grammar: Narration","q":"He said to me, 'What are you doing?' (What is the indirect form?)","o":["He asked me what I was doing.","He told me what I am doing.","He asked me that what I was doing.","He asked me what was I doing."],"a":0,"i":"RU","y":"21- 22","v":1,"e":"reported: asked me what I was doing।"},
-{"s":"English","t":"Grammar: Preposition","q":"I cannot cope ____ this situation.","o":["up with","with","at","to"],"a":1,"i":"BCS","y":"36th","v":1,"e":"সঠিক expression: ‘cope with’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Spelling","q":"Choose the correct spelling:","o":["Occurence","Occurrence","Ocurence","Occurrance"],"a":1,"i":"BCS","y":"42nd","v":1,"e":"সঠিক বানান: Occurrence"},
-{"s":"English","t":"Vocabulary","q":"The synonym of 'Obnoxious' is —","o":["Offensive","Friendly","Pleasant","Kind"],"a":0,"i":"DU","y":"17-18","v":1,"e":"Obnoxious = offensive।"},
-{"s":"English","t":"Vocabulary","q":"The antonym of 'Benevolent' is —","o":["Malevolent","Kind","Friendly","Charitable"],"a":0,"i":"RU","y":"16-17","v":1,"e":"Benevolent-এর বিপরীত: Malevolent।"},
-{"s":"English","t":"Idioms & Phrases","q":"The phrase 'A bolt from the blue' means —","o":["An unexpected disaster","A clear sky","A bright light","A loud sound"],"a":0,"i":"BCS","y":"37th","v":1,"e":"A bolt from the blue = অপ্রত্যাশিত বিপর্যয়।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"In the sentence 'The train runs fast', the word 'fast' is a/an —","o":["Noun","Adjective","Adverb","Verb"],"a":2,"i":"DU","y":"20-21","v":1,"e":"Part of speech বাক্যে শব্দের কাজ দেখে ঠিক হয়: fast verb modify করে, তাই adverb।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Can you tell me how ____?","o":["did you solve it","you solved it","you solve it","did you solved it"],"a":1,"i":"RU","y":"20-21","v":1,"e":"indirect question: you solved it।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"Read attentively lest you ____ fail in the exam.","o":["should","would","will","might"],"a":0,"i":"BCS","y":"39th","v":1,"e":"lest + subject + should।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The number of students ____ increasing.","o":["is","are","were","have been"],"a":0,"i":"CU","y":"20-21","v":1,"e":"Subject-verb agreement: The number of + plural noun: is।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I cannot ____ his bad behavior anymore.","o":["put up with","put on","put out","put off"],"a":0,"i":"JU","y":"20-21","v":1,"e":"put up with = সহ্য করা।"},
-{"s":"English","t":"Grammar: Word Forms","q":"What is the plural form of 'Oasis'?","o":["Oasises","Oases","Oasise","Oasisses"],"a":1,"i":"BCS","y":"34th","v":1,"e":"Plural-এর নিয়ম: oasis → oases"},
-{"s":"English","t":"Grammar: Word Forms","q":"What is the adjective form of the word 'Duty'?","o":["Dutiful","Dutifully","Dutiable","Duties"],"a":0,"i":"RU","y":"15-16","v":1,"e":"duty → dutiful।"},
-{"s":"English","t":"Analogy","q":"DOCTOR : HOSPITAL :: _____","o":["Teacher : School","Pilot : Plane","Chef : Kitchen","Lawyer : Court"],"a":0,"i":"DU","y":"16-17","v":1,"e":"Doctor-এর কর্মস্থল Hospital; Teacher-এর School।"},
-{"s":"English","t":"Grammar: Preposition","q":"You must adhere ____ your principles.","o":["to","with","of","in"],"a":0,"i":"BCS","y":"32nd","v":1,"e":"সঠিক expression: ‘adhere to’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"Hardly had I arrived ____ the phone rang.","o":["when","than","then","before"],"a":0,"i":"BCS","y":"31st","v":1,"e":"Hardly … when।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The boy ____ you met yesterday is my brother.","o":["who","whom","which","whose"],"a":1,"i":"DU","y":"18-19","v":1,"e":"object form: the boy whom you met।"},
-{"s":"English","t":"Grammar: Preposition","q":"____ completed the work, we went home.","o":["Having","To","By","For"],"a":0,"i":"RU","y":"14-15","v":1,"e":"Having + V3 participle phrase।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"It is high time we ____ our food habits.","o":["change","changed","had changed","should change"],"a":1,"i":"BCS","y":"33rd","v":1,"e":"It is high time-এর পর subject + V2 (past form) বসে: changed"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Each of the students ____ received a prize.","o":["has","have","are","were"],"a":0,"i":"JU","y":"14-15","v":1,"e":"Subject-verb agreement: Each of the students has"},
-{"s":"English","t":"Grammar: Voice","q":"He laughed at the poor man. (What is the passive form?)","o":["The poor man was laughed at by him.","The poor man was laughed by him.","The poor man is laughed at by him.","The poor man was being laughed at by him."],"a":0,"i":"CU","y":"15-16","v":1,"e":"laugh at-এর passive: was laughed at।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Please ____ this gift.","o":["accept","except","expect","aspect"],"a":0,"i":"DU","y":"15-16","v":1,"e":"accept = গ্রহণ করা; except = ছাড়া।"},
-{"s":"English","t":"Spelling","q":"Choose the correct spelling:","o":["Lieutenant","Liutenant","Lieutenent","Luetenant"],"a":0,"i":"BCS","y":"30th","v":1,"e":"সঠিক বানান: Lieutenant"},
-{"s":"English","t":"Idioms & Phrases","q":"The phrase 'Gala day' means —","o":["A day of festivity","A rainy day","A day of sorrow","A busy day"],"a":0,"i":"BCS","y":"28th","v":1,"e":"Gala day = উৎসবের দিন।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Identify the correct sentence:","o":["I don't know nothing","I don't know anything","I know nothing","Both B and C are correct"],"a":3,"i":"CU","y":"16-17","v":1,"e":"don't know anything ও know nothing—দুটোই সঠিক (double negative নয়)।"},
-{"s":"English","t":"Literature","q":"Who is the author of 'Daffodils'?","o":["William Wordsworth","John Keats","Lord Byron","P.B. Shelley"],"a":0,"i":"BCS","y":"42nd","v":1,"e":"Daffodils — Wordsworth।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The politician, along with his supporters, ____ expected to attend.","o":["is","are","were","have been"],"a":0,"i":"BCS","y":"43rd","v":1,"e":"along with/as well as-এর আগের মূল subject অনুযায়ী verb বসে: মূল subject politician (singular): is।"},
-{"s":"English","t":"Grammar: Preposition","q":"He was accompanied ____ his sister.","o":["by","with","of","on"],"a":0,"i":"DU","y":"20-21","v":1,"e":"সঠিক expression: ‘accompanied by’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The court ordered that the document ____ produced.","o":["be","is","was","should be"],"a":0,"i":"RU","y":"21-22","v":1,"e":"order that + base verb: be।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"If I ____ you, I would not do that.","o":["was","were","am","had been"],"a":1,"i":"BCS","y":"42nd","v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: If I were you"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"It is time we ____ our strategy.","o":["change","changed","had changed","should change"],"a":1,"i":"CU","y":"19-20","v":1,"e":"It is high time-এর পর subject + V2 (past form) বসে: changed"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"We look forward to ____ your reply.","o":["receive","receiving","received","be received"],"a":1,"i":"BCS","y":"41st","v":1,"e":"look forward to + V-ing: receiving।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"While crossing the street, ____.","o":["a bus hit him","he was hit by a bus","a bus was seen","a car passed"],"a":1,"i":"JU","y":"20-21","v":1,"e":"dangling modifier এড়াতে: he was hit।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"She likes hiking, skiing, and ____.","o":["to swim","swimming","swim","swims"],"a":1,"i":"DU","y":"18-19","v":1,"e":"সমান গঠন: swimming।"},
-{"s":"English","t":"Grammar: Voice","q":"The boy was flying a kite. (What is the passive form?)","o":["A kite was being flown by the boy.","A kite was flown by the boy.","A kite is being flown by the boy.","A kite was flying by the boy."],"a":0,"i":"CU","y":"18-19","v":1,"e":"past continuous passive: was being flown।"},
-{"s":"English","t":"Grammar: Narration","q":"The mother said to her son, 'May you live long.' (What is the indirect form?)","o":["The mother wished that her son might live long.","The mother prayed that her son may live long.","The mother told her son to live long.","The mother wished her son long life."],"a":0,"i":"RU","y":"19-20","v":1,"e":"May you … → wished that … might।"},
-{"s":"English","t":"Grammar: Preposition","q":"You must abstain ____ smoking.","o":["from","to","of","with"],"a":0,"i":"BCS","y":"40th","v":1,"e":"সঠিক expression: ‘abstain from’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Spelling","q":"Choose the correct spelling:","o":["Bureaucracy","Burocracy","Beaurocracy","Bureacracy"],"a":0,"i":"BCS","y":"38th","v":1,"e":"সঠিক বানান: Bureaucracy"},
-{"s":"English","t":"Vocabulary","q":"The synonym of 'Altruistic' is —","o":["Unselfish","Selfish","Hostile","Greedy"],"a":0,"i":"DU","y":"17-18","v":1,"e":"Altruistic = unselfish।"},
-{"s":"English","t":"Vocabulary","q":"The antonym of 'Diligence' is —","o":["Laziness","Hard work","Attentiveness","Carefulness"],"a":0,"i":"RU","y":"17-18","v":1,"e":"Diligence-এর বিপরীত: Laziness।"},
-{"s":"English","t":"Idioms & Phrases","q":"The phrase 'Out of the wood' means —","o":["Free from difficulties","Inside a forest","In a dangerous path","Confused"],"a":0,"i":"BCS","y":"39th","v":1,"e":"Out of the wood = বিপদমুক্ত।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"In the sentence 'He hardly works', the word 'hardly' is a/an —","o":["Noun","Adjective","Adverb","Verb"],"a":2,"i":"DU","y":"19-20","v":1,"e":"Part of speech বাক্যে শব্দের কাজ দেখে ঠিক হয়: hardly adverb।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I don't know where ____.","o":["does she live","she lives","she live","did she live"],"a":1,"i":"RU","y":"18-19","v":1,"e":"indirect question: she lives।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"Run fast lest you ____ miss the train.","o":["should","would","will","might"],"a":0,"i":"BCS","y":"37th","v":1,"e":"lest + subject + should।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Neither the principal nor the teachers ____ present.","o":["was","were","is","has been"],"a":1,"i":"CU","y":"17-18","v":1,"e":"Neither/Either…nor/or-এ verb বসে পরের subject অনুযায়ী: nor-এর পরে teachers (plural) তাই were।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"We should not ____ the poor.","o":["look down upon","look after","look into","look for"],"a":0,"i":"JU","y":"18-19","v":1,"e":"look down upon = অবজ্ঞা করা।"},
-{"s":"English","t":"Grammar: Word Forms","q":"What is the plural form of 'Syllabus'?","o":["Syllabi","Syllabuses","Syllabises","Both A and B"],"a":3,"i":"BCS","y":"36th","v":1,"e":"Plural-এর নিয়ম: syllabus → syllabi/syllabuses"},
-{"s":"English","t":"Grammar: Word Forms","q":"What is the adjective form of 'Enemy'?","o":["Inimical","Enemies","Enemyship","Enmity"],"a":0,"i":"RU","y":"16-17","v":1,"e":"enemy-এর adjective: inimical।"},
-{"s":"English","t":"Analogy","q":"PORK : PIG :: _____","o":["Mutton : Sheep","Beef : Cow","Venison : Deer","All of the above"],"a":3,"i":"DU","y":"15-16","v":1,"e":"Pork–Pig, Mutton–Sheep, Beef–Cow, Venison–Deer: সবই মেলে।"},
-{"s":"English","t":"Grammar: Preposition","q":"He is deaf ____ my requests.","o":["to","of","with","at"],"a":0,"i":"BCS","y":"35th","v":1,"e":"সঠিক expression: ‘deaf to’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"No sooner had I reached the school ____ the bell rang.","o":["than","when","then","before"],"a":0,"i":"BCS","y":"33rd","v":1,"e":"No sooner … than।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The boy ______ you met yesterday is my brother.","o":["who","whom","which","whose"],"a":1,"v":1,"e":"object form: the boy whom you met।"},
-{"s":"English","t":"Grammar: Preposition","q":"____ finished his study, he went to sleep.","o":["Having","To","For","By"],"a":0,"i":"RU","y":"15-16","v":1,"e":"Having + V3।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"He behaves as if he ____ mad.","o":["was","were","am","had been"],"a":1,"i":"CU","y":"16-17","v":1,"e":"wish/as if/as though-এর পর অবাস্তব অবস্থায় past form (to be হলে were) বসে: as if he were mad"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Every boy and every girl ____ given a book.","o":["was","were","are","have been"],"a":0,"i":"JU","y":"16-17","v":1,"e":"Subject-verb agreement: Every … and every … singular: was।"},
-{"s":"English","t":"Grammar: Voice","q":"Let him do the work. (What is the passive form?)","o":["Let the work be done by him.","Let the work do by him.","The work should be done by him.","He should let the work be done."],"a":0,"i":"CU","y":"15-16","v":1,"e":"Let him do the work → Let the work be done by him।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"The warm weather will ____ our crops.","o":["affect","effect","infect","aspect"],"a":0,"i":"DU","y":"14-15","v":1,"e":"affect (verb) = প্রভাব ফেলা; effect (noun) = ফল।"},
-{"s":"English","t":"Spelling","q":"Choose the correct spelling:","o":["Colonel","Colonnel","Colonal","Colonnell"],"a":0,"i":"BCS","y":"32nd","v":1,"e":"সঠিক বানান: Colonel"},
-{"s":"English","t":"Idioms & Phrases","q":"The phrase 'Burning question' means —","o":["An important topic","A hot dispute","A critical problem","An easy puzzle"],"a":0,"i":"BCS","y":"31st","v":1,"e":"Burning question = গুরুত্বপূর্ণ বিষয়।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Identify the correct sentence:","o":["He returned back home","He returned home","He came back to home","He returned to home"],"a":1,"i":"CU","y":"14-15","v":1,"e":"returned back-এ back বাড়তি; returned home।"},
-{"s":"English","t":"Literature","q":"Who is the author of 'Macbeth'?","o":["William Shakespeare","Christopher Marlowe","John Milton","Ben Jonson"],"a":0,"i":"BCS","y":"30th","v":1,"e":"Macbeth — Shakespeare।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"They are said ____ a dynamic new play.","o":["to have wrote","to have written","to have writing","have written"],"a":1,"v":1,"e":"are said to have + V3: written।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"He ____ to see us if he had been able to.","o":["would come","may come","may have come","would have come"],"a":3,"v":1,"e":"past perfect if-clause → would have come।"},
-{"s":"English","t":"Grammar: Word Forms","q":"Find out the right plural form of 'Focus'.","o":["Focu","Focuses","Foci","Focis"],"a":2,"i":"Sonali & Janata Bank","y":"Sonali & Janata Bank 08 / HSTU 14-15","v":1,"e":"Plural-এর নিয়ম: focus → foci"},
-{"s":"English","t":"Grammar: Voice","q":"Do not close the door. (What is the passive form?)","o":["Let not the door close.","Let not the door be close.","Let not the door be closed.","Let not door closed."],"a":2,"i":"BCS","y":"44th","v":1,"e":"Do not + V → Let not + object + be + V3: closed।"},
-{"s":"English","t":"Grammar: Article","q":"____ honest person never tells a lie.","o":["the","an","a","no article"],"a":1,"i":"BTV Sub-Assistant Eng.","y":"23","v":1,"e":"honest-এর h নিঃশব্দ, তাই an।"},
-{"s":"English","t":"Grammar: Voice","q":"The correct passive form of 'You must shut these doors.'","o":["Shut the you must.","These must be shut doors.","shut must be the doors.","These doors must be shut."],"a":3,"i":"BCS","y":"35th","v":1,"e":"modal passive: must be + V3।"},
-{"s":"English","t":"Grammar: Article","q":"He maintains ____ office.","o":["a","an","the","no article"],"a":1,"i":"HSTU","y":"HSTU 13-14 / DLS Lab Tech 23","v":1,"e":"office-এর আগে vowel sound: an।"},
-{"s":"English","t":"Grammar: Preposition","q":"The train is ____ time.","o":["in","on","at","to"],"a":1,"v":1,"e":"on time = সময়মতো।"},
-{"s":"English","t":"Grammar: Preposition","q":"I'm ____ the balcony.","o":["on","at","in","into"],"a":0,"v":1,"e":"on the balcony।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"He and his sister ____ for a walk.","o":["go","goes","gone","is"],"a":0,"v":1,"e":"He and his sister (বহুবচন): go।"},
-{"s":"English","t":"Grammar: Voice","q":"The correct passive of 'Open the window.'","o":["The window should be opened.","Let the window be opened.","Let the window be opened by you.","The window must be opened."],"a":1,"i":"BCS","y":"23rd","v":1,"e":"Open the window → Let the window be opened।"},
-{"s":"English","t":"Vocabulary","q":"The meaning of the word 'obese' is-","o":["very fat","ugly","tardy","Obnoxious"],"a":0,"v":1,"e":"obese = অতিরিক্ত মোটা।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Identify the correct sentence:","o":["Airport is a busy place.","Airport is busy place.","The airport is a busy place.","The airport is busy place."],"a":2,"i":"RU","y":"RU 15-16 / IU 14-15 / PWD 20","v":1,"e":"airport নির্দিষ্ট: The airport is a busy place।"},
-{"s":"English","t":"Idioms & Phrases","q":"The idiom 'To end in smoke' means:","o":["To create fire","To go through fire","To come to nothing","To see fire"],"a":2,"v":1,"e":"To end in smoke = ব্যর্থ হওয়া।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"He started teaching Hamlet. Here 'teaching' is a/an-","o":["participle","infinitive","verbal noun","gerund"],"a":3,"v":1,"e":"started-এর object teaching: gerund।"},
-{"s":"English","t":"Grammar: Article","q":"Select the right determiner: 'She works as ____ FBI analyst.'","o":["a","an","the","none of the above"],"a":1,"v":1,"e":"FBI-এর উচ্চারণ vowel দিয়ে: an।"},
-{"s":"English","t":"Grammar: Voice","q":"A race was run by him. (What is the active form?)","o":["He run a race","He ran a race","He is to run a race","He runs a race"],"a":1,"i":"MoDMR Office Assistant","y":"19","v":1,"e":"A race was run by him → He ran a race।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I need some........","o":["advises","advice","advices","advise"],"a":1,"i":"MoFA Personal Officer","y":"19","v":1,"e":"advice uncountable।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"____ the water was salty, I could not drink.","o":["hence","Since","as a result","although"],"a":1,"i":"DU B","y":"25-26","v":1,"e":"Since = কারণ।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Having ____ there, I found him.","o":["going","gone","went","go"],"a":1,"v":1,"e":"Having gone।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"It is high time we ____ home.","o":["go","went","went to","going"],"a":1,"v":1,"e":"It is high time-এর পর subject + V2 (past form) বসে: went"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"Smoking ____ our health.","o":["effect","affects","affect","effects"],"a":1,"v":1,"e":"Smoking (gerund) singular: affects।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Which one is the correct sentence?","o":["I am more senior to Rahim.","I am senior than Rahim.","I am senior to Rahim.","I am more senior than Rahim."],"a":2,"i":"Bangladesh Post Office","y":"2026","v":1,"e":"senior to (Latin comparative-এ to)।"},
-{"s":"English","t":"Grammar: Preposition","q":"What is the time ... your watch?","o":["in","at","by","to"],"a":2,"i":"Bangladesh Post Office","y":"2026","v":1,"e":"by your watch।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"Which word is a Noun?","o":["Sing","Song","Feed","tell"],"a":1,"i":"SESIP ATEO","y":"SESIP ATEO 15 / Primary Asst Teacher 03","v":1,"e":"Song noun।"},
-{"s":"English","t":"Grammar: Preposition","q":"The police is looking ____ the case.","o":["after","on","up","into"],"a":3,"v":1,"e":"look into = তদন্ত করা।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"English ____ across the world.","o":["speaks","is speaking","is spoken","has been spoken"],"a":2,"v":1,"e":"English is spoken (passive)।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The Arabian Nights — still a great favourite.","o":["has","are","is","were"],"a":2,"i":"BCS","y":"26th","v":1,"e":"title singular: is।"},
-{"s":"English","t":"Grammar: Preposition","q":"He is absorbed ____ thought.","o":["in","at","with","by"],"a":0,"i":"BCS","y":"38th","v":1,"e":"সঠিক expression: ‘absorbed in’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"The color of his eyes ____ blue.","o":["is","are","were","have"],"a":0,"i":"DU","y":"17-18","v":1,"e":"subject color (singular): is।"},
-{"s":"English","t":"Grammar: Verb & Tense","q":"I saw him ____.","o":["play","playing","played","to play"],"a":0,"i":"CU","y":"18-19","v":1,"e":"saw him play/playing—দুটোই চলে। (play ও playing—দুটোই সঠিক হতে পারে।)"},
-{"s":"English","t":"Spelling","q":"Choose the correct spelling:","o":["Comittee","Committee","Commitee","Comitee"],"a":1,"i":"BCS","y":"35th","v":1,"e":"সঠিক বানান: Committee"},
-{"s":"English","t":"Idioms & Phrases","q":"The phrase 'At daggers drawn' means —","o":["At peace","On hostile terms","Friendly","To draw a picture"],"a":1,"i":"BCS","y":"34th","v":1,"e":"At daggers drawn = শত্রুভাবাপন্ন।"},
-{"s":"English","t":"Grammar: Voice","q":"Let me write a letter. (What is the passive form?)","o":["Let a letter be written by me.","Let a letter be write by me.","Let me be written a letter.","Let a letter was written by me."],"a":0,"i":"JU","y":"16-17","v":1,"e":"Let me write a letter → Let a letter be written by me।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"There is no mother but loves her child. — Here 'but' is used as a/an —","o":["Preposition","Conjunction","Relative Pronoun","Adverb"],"a":2,"v":1,"e":"but = who not: relative pronoun।"},
-{"s":"English","t":"Grammar: Parts of Speech","q":"He is but a child. — What part of speech is 'but'?","o":["Conjunction","Adverb","Preposition","Noun"],"a":1,"v":1,"e":"but = only: adverb।"},
-{"s":"English","t":"Grammar: Sentence Correction","q":"Choose the correct sentence:","o":["I shall help you provided you will obey me.","I shall help you provided you obey me.","I shall help you provided you obeyed me.","I shall help you provided you are obeying me."],"a":1,"v":1,"e":"provided + present simple: obey।"},
-{"s":"English","t":"Grammar: Preposition","q":"Don't interpret my silence _____ weakness.","o":["for","to","as","with"],"a":2,"v":1,"e":"সঠিক expression: ‘interpret as’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Subject-Verb Agreement","q":"Two-thirds of the apples ____ rotten.","o":["is","are","was","has been"],"a":1,"i":"BCS","y":"41st","v":1,"e":"Subject-verb agreement: Two-thirds of the apples (plural): are।"},
-{"s":"English","t":"Grammar: Preposition","q":"He was accused ____ theft.","o":["from","of","in","at"],"a":1,"i":"BCS","y":"38th","v":1,"e":"সঠিক expression: ‘accused of’। নির্দিষ্ট শব্দের সাথে নির্দিষ্ট preposition বসে, এগুলো মুখস্থ রাখতে হয়।"},
-{"s":"English","t":"Grammar: Conditional & Subjunctive","q":"____ I been rich, I would have helped the poor.","o":["If","Had","Did","Have"],"a":1,"i":"BCS","y":"35th","v":1,"e":"Conditional: Had I been rich → would have helped।"},
-{"s":"English","t":"Grammar: Narration","q":"He said, 'Thank you.' (What is the indirect form?)","o":["He said thank you.","He thanked me.","He told thank you.","He thanked to me."],"a":1,"i":"BCS","y":"36th","v":1,"e":"thank → thanked me।"}
-];
-function hs(s){var n=5381;for(var j=0;j<s.length;j++)n=((n<<5)+n+s.charCodeAt(j))|0;return "q"+(n>>>0).toString(36);}
-var BY={};Q.forEach(function(x){x.id=hs(x.q+x.o.join("|"));BY[x.id]=x;});
 
-/* ===== সংরক্ষণ (এই ডিভাইসের ব্রাউজারে) ===== */
-var S={seen:{},wrong:{},fav:{},st:{},hist:[],exams:[],lang:"en"};
-var UID=null,DB=null,booted=false,saveTimer=null;
+/* ===== প্রশ্নব্যাংক (ডেটাবেস থেকে লোড হবে) ===== */
+var NEG=0.25;
+var Q=[];
+var SEED=[];
+var BY={};
+var insts=[];
+
+function hs(s){var n=5381;for(var j=0;j<s.length;j++)n=((n<<5)+n+s.charCodeAt(j))|0;return "q"+(n>>>0).toString(36);}
+function normKey(s){return String(s||"").toLowerCase().replace(/\s+/g," ").trim();}
+function setQuestions(arr){
+  Q=arr; BY={}; insts=[];
+  Q.forEach(function(x){if(!x.id)x.id=hs((x.q||"")+(x.o||[]).join("|")); BY[x.id]=x; if(x.i&&insts.indexOf(x.i)<0)insts.push(x.i);});
+}
+
+/* ===== সংরক্ষণ ও লাইভ প্রেজেন্স ===== */
+var S={seen:{},wrong:{},fav:{},st:{},hist:[],exams:[],lang:"en",theme:"auto"};
+var UID=null,DB=null,booted=false,saveTimer=null,hbTimer=null,usrUnsub=null;
 var V_AUTH={mode:"login",msg:""};
-function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[],lang:d.lang||"en"};}
+function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[],lang:d.lang||"en",theme:d.theme||"auto"};}
+function applyTheme(){
+  var t=S.theme||"auto";
+  if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);
+  else document.documentElement.removeAttribute("data-theme");
+}
+function pingPresence(isOnline){
+  if(!UID||!DB)return;
+  var em=((firebase.auth().currentUser)||{}).email||"";
+  DB.collection("users").doc(UID).set({lastActive:Date.now(),online:!!isOnline,email:em},{merge:true}).catch(function(){});
+}
+function startPresence(){
+  stopPresence();
+  pingPresence(true);
+  hbTimer=setInterval(function(){if(document.visibilityState==="visible")pingPresence(true);},45000);
+}
+function stopPresence(){if(hbTimer){clearInterval(hbTimer);hbTimer=null;}}
+document.addEventListener("visibilitychange",function(){if(UID&&DB)pingPresence(document.visibilityState==="visible");});
+window.addEventListener("pagehide",function(){if(UID&&DB)pingPresence(false);});
+
 function save(){
   if(!UID||!DB)return;
   var u=UID,d=DB,snapshot=JSON.parse(JSON.stringify(S));
   clearTimeout(saveTimer);
   saveTimer=setTimeout(function(){
-    d.collection("users").doc(u).set({state:snapshot,updated:Date.now(),email:((firebase.auth().currentUser)||{}).email||""},{mergeFields:["state","updated","email"]}).catch(function(err){console.warn(err);});
+    d.collection("users").doc(u).set({state:snapshot,updated:Date.now(),lastActive:Date.now(),online:true,email:((firebase.auth().currentUser)||{}).email||""},{mergeFields:["state","updated","lastActive","online","email"]}).catch(function(err){console.warn(err);});
   },400);
 }
 function boot(){
@@ -500,12 +142,16 @@ function boot(){
   try{firebase.initializeApp(FIREBASE_CONFIG);}
   catch(err){booted=true;V_AUTH={mode:"login",msg:"Firebase কনফিগারেশন বসানো হয়নি"};render();return;}
   firebase.auth().onAuthStateChanged(function(user){
-    if(!user){UID=null;DB=null;S=normalize(null);booted=true;render();return;}
+    stopUsersWatch(); stopPresence();
+    if(!user){UID=null;DB=null;ADMIN=false;S=normalize(null);applyTheme();booted=true;render();return;}
     UID=user.uid;DB=firebase.firestore();ADMIN=(user.email||"").toLowerCase()===ADMIN_EMAIL.toLowerCase();booted=false;render();
     DB.collection("users").doc(UID).get()
-      .then(function(snap){var d=snap.data()||{};S=normalize(d.state);var del=d.adminDeleted||[];if(del.length)S.exams=S.exams.filter(function(x){return del.indexOf(x.id)<0;});})
+      .then(function(snap){var d=snap.data()||{};S=normalize(d.state);applyTheme();var del=d.adminDeleted||[];if(del.length)S.exams=S.exams.filter(function(x){return del.indexOf(x.id)<0;});})
       .catch(function(err){console.warn(err);})
-      .then(function(){return loadQuestions();}).catch(function(err){console.warn(err);}).then(function(){booted=true;render();});
+      .then(function(){startPresence();return loadQuestions();})
+      .then(function(){if(ADMIN)loadPendingCount();})
+      .catch(function(err){console.warn(err);})
+      .then(function(){booted=true;render();});
   });
 }
 function authScreen(){
@@ -518,12 +164,11 @@ function authScreen(){
     '<button class="btn alt" id="'+(isLogin?'toSignup':'toLogin')+'">'+(isLogin?'নতুন অ্যাকাউন্ট খুলুন':'আগে থেকে অ্যাকাউন্ট আছে, লগইন করুন')+'</button></div>';
 }
 
-
 var bn=function(n){if((S.lang||"en")==="en")return String(n);return String(n).replace(/\d/g,function(d){return "০১২৩৪৫৬৭৮৯"[d];});};
-var L=["ক","খ","গ","ঘ"];
+function optL(){return (S.lang||"en")==="en"?["A","B","C","D"]:["ক","খ","গ","ঘ"];}
 var app=document.getElementById("app");
-var V={tab:"home",screen:null,cfg:{topics:{},pool:"new",inst:"",n:10,order:"rand",showTopic:false,reveal:"instant"},ex:null,list:null,title:"",lsel:{},saved:{},draft:{},stk:{}};
-var insts=[];Q.forEach(function(x){if(x.i&&insts.indexOf(x.i)<0)insts.push(x.i);});
+var V={tab:"home",screen:null,cfg:{topics:{},pool:"new",inst:"",n:10,order:"rand",showTopic:false,reveal:"instant"},ex:null,list:null,title:"",lsel:{},saved:{},draft:{},stk:{},homeQ:"",homeShowAns:{},admAllQ:"",editReqs:[],pendingCnt:0};
+
 function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t;}return a;}
 function tree(){var T={};Q.forEach(function(x){(T[x.s]=T[x.s]||{});(T[x.s][x.t]=T[x.s][x.t]||[]).push(x);});return T;}
 function gname(x){
@@ -593,8 +238,8 @@ function answer(id,k){
 function finish(){
   if(V.ex.status==="done"){V.screen="result";return render();}
   var ids=V.ex.ids,c=0,w=0;
-  ids.forEach(function(id){var a=V.ex.a[id];if(a===undefined)return;var st=S.st[id]=S.st[id]||[0,0];if(a===BY[id].a){st[0]++;delete S.wrong[id];}else{st[1]++;S.wrong[id]=1;}});
-  ids.forEach(function(id){var a=V.ex.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
+  ids.forEach(function(id){if(!BY[id])return;var a=V.ex.a[id];if(a===undefined)return;var st=S.st[id]=S.st[id]||[0,0];if(a===BY[id].a){st[0]++;delete S.wrong[id];}else{st[1]++;S.wrong[id]=1;}});
+  ids.forEach(function(id){if(!BY[id])return;var a=V.ex.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
   V.ex.r={n:ids.length,c:c,w:w,sk:ids.length-c-w,sc:c-w*NEG};
   V.ex.status="done"; V.ex.finishedAt=Date.now();
   S.hist.unshift({d:V.ex.finishedAt,t:V.ex.name,n:ids.length,c:c,w:w,sc:V.ex.r.sc}); S.hist=S.hist.slice(0,30);
@@ -607,33 +252,37 @@ function finish(){
 }
 function exLine(x,label){
   if(!x)return '';
-  return '<div style="margin-top:6px"><b>'+label+':</b> '+x.q+(x.src?' <b>['+x.src+']</b>':'')+'<br><span style="color:var(--muted)">('+(x.bn||'বাংলা অর্থ যোগ হয়নি')+')</span></div>';
+  return '<div style="margin-top:6px"><b>'+label+':</b> '+esc(x.q)+(x.src?' <b>['+esc(x.src)+']</b>':'')+'<br><span style="color:var(--muted)">('+(esc(x.bn)||'বাংলা অর্থ যোগ হয়নি')+')</span></div>';
 }
 function expl(q){
+  var L=optL();
   var h='<div class="exp">';
-  h+='<div><b>Question-</b> ('+q.t+')</div>';
-  h+='<div style="margin-top:4px"><b>Bangla Meaning:</b> '+(q.bn||'<i>এখনো যোগ হয়নি</i>')+'</div>';
-  h+='<div style="margin-top:4px"><b>সঠিক উত্তর:</b> '+L[q.a]+') '+q.o[q.a]+'</div>';
-  h+='<div style="margin-top:4px"><b>Explanation:</b> '+(q.e||'—')+'</div>';
+  h+='<div><b>Question-</b> ('+esc(q.t)+')</div>';
+  h+='<div style="margin-top:4px"><b>Bangla Meaning:</b> '+(q.bn?esc(q.bn):'<i>এখনো যোগ হয়নি</i>')+'</div>';
+  h+='<div style="margin-top:4px"><b>সঠিক উত্তর:</b> '+L[q.a]+') '+esc(q.o[q.a])+'</div>';
+  h+='<div style="margin-top:4px"><b>Explanation:</b> '+(q.e?esc(q.e):'—')+'</div>';
   var ex=q.ex||[];
   if(ex.length){
     h+=exLine(ex[0],'Example 1');
     h+=exLine(ex[1],'Example 2');
   }
   if(q.rule){
-    h+='<div style="margin-top:8px"><b>Exceptional Rule:</b> '+q.rule.t+'</div>';
+    h+='<div style="margin-top:8px"><b>Exceptional Rule:</b> '+esc(q.rule.t)+'</div>';
     h+=exLine(q.rule.ex,'Example');
   }
   return h+'</div>';
 }
 function card(q,sel,mode){
-  var h='<div class="card"><div class="tags"><span>'+q.s+' – '+q.t+'</span>'+(q.i?'<span>'+q.i+(q.y?' '+q.y:'')+'</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'<button class="star" data-fav="'+q.id+'" aria-label="পছন্দের তালিকায় রাখুন">'+(S.fav[q.id]?'★':'☆')+'</button></div><p class="q">'+q.q+'</p>';
+  if(!q)return '';
+  var L=optL();
+  var h='<div class="card"><div class="tags"><span>'+esc(q.s)+' – '+esc(q.t)+'</span>'+(q.i?'<span>'+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'<button class="star" data-fav="'+q.id+'" aria-label="পছন্দের তালিকায় রাখুন">'+(S.fav[q.id]?'★':'☆')+'</button></div><p class="q">'+esc(q.q)+'</p>';
   q.o.forEach(function(t,k){
     var c="opt",m="";
     if(k===q.a){c+=" ok";m="✔️";}else if(k===sel){c+=" bad";m="❌";}
-    h+='<div class="'+c+'"><b>'+L[k]+'</b><span>'+t+'</span><i>'+m+'</i></div>';
+    h+='<div class="'+c+'"><b>'+L[k]+'</b><span>'+esc(t)+'</span><i>'+m+'</i></div>';
   });
   h+=expl(q);
+  h+='<div class="btn-row"><button class="btn alt sm" data-act="reqedit" data-qid="'+q.id+'">✎ সংশোধন প্রস্তাব</button></div>';
   return h+'</div>';
 }
 function nav(){
@@ -643,27 +292,105 @@ function nav(){
   document.getElementById("nav").innerHTML=T.map(function(x){return '<button data-tab="'+x[0]+'"'+(V.tab===x[0]&&!V.screen?' aria-current="page"':'')+'>'+x[1]+'</button>';}).join("");
 }
 
+/* ===== পিডিএফ (প্রিন্ট-টু-PDF, বাংলা যুক্তাক্ষরসহ ১০০% নিখুঁত) ===== */
+function printExamPdf(ex,withAns){
+  if(!ex)return;
+  var L=optL();
+  var qs=ex.ids.map(function(id){return BY[id];}).filter(Boolean);
+  if(!qs.length){alert(S.lang==="bn"?"কোনো প্রশ্ন পাওয়া যায়নি।":"No questions found.");return;}
+  var rows=qs.map(function(q,idx){
+    var opts=q.o.map(function(o,k){
+      var mark=(withAns&&k===q.a)?' class="ok"':'';
+      return '<li'+mark+'><b>'+L[k]+')</b> '+esc(o)+(withAns&&k===q.a?' ✓':'')+'</li>';
+    }).join("");
+    var expH=withAns?'<div class="exp"><b>উত্তর:</b> '+L[q.a]+') '+esc(q.o[q.a])+(q.e?' — '+esc(q.e):'')+'</div>':'';
+    return '<div class="qbox"><div class="qt"><b>'+bn(idx+1)+'.</b> '+esc(q.q)+'</div><ul class="opts">'+opts+'</ul>'+expH+'</div>';
+  }).join("");
+  var html='<!DOCTYPE html><html lang="'+(S.lang==="bn"?"bn":"en")+'"><head><meta charset="utf-8"><title>'+esc(ex.name)+'</title>'+
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet">'+
+    '<style>body{font-family:"Inter","Noto Sans Bengali",sans-serif;color:#111;margin:20px;line-height:1.45;font-size:13px}'+
+    'h1{font-size:19px;margin:0 0 4px} .sub{color:#555;font-size:12px;margin-bottom:14px;border-bottom:1.5px solid #222;padding-bottom:8px}'+
+    '.qbox{margin-bottom:12px;break-inside:avoid;page-break-inside:avoid} .qt{font-weight:600;margin-bottom:4px}'+
+    '.opts{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:3px 14px} .opts li.ok{font-weight:700;color:#0e6b40}'+
+    '.exp{margin-top:4px;font-size:12px;color:#333;background:#f4f6fa;padding:4px 8px;border-radius:4px}'+
+    '@media print{body{margin:10mm}}</style></head><body>'+
+    '<h1>'+esc(ex.name)+'</h1><div class="sub">মোট প্রশ্ন: '+bn(qs.length)+' · নেগেটিভ মার্কিং: '+bn(NEG)+' · '+fmt(ex.at)+(withAns?' · উত্তরপত্রসহ':'')+'</div>'+
+    rows+'</body></html>';
+  var old=document.getElementById("pdf-frame");if(old)old.remove();
+  var fr=document.createElement("iframe");
+  fr.id="pdf-frame";
+  fr.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+  document.body.appendChild(fr);
+  var doc=fr.contentDocument||fr.contentWindow.document;
+  doc.open(); doc.write(html); doc.close();
+  fr.onload=function(){setTimeout(function(){try{fr.contentWindow.focus();fr.contentWindow.print();}catch(e){var w=window.open("","_blank");if(w){w.document.write(html);w.document.close();w.print();}}},350);};
+}
+
+/* ===== হোম সার্চ ===== */
+function homeMatches(){
+  var txt=(V.homeQ||"").trim().toLowerCase();
+  if(!txt)return [];
+  return Q.filter(function(x){
+    return (x.q+" "+x.o.join(" ")+" "+x.t+" "+x.s+" "+(x.bn||"")+" "+(x.e||"")).toLowerCase().indexOf(txt)>=0;
+  });
+}
+function renderHomeSearch(){
+  var box=document.getElementById("home-search-res");
+  if(!box)return;
+  var txt=(V.homeQ||"").trim();
+  if(!txt){box.innerHTML="";return;}
+  var list=homeMatches(), L=optL();
+  var h='<div class="panel"><div class="meta" style="margin-bottom:6px">পাওয়া গেছে: <b>'+bn(list.length)+'টি</b> প্রশ্ন'+(list.length>50?' (প্রথম ৫০টি দেখাচ্ছে)':'')+'</div>';
+  if(list.length){
+    h+='<div class="btn-row" style="margin-bottom:10px">'+
+      '<button class="btn sm" data-act="hsearch-exam">এগুলো দিয়ে পরীক্ষা দিন</button>'+
+      '<button class="btn alt sm" data-act="hsearch-browse">উত্তরসহ দেখুন</button></div>';
+  }else{
+    h+='<div class="meta">কোনো প্রশ্ন পাওয়া যায়নি।</div>';
+  }
+  list.slice(0,50).forEach(function(q){
+    var showA=!!V.homeShowAns[q.id];
+    h+='<div class="card" style="margin-bottom:8px"><div class="tags"><span>'+esc(q.s)+' – '+esc(tlabel(q.t))+'</span>'+(q.i?'<span>'+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'')+'<button class="star" data-fav="'+q.id+'" aria-label="পছন্দ">'+(S.fav[q.id]?'★':'☆')+'</button></div>';
+    h+='<p class="q" style="font-size:16px;margin-bottom:8px">'+esc(q.q)+'</p>';
+    q.o.forEach(function(o,k){
+      var cls=(showA&&k===q.a)?"opt ok":"opt";
+      h+='<div class="'+cls+'" style="min-height:40px;padding:6px 10px"><b>'+L[k]+'</b><span>'+esc(o)+'</span><i>'+(showA&&k===q.a?'✔️':'')+'</i></div>';
+    });
+    if(showA)h+=expl(q);
+    h+='<div class="btn-row"><button class="btn alt sm" data-act="htogans" data-qid="'+q.id+'">'+(showA?'উত্তর লুকান':'উত্তর দেখুন')+'</button><button class="btn alt sm" data-act="reqedit" data-qid="'+q.id+'">✎ সংশোধন প্রস্তাব</button></div></div>';
+  });
+  h+='</div>';
+  box.innerHTML=h;
+  trDom(box);
+}
+
 /* ===== স্ক্রিন ===== */
 function home(){
-  var c=V.cfg,T=groupTree(),p=pool(),h='<h1>এমসিকিউ প্র্যাকটিস</h1><button class="btn alt" data-act="lang" style="margin:0 0 10px;width:auto;padding:8px 14px">'+((S.lang||"en")==="bn"?"English":"বাংলা")+'</button>'+runBanner()+'<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="exname" placeholder="যেমন: Verb Test 1" value="'+esc(V.draft.exname||"")+'"></div>';
+  var c=V.cfg,T=groupTree(),p=pool();
+  var thLabel=(S.theme==="dark")?"☀️ লাইট মোড":(S.theme==="light"?"🌙 ডার্ক মোড":"🌓 থিম: অটো");
+  var h='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h1 style="margin:0">এমসিকিউ প্র্যাকটিস</h1><div style="display:flex;gap:6px"><button class="btn alt sm" data-act="theme">'+thLabel+'</button><button class="btn alt sm" data-act="lang">'+((S.lang||"en")==="bn"?"English":"বাংলা")+'</button></div></div>';
+  h+=runBanner();
+  h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label><b>সব প্রশ্ন থেকে খুঁজুন</b></label></div><input type="text" id="home-q" placeholder="প্রশ্ন, অপশন বা টপিক লিখে খুঁজুন…" value="'+esc(V.homeQ||"")+'"></div><div id="home-search-res"></div>';
+  h+='<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="exname" placeholder="যেমন: Verb Test 1" value="'+esc(V.draft.exname||"")+'"></div>';
   h+='<div class="row"><label>কোন প্রশ্ন আসবে</label><select data-cfg="pool"><option value="new"'+(c.pool==="new"?" selected":"")+'>শুধু নতুন (এখনো দেওয়া হয়নি)</option><option value="all"'+(c.pool==="all"?" selected":"")+'>সব প্রশ্ন</option><option value="wrong"'+(c.pool==="wrong"?" selected":"")+'>আগে ভুল করা</option></select></div>';
-  if(insts.length>1)h+='<div class="row"><label>প্রতিষ্ঠান</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div>';
+  if(insts.length>1)h+='<div class="row"><label>প্রতিষ্ঠান</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+esc(x)+'</option>';}).join("")+'</select></div>';
   h+='<div class="row"><label>প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(p.length)+')</label><input type="number" min="1" data-cfg="n" value="'+c.n+'"></div>';
   h+='<div class="row"><label>ক্রম</label><select data-cfg="order"><option value="rand"'+(c.order==="rand"?" selected":"")+'>র‍্যান্ডম</option><option value="serial"'+(c.order==="serial"?" selected":"")+'>সিরিয়াল</option></select></div>';
   h+='<div class="row"><label>উত্তর কখন দেখাবে</label><select data-cfg="reveal"><option value="instant"'+(c.reveal==="instant"?" selected":"")+'>প্রতিটা প্রশ্নের পরপরই</option><option value="end"'+(c.reveal==="end"?" selected":"")+'>পরীক্ষা শেষ করার পর</option></select></div>';
   h+='<div class="row"><label>পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে</label><input type="checkbox" data-cfg="showTopic"'+(c.showTopic?' checked':'')+'></div>';
   h+='<button class="btn" id="start"'+(p.length?'':' disabled')+'>'+(p.length?'পরীক্ষা শুরু করুন':'টপিক বেছে নিন')+'</button></div>';
   h+='<div class="meta">এক বা একাধিক টপিক বেছে নিন। প্রতি ভুল উত্তরে '+bn(NEG)+' নম্বর কাটা যায়।</div>';
+  if(!Q.length)return h+'<div class="panel meta">ডেটাবেস থেকে প্রশ্ন লোড হয়নি বা কোনো প্রশ্ন নেই।</div>';
   Object.keys(T).forEach(function(s){
     var gs=Object.keys(T[s]),allT=[];
     gs.forEach(function(g){Object.keys(T[s][g]).forEach(function(t){allT.push(t);});});
     var all=allT.every(function(t){return c.topics[s+"||"+t];});
-    h+='<div class="panel"><label class="sub"><input type="checkbox" data-sub="'+s+'"'+(all?" checked":"")+'>'+s+'</label>';
+    h+='<div class="panel"><label class="sub"><input type="checkbox" data-sub="'+esc(s)+'"'+(all?" checked":"")+'>'+esc(s)+'</label>';
     gs.forEach(function(g){
-      if(g!==s)h+=groupHead(s,g,T,typeof kind!=="undefined"?kind:null);
+      if(g!==s)h+=groupHead(s,g,T,null);
       Object.keys(T[s][g]).forEach(function(t){
         var qs=T[s][g][t],nw=qs.filter(function(x){return !S.seen[x.id];}).length;
-        var dis=(c.pool==="new"&&nw===0);h+='<label class="top"'+(dis?' style="opacity:.45"':'')+'><input type="checkbox" data-top="'+s+'||'+t+'"'+(c.topics[s+"||"+t]?" checked":"")+(dis?' disabled':'')+'><span>'+tlabel(t)+'</span><small>'+bn(qs.length)+'টি, নতুন '+bn(nw)+'</small></label>';
+        var dis=(c.pool==="new"&&nw===0);h+='<label class="top"'+(dis?' style="opacity:.45"':'')+'><input type="checkbox" data-top="'+esc(s+"||"+t)+'"'+(c.topics[s+"||"+t]?" checked":"")+(dis?' disabled':'')+'><span>'+esc(tlabel(t))+'</span><small>'+bn(qs.length)+'টি, নতুন '+bn(nw)+'</small></label>';
       });
     });
     h+='</div>';
@@ -674,8 +401,10 @@ function isOn(kind,key){return kind?lsOn(kind,key):!!V.cfg.topics[key];}
 function groupHead(s,g,T,kind){
   var keys=Object.keys(T[s][g]).map(function(t){return s+"||"+t;});
   var all=keys.every(function(k){return isOn(kind,k);});
-  var attr=kind?' data-lkind="'+kind+'" data-lgrp="'+s+'||'+g+'"':' data-grp="'+s+'||'+g+'"';
-  return '<label class="sub" style="margin:10px 0 2px"><input type="checkbox"'+attr+(all?" checked":"")+'>'+g+'</label>';
+  var qs=[]; Object.keys(T[s][g]).forEach(function(t){qs=qs.concat(T[s][g][t]);});
+  var info=kind?'<small style="margin-left:auto;color:var(--muted);font-weight:400">'+bn(qs.length)+'টি</small>':'<small style="margin-left:auto;color:var(--muted);font-weight:400">মোট '+bn(qs.length)+'টি, নতুন '+bn(qs.filter(function(x){return !S.seen[x.id];}).length)+'টি</small>';
+  var attr=kind?' data-lkind="'+kind+'" data-lgrp="'+esc(s+"||"+g)+'"':' data-grp="'+esc(s+"||"+g)+'"';
+  return '<label class="sub" style="margin:10px 0 2px"><input type="checkbox"'+attr+(all?" checked":"")+'><span>'+esc(g)+'</span>'+info+'</label>';
 }
 function lsOn(kind,key){var m=V.lsel[kind];return !m||m[key]===undefined?true:!!m[key];}
 function selIds(kind){return Q.filter(function(x){return S[kind][x.id]&&lsOn(kind,x.s+"||"+x.t);}).map(function(x){return x.id;});}
@@ -693,12 +422,12 @@ function listTab(kind){
     var gs=Object.keys(T[s]),keys=[];
     gs.forEach(function(g){Object.keys(T[s][g]).forEach(function(t){keys.push(s+"||"+t);});});
     var allOn=keys.every(function(k){return lsOn(kind,k);});
-    h+='<div class="panel"><label class="sub"><input type="checkbox" data-lkind="'+kind+'" data-lsub="'+s+'"'+(allOn?" checked":"")+'>'+s+'</label>';
+    h+='<div class="panel"><label class="sub"><input type="checkbox" data-lkind="'+kind+'" data-lsub="'+esc(s)+'"'+(allOn?" checked":"")+'>'+esc(s)+'</label>';
     gs.forEach(function(g){
-      if(g!==s)h+=groupHead(s,g,T,typeof kind!=="undefined"?kind:null);
+      if(g!==s)h+=groupHead(s,g,T,kind);
       Object.keys(T[s][g]).forEach(function(t){
         var key=s+"||"+t;
-        h+='<label class="top"><input type="checkbox" data-lkind="'+kind+'" data-ltop="'+key+'"'+(lsOn(kind,key)?" checked":"")+'><span>'+tlabel(t)+'</span><small>'+bn(T[s][g][t].length)+'টি</small></label>';
+        h+='<label class="top"><input type="checkbox" data-lkind="'+kind+'" data-ltop="'+esc(key)+'"'+(lsOn(kind,key)?" checked":"")+'><span>'+esc(tlabel(t))+'</span><small>'+bn(T[s][g][t].length)+'টি</small></label>';
       });
     });
     h+='</div>';
@@ -708,19 +437,21 @@ function listTab(kind){
   return h;
 }
 function exam(){
-  var e=V.ex,n=0;
+  var e=V.ex,n=0,L=optL();
   e.ids.forEach(function(id){if(e.a[id]!==undefined)n++;});
-  var h='<div class="panel" style="position:sticky;top:0;z-index:2;margin-bottom:12px">মোট '+bn(e.ids.length)+'টি প্রশ্ন · উত্তর দেওয়া '+bn(n)+'টি · বাকি '+bn(e.ids.length-n)+'টি</div>';
+  var h='<div class="panel" style="position:sticky;top:0;z-index:2;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="flex:1">মোট '+bn(e.ids.length)+'টি প্রশ্ন · উত্তর দেওয়া '+bn(n)+'টি · বাকি '+bn(e.ids.length-n)+'টি</span><button class="btn alt sm" data-act="pdf-q" data-exid="'+e.id+'">📄 PDF</button></div>';
   e.ids.forEach(function(id,idx){
-    var q=BY[id],a=e.a[id],answered=a!==undefined,show=answered&&V.cfg.reveal==="instant";
+    var q=BY[id];
+    if(!q){h+='<div class="card meta">প্রশ্নটি পাওয়া যায়নি (হয়তো মুছে ফেলা হয়েছে)।</div>';return;}
+    var a=e.a[id],answered=a!==undefined,show=answered&&V.cfg.reveal==="instant";
     h+='<div class="card"><div class="meta">প্রশ্ন '+bn(idx+1)+'</div>';
-    h+='<div class="tags">'+(V.cfg.showTopic?'<span>'+q.s+' – '+q.t+'</span>':'')+(q.i?'<span>'+q.i+(q.y?' '+q.y:'')+'</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'<button class="star" data-fav="'+id+'" aria-label="পছন্দের তালিকায় রাখুন">'+(S.fav[id]?'★':'☆')+'</button></div>';
-    h+='<p class="q">'+q.q+'</p>';
+    h+='<div class="tags">'+(V.cfg.showTopic?'<span>'+esc(q.s)+' – '+esc(q.t)+'</span>':'')+(q.i?'<span>'+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'<button class="star" data-fav="'+id+'" aria-label="পছন্দের তালিকায় রাখুন">'+(S.fav[id]?'★':'☆')+'</button></div>';
+    h+='<p class="q">'+esc(q.q)+'</p>';
     q.o.forEach(function(t,k){
       var c="opt",m=a===k?'✓ নির্বাচিত':'';
       if(a===k)c+=" sel";
       if(show){if(k===q.a){c+=" ok";m="✔️";}else if(k===a){c+=" bad";m="❌";}}
-      h+='<button class="'+c+'" data-id="'+id+'" data-k="'+k+'"><b>'+L[k]+'</b><span>'+t+'</span><i>'+m+'</i></button>';
+      h+='<button class="'+c+'" data-id="'+id+'" data-k="'+k+'"><b>'+L[k]+'</b><span>'+esc(t)+'</span><i>'+m+'</i></button>';
     });
     if(answered&&!show)h+='<div class="meta">উত্তর সেভ হয়েছে। ফলাফল শেষে দেখতে পারবেন।</div>';
     if(show)h+=expl(q);
@@ -730,11 +461,12 @@ function exam(){
   return h;
 }
 function result(){
-  var ids=V.ex.ids,f=V.filter||"all",cats={all:ids,right:[],wrong:[],skip:[]};
+  var ids=V.ex.ids.filter(function(id){return !!BY[id];}),f=V.filter||"all",cats={all:ids,right:[],wrong:[],skip:[]};
   ids.forEach(function(id){var a=V.ex.a[id];if(a===undefined)cats.skip.push(id);else if(a===BY[id].a)cats.right.push(id);else cats.wrong.push(id);});
   var r={n:ids.length,c:cats.right.length,w:cats.wrong.length,sk:cats.skip.length};
   r.sc=r.c-r.w*NEG; V.ex.r=r; V.ex.bad=cats.wrong.concat(cats.skip);
   var h='<h1>ফলাফল</h1><div class="total">'+bn(r.sc.toFixed(2))+' / '+bn(r.n)+'</div><p class="meta">সঠিক '+bn(r.c)+', ভুল '+bn(r.w)+', স্কিপ '+bn(r.sk)+'</p>';
+  h+='<div class="btn-row" style="margin-bottom:10px"><button class="btn alt sm" data-act="pdf-q" data-exid="'+V.ex.id+'">📄 PDF (প্রশ্ন)</button><button class="btn alt sm" data-act="pdf-a" data-exid="'+V.ex.id+'">📄 PDF (উত্তরসহ)</button></div>';
   var L2=[["all","সব"],["right","সঠিক"],["wrong","ভুল"],["skip","স্কিপ"]];
   h+='<div class="chips">'+L2.map(function(x){return '<button class="chip" data-filter="'+x[0]+'" aria-pressed="'+(f===x[0])+'">'+x[1]+' ('+bn(cats[x[0]].length)+')</button>';}).join("")+'</div>';
   if(V.ex.bad.length)h+='<button class="btn" id="redo">ভুল ও স্কিপগুলো আবার দিন</button>';
@@ -745,8 +477,8 @@ function result(){
   return h;
 }
 function browse(){
-  var h='<h1>'+V.title+'</h1><button class="btn alt" id="home" style="margin:0 0 12px">ফিরে যান</button>';
-  V.list.forEach(function(id){h+=card(BY[id]);});return h;
+  var h='<h1>'+esc(V.title)+'</h1><button class="btn alt" id="home" style="margin:0 0 12px">ফিরে যান</button>';
+  (V.list||[]).forEach(function(id){h+=card(BY[id]);});return h;
 }
 function wrongList(){return Object.keys(S.wrong).filter(function(id){return BY[id];}).map(function(id){return BY[id];});}
 function prog(){
@@ -764,7 +496,7 @@ function prog(){
   return h+'</table><p class="meta" style="margin-top:14px">আপনার অগ্রগতি অ্যাকাউন্টে সেভ হচ্ছে।</p><button class="btn alt" id="logout">লগ আউট</button>';
 }
 function wrongView(){
-  var wr=wrongList(), cnt={};
+  var wr=wrongList(), cnt={}, L=optL();
   wr.forEach(function(q){var k=q.s+"||"+q.t;cnt[k]=(cnt[k]||0)+1;});
   var keys=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];});
   var h='<button class="btn alt" data-act="wrongback" style="margin:0 0 10px">← ফিরে যান</button><h1>বর্তমান ভুল প্রশ্ন ('+bn(wr.length)+'টি)</h1><p class="meta">সঠিক উত্তর দিলে এখান থেকে সরে যাবে।</p>';
@@ -780,34 +512,108 @@ function wrongView(){
         var c=i===q.a?"opt ok":(i===last?"opt bad":"opt");
         h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+(i===q.a?'সঠিক উত্তর':(i===last?'আপনার উত্তর':''))+'</i></div>';
       });
+      h+='<div class="btn-row"><button class="btn alt sm" data-act="reqedit" data-qid="'+q.id+'">✎ সংশোধন প্রস্তাব</button></div>';
       h+='</div>';
     });
   });
   return h;
 }
-function progOld(){
-  var T=tree(),seen=0,r=0,w=0;
-  Q.forEach(function(x){if(S.seen[x.id])seen++;var s=S.st[x.id];if(s){r+=s[0];w+=s[1];}});
-  var h='<h1>অগ্রগতি</h1><div class="panel"><div class="total">'+bn(seen)+' / '+bn(Q.length)+'</div><div class="meta">প্রশ্ন দেওয়া হয়েছে। মোট নির্ভুলতা '+bn(r+w?Math.round(r/(r+w)*100):0)+'%</div></div>';
-  h+='<table><tr><th>টপিক</th><th>দেওয়া</th><th>ভুল</th><th>নির্ভুল</th></tr>';
-  Object.keys(T).forEach(function(s){Object.keys(T[s]).forEach(function(t){
-    var qs=T[s][t],sn=0,a=0,b=0;
-    qs.forEach(function(x){if(S.seen[x.id])sn++;var st=S.st[x.id];if(st){a+=st[0];b+=st[1];}});
-    h+='<tr><td>'+s+' – '+t+'</td><td>'+bn(sn)+'/'+bn(qs.length)+'</td><td>'+bn(qs.filter(function(x){return S.wrong[x.id];}).length)+'</td><td>'+(a+b?bn(Math.round(a/(a+b)*100))+'%':'–')+'</td></tr>';
-  });});
-  h+='</table><h2>সাম্প্রতিক পরীক্ষা</h2>';
-  if(!S.hist.length)h+='<div class="panel">এখনো কোনো পরীক্ষা দেওয়া হয়নি।</div>';
-  else{h+='<table><tr><th>তারিখ</th><th>সঠিক/মোট</th><th>নম্বর</th></tr>'+S.hist.slice(0,10).map(function(x){return '<tr><td>'+bn(new Date(x.d).toLocaleDateString("en-GB"))+'</td><td>'+bn(x.c)+'/'+bn(x.n)+'</td><td>'+bn(x.sc.toFixed(2))+'</td></tr>';}).join("")+'</table>';}
-  return h+'<p class="meta" style="margin-top:14px">আপনার অগ্রগতি অ্যাকাউন্টে সেভ হচ্ছে।</p><button class="btn alt" id="logout">লগ আউট</button>';
+
+/* ===== ইউজার সংশোধন প্রস্তাব ও অ্যাডমিন অনুমোদন ===== */
+function reqEditForm(){
+  var q=BY[V.reqId], L=optL();
+  if(!q)return '<p class="meta">প্রশ্নটি পাওয়া যায়নি।</p><button class="btn alt" id="req-cancel">ফিরে যান</button>';
+  var o=q.o.concat(["","","",""]).slice(0,4);
+  var h='<h1>সংশোধন প্রস্তাব</h1><p class="meta">প্রশ্ন, অপশন বা ব্যাখ্যায় ভুল থাকলে ঠিক করে অ্যাডমিনের কাছে পাঠান।</p><div class="panel">';
+  h+=area("প্রশ্ন","r_q",q.q);
+  o.forEach(function(v,k){h+=fld("অপশন "+L[k],"r_o"+k,v);});
+  h+='<div class="row" style="margin-top:8px"><label>সঠিক উত্তর</label><select id="r_a">'+[0,1,2,3].map(function(k){return '<option value="'+k+'"'+(q.a===k?' selected':'')+'>'+L[k]+'</option>';}).join("")+'</select></div>';
+  h+=area("বাংলা অর্থ","r_bn",q.bn||"");
+  h+=area("ব্যাখ্যা","r_e",q.e||"");
+  h+=area("মন্তব্য (ঐচ্ছিক)","r_note","");
+  h+='<button class="btn" id="req-submit">প্রস্তাব পাঠান</button><button class="btn alt" id="req-cancel">বাতিল</button></div>';
+  return h;
 }
+function submitEditReq(){
+  var q=BY[V.reqId];if(!q)return;
+  var g=function(id){return document.getElementById(id).value.trim();};
+  var o=[0,1,2,3].map(function(k){return g("r_o"+k);});
+  var nq=g("r_q");
+  if(!nq||o.some(function(v){return !v;})){alert(S.lang==="bn"?"প্রশ্ন ও চারটি অপশন ফাঁকা রাখা যাবে না।":"Question and all 4 options are required.");return;}
+  var proposed={q:nq,o:o,a:+document.getElementById("r_a").value,bn:g("r_bn"),e:g("r_e")};
+  var note=g("r_note");
+  var em=((firebase.auth().currentUser)||{}).email||"";
+  DB.collection("editRequests").add({
+    qid:q.id,uid:UID,email:em,status:"pending",createdAt:Date.now(),note:note,
+    topic:q.s+" – "+q.t,
+    original:{q:q.q,o:q.o,a:q.a,bn:q.bn||"",e:q.e||""},
+    proposed:proposed
+  }).then(function(){
+    alert(S.lang==="bn"?"সংশোধন প্রস্তাব অ্যাডমিনের কাছে পাঠানো হয়েছে।":"Edit request sent to admin.");
+    V.reqId=null; V.screen=V.reqBackScreen||null; render();
+  }).catch(function(err){alert("পাঠানো যায়নি: "+err.message);});
+}
+function loadPendingCount(){
+  if(!ADMIN||!DB)return;
+  DB.collection("editRequests").where("status","==","pending").get().then(function(snap){
+    V.pendingCnt=snap.size;
+    V.editReqs=[]; snap.forEach(function(d){V.editReqs.push(Object.assign({rid:d.id},d.data()));});
+    V.editReqs.sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
+    render();
+  }).catch(function(err){console.warn(err);});
+}
+function admReqsView(){
+  var L=optL();
+  var h='<button class="btn alt" data-act="reqs-back" style="margin:0 0 10px">← ড্যাশবোর্ডে ফিরুন</button>';
+  h+='<h1>সংশোধন অনুরোধ ('+bn(V.editReqs.length)+')</h1>';
+  if(!V.editReqs.length)return h+'<div class="panel meta">কোনো পেন্ডিং অনুরোধ নেই।</div>';
+  V.editReqs.forEach(function(r){
+    var cur=BY[r.qid]||r.original||{};
+    var p=r.proposed||{};
+    h+='<div class="card"><div class="tags"><span>'+esc(r.topic||cur.t||"")+'</span><span>'+esc(r.email||r.uid||"")+'</span><span>'+fmt(r.createdAt)+'</span></div>';
+    h+='<div class="diff-box"><b>আগে:</b> '+esc(cur.q)+'<br><b>অপশন:</b> '+(cur.o||[]).map(function(x,k){return L[k]+') '+esc(x);}).join(' · ')+'<br><b>সঠিক:</b> '+L[cur.a||0]+'<br><b>বাংলা অর্থ:</b> '+esc(cur.bn||'—')+'<br><b>ব্যাখ্যা:</b> '+esc(cur.e||'—')+'</div>';
+    h+='<div class="diff-box" style="border-left-color:var(--ok)"><b>প্রস্তাবিত:</b> '+esc(p.q)+'<br><b>অপশন:</b> '+(p.o||[]).map(function(x,k){return L[k]+') '+esc(x);}).join(' · ')+'<br><b>সঠিক:</b> '+L[p.a||0]+'<br><b>বাংলা অর্থ:</b> '+esc(p.bn||'—')+'<br><b>ব্যাখ্যা:</b> '+esc(p.e||'—')+(r.note?'<br><b>মন্তব্য:</b> '+esc(r.note):'')+'</div>';
+    h+='<div class="btn-row"><button class="btn sm" data-act="req-approve" data-rid="'+r.rid+'">✓ অনুমোদন করুন</button><button class="btn alt sm" data-act="req-reject" data-rid="'+r.rid+'" style="color:var(--bad)">✕ বাতিল</button></div></div>';
+  });
+  return h;
+}
+function approveReq(rid){
+  var r=V.editReqs.filter(function(x){return x.rid===rid;})[0];
+  if(!r)return;
+  var cur=BY[r.qid];
+  if(!cur){alert("মূল প্রশ্নটি ডেটাবেসে পাওয়া যায়নি।");return;}
+  var p=r.proposed, now=Date.now();
+  var updated=Object.assign({},cur,{q:p.q,o:p.o,a:p.a,bn:p.bn,e:p.e,upd:now});
+  var before=snapOf(cur.id), after=clean(updated);
+  DB.collection("questions").doc(cur.id).set(after)
+    .then(function(){
+      RAW[cur.id]=after;
+      logChanges([{id:cur.id,before:before,after:after}],"অনুরোধ অনুমোদন: "+p.q.slice(0,35));
+      updated.id=cur.id;
+      var arr=Q.filter(function(x){return x.id!==cur.id;}); arr.push(updated);
+      arr.sort(function(a,b){return (a.ord||0)-(b.ord||0);});
+      setQuestions(arr);
+      return DB.collection("editRequests").doc(rid).update({status:"approved",reviewedAt:now});
+    })
+    .then(function(){
+      V.editReqs=V.editReqs.filter(function(x){return x.rid!==rid;});
+      V.pendingCnt=V.editReqs.length;
+      alert("প্রশ্ন আপডেট এবং অনুমোদন করা হয়েছে।"); render();
+    })
+    .catch(function(err){alert("সমস্যা: "+err.message);});
+}
+function rejectReq(rid){
+  if(!confirm("এই সংশোধন অনুরোধটি বাতিল করবেন?"))return;
+  DB.collection("editRequests").doc(rid).update({status:"rejected",reviewedAt:Date.now()}).then(function(){
+    V.editReqs=V.editReqs.filter(function(x){return x.rid!==rid;});
+    V.pendingCnt=V.editReqs.length;
+    render();
+  }).catch(function(err){alert("সমস্যা: "+err.message);});
+}
+
 /* ===== অ্যাডমিন: প্রশ্ন লোড, সেভ ও ড্যাশবোর্ড ===== */
 var RAW={};
 var ADMIN=false, ADMIN_EMAIL="thesohelranas@gmail.com";
-var SEED=Q.slice();
-function setQuestions(arr){
-  Q=arr; BY={}; insts=[];
-  Q.forEach(function(x){BY[x.id]=x; if(x.i&&insts.indexOf(x.i)<0)insts.push(x.i);});
-}
 function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function clean(x){
   var c=JSON.parse(JSON.stringify(x)); delete c.id;
@@ -905,6 +711,15 @@ function admImportText(){
   if(!toWrite.length){alert("লেখার মতো কিছু নেই");return;}
   writeAll(toWrite,"JSON ইমপোর্ট");
 }
+function finishAdmEdit(){
+  V.edit=null;
+  if(V.editRet){
+    var r=V.editRet; V.editRet=null;
+    V.tab=r.tab; V.screen=r.screen; V.usrSel=r.usrSel; V.usrExam=r.usrExam;
+    V.usrFilter=r.usrFilter; V.usrTopic=r.usrTopic; V.selfView=r.selfView;
+  }
+  render();
+}
 function admSave(){
   var g=function(id){return document.getElementById(id).value.trim();};
   var o=[0,1,2,3].map(function(k){return g("a_o"+k);});
@@ -919,7 +734,7 @@ function admSave(){
     obj.id=id;
     var arr=Q.filter(function(x){return x.id!==id;}); arr.push(obj);
     arr.sort(function(a,b){return (a.ord||0)-(b.ord||0);});
-    setQuestions(arr); V.edit=null; render();
+    setQuestions(arr); finishAdmEdit();
   }).catch(function(err){alert("সেভ হয়নি: "+err.message);});
 }
 function admDelete(id){
@@ -928,7 +743,7 @@ function admDelete(id){
   DB.collection("questions").doc(id).set(after).then(function(){
     RAW[id]=after;logChanges([{id:id,before:before,after:after}],"প্রশ্ন মুছে ফেলা");
     setQuestions(Q.filter(function(x){return x.id!==id;}));
-    V.edit=null; render();
+    finishAdmEdit();
   }).catch(function(err){alert("মোছা যায়নি: "+err.message);});
 }
 function admRedo(){
@@ -948,13 +763,6 @@ function admRedo(){
       .then(function(){alert("আবার করা হয়েছে: "+entry.label);render();});
   }).catch(function(err){alert("আবার করা হয়নি: "+err.message);});
 }
-function admSeedCopy(){
-  var missing=SEED.filter(function(x){return !RAW[x.id];});
-  if(!missing.length){alert("ফাইলের ভেতরের সব প্রশ্ন আগে থেকেই ডেটাবেসে আছে।");return;}
-  if(!confirm(missing.length+"টি প্রশ্ন ডেটাবেসে কপি হবে। ডেটাবেসে আগে থেকে থাকা বা আপনার এডিট করা প্রশ্ন বদলাবে না। চালিয়ে যাবেন?"))return;
-  var copy=missing.map(function(x){var c=Object.assign({},x);c.ord=SEED.indexOf(x)+1;return c;});
-  writeAll(copy,"ফাইলের প্রশ্ন ডেটাবেসে কপি",true);
-}
 function dbCount(){return Object.keys(RAW).filter(function(id){return !RAW[id].deleted;}).length;}
 function admExport(){
   var data=JSON.stringify(Q.map(function(x){var c=clean(x);c.id=x.id;return c;}),null,2);
@@ -965,7 +773,7 @@ function admExport(){
 function fld(label,id,val){return '<label style="display:block;margin-top:6px;color:var(--muted);font-size:14px">'+label+'</label><input type="text" id="'+id+'" value="'+esc(val)+'">';}
 function area(label,id,val){return '<label style="display:block;margin-top:6px;color:var(--muted);font-size:14px">'+label+'</label><textarea id="'+id+'" rows="2">'+esc(val)+'</textarea>';}
 function editForm(){
-  var isNew=V.edit==="new";
+  var isNew=V.edit==="new", L=optL();
   var x=isNew?{s:"",t:"",q:"",o:["","","",""],a:0,i:"",y:"",bn:"",e:"",v:1}:BY[V.edit];
   if(!x)return '<p class="meta">প্রশ্নটি পাওয়া যায়নি।</p><button class="btn alt" id="adm-cancel">ফিরে যান</button>';
   var o=x.o.concat(["","","",""]).slice(0,4);
@@ -988,16 +796,33 @@ function fmtDay(ms){return bn(new Date(ms).toLocaleDateString("en-GB"));}
 function importPanel(){
   return '<div class="panel" style="margin-top:12px"><h2 style="margin-top:0">ইমপোর্ট ও ব্যাকআপ</h2>'+
     '<textarea id="imp" rows="5" style="width:100%;font:inherit;padding:8px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink)" placeholder="প্রশ্নের JSON তালিকা এখানে পেস্ট করুন"></textarea>'+
-    '<button class="btn" id="adm-seedcopy">ফাইলের প্রশ্ন ডেটাবেসে কপি করুন</button><button class="btn alt" id="adm-import">JSON থেকে ইমপোর্ট</button><button class="btn alt" id="adm-export">ব্যাকআপ ডাউনলোড</button><button class="btn alt" id="adm-clearcache">ক্যাশ মুছে ডেটাবেস থেকে নতুন করে আনুন</button></div>';
+    '<button class="btn" id="adm-import">JSON থেকে ইমপোর্ট</button><button class="btn alt" id="adm-export">ব্যাকআপ ডাউনলোড</button><button class="btn alt" id="adm-clearcache">ক্যাশ মুছে ডেটাবেস থেকে নতুন করে আনুন</button></div>';
+}
+function renderAdmSearch(){
+  var box=document.getElementById("adm-all-res");
+  if(!box)return;
+  var txt=(V.admAllQ||"").trim().toLowerCase(), L=optL();
+  if(!txt){box.innerHTML="";return;}
+  var list=Q.filter(function(x){return (x.q+" "+x.o.join(" ")+" "+x.t+" "+x.s+" "+(x.bn||"")+" "+(x.e||"")).toLowerCase().indexOf(txt)>=0;});
+  var h='<p class="meta">পাওয়া গেছে: <b>'+bn(list.length)+'টি</b>'+(list.length>80?' (প্রথম ৮০টি দেখাচ্ছে)':'')+'</p>';
+  list.slice(0,80).forEach(function(x){
+    h+='<div class="card"><div class="tags"><span>'+esc(x.s)+' – '+esc(tlabel(x.t))+'</span></div><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(x.q)+'</p>'+
+      '<div class="meta">'+x.o.map(function(o,k){return L[k]+') '+esc(o);}).join(' · ')+'</div>'+
+      '<div class="btn-row"><button class="btn alt sm" data-act="edit" data-qid="'+x.id+'">এডিট</button><button class="btn alt sm" data-act="del" data-qid="'+x.id+'" style="color:var(--bad)">মুছুন</button></div></div>';
+  });
+  box.innerHTML=h;
+  trDom(box);
 }
 function topicTree(){
-  var h='<h1>ড্যাশবোর্ড</h1><p class="meta">মোট '+bn(Q.length)+'টি প্রশ্ন · ডেটাবেসে '+bn(dbCount())+'টি · ফাইলের ভেতরে '+bn(SEED.length)+'টি। টপিক বেছে প্রশ্ন দেখুন।</p>';
-  h+='<div class="panel"><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
+  var h='<h1>ড্যাশবোর্ড</h1><p class="meta">মোট '+bn(Q.length)+'টি প্রশ্ন (ডেটাবেসে '+bn(dbCount())+'টি)।</p>';
+  h+='<div class="panel"><button class="btn" data-act="adm-reqs" style="margin-top:0">সংশোধন অনুরোধ ('+bn(V.pendingCnt||0)+')</button><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn alt" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
+  h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label><b>সব টপিক থেকে প্রশ্ন খুঁজুন</b></label></div><input type="text" id="adm-all-q" placeholder="প্রশ্ন, অপশন বা টপিক লিখুন…" value="'+esc(V.admAllQ||"")+'"></div><div id="adm-all-res"></div>';
   var T=groupTree(Q);
   Object.keys(T).forEach(function(s){
     h+='<h2>'+esc(s)+'</h2>';
     Object.keys(T[s]).forEach(function(g){
-      if(g!==s)h+='<div style="font-weight:600;color:var(--muted);margin:8px 0 4px">'+esc(g)+'</div>';
+      var gTot=0; Object.keys(T[s][g]).forEach(function(t){gTot+=T[s][g][t].length;});
+      if(g!==s)h+='<div style="font-weight:600;color:var(--muted);margin:8px 0 4px">'+esc(g)+' ('+bn(gTot)+'টি)</div>';
       Object.keys(T[s][g]).forEach(function(t){
         var qs=T[s][g][t],b=batchInfo(qs);
         h+='<button class="card" data-act="topic" data-key="'+esc(s+"||"+t)+'" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer;margin-bottom:8px"><b>'+esc(tlabel(t))+'</b> <span class="meta">'+bn(qs.length)+'টি</span>';
@@ -1009,7 +834,7 @@ function topicTree(){
   return h+importPanel();
 }
 function topicView(){
-  var parts=V.adm.key.split("||"),s=parts[0],t=parts[1];
+  var parts=V.adm.key.split("||"),s=parts[0],t=parts[1], L=optL();
   var qs=Q.filter(function(x){return x.s===s&&x.t===t;});
   var b=batchInfo(qs), sort=V.adm.sort||"new", txt=(V.adm.text||"").trim().toLowerCase();
   var h='<button class="btn alt" data-act="back" style="margin:0 0 10px">← সব টপিক</button>';
@@ -1031,13 +856,13 @@ function topicView(){
     h+='<div class="card">'+(isLast?'<div class="tags"><span>সর্বশেষ ইমপোর্ট</span></div>':'')+
       '<p class="q" style="font-size:16px;margin-bottom:6px">'+esc(x.q)+'</p>'+
       '<div class="meta">'+x.o.map(function(o,k){return L[k]+') '+esc(o);}).join(' · ')+'</div>'+
-      '<button class="btn alt" data-act="edit" data-qid="'+x.id+'" style="margin:0 6px 0 0">এডিট</button>'+
-      '<button class="btn alt" data-act="del" data-qid="'+x.id+'" style="margin:0;color:var(--bad)">মুছুন</button></div>';
+      '<div class="btn-row"><button class="btn alt sm" data-act="edit" data-qid="'+x.id+'">এডিট</button>'+
+      '<button class="btn alt sm" data-act="del" data-qid="'+x.id+'" style="color:var(--bad)">মুছুন</button></div></div>';
   });
   return h;
 }
 function adminView(){
-  if(V.edit)return editForm();
+  if(V.admReqs)return admReqsView();
   if(V.adm&&V.adm.key)return topicView();
   return topicTree();
 }
@@ -1046,13 +871,13 @@ function runBanner(){
   var run=S.exams.filter(function(x){return x.status!=="done";});
   if(!run.length)return "";
   var x=run[0],n=x.ids.filter(function(id){return x.a[id]!==undefined;}).length;
-  return '<div class="panel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1">চলমান পরীক্ষা: <b>'+esc(x.name)+'</b> ('+bn(n)+'/'+bn(x.ids.length)+')</span><button class="btn" data-act="resume" data-exid="'+x.id+'" style="margin:0;width:auto;padding:8px 14px">চালিয়ে যান</button></div>';
+  return '<div class="panel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1">চলমান পরীক্ষা: <b>'+esc(x.name)+'</b> ('+bn(n)+'/'+bn(x.ids.length)+')</span><button class="btn sm" data-act="resume" data-exid="'+x.id+'">চালিয়ে যান</button></div>';
 }
 function delPart(x){
   var age=Date.now()-(x.finishedAt||x.at), lock=7*864e5;
-  if(age>=lock)return '<button class="btn alt" data-act="exdel" data-exid="'+x.id+'" style="margin:0">মুছে ফেলুন</button>';
+  if(age>=lock)return '<button class="btn alt" data-act="exdel" data-exid="'+x.id+'" style="margin:6px 0 0">মুছে ফেলুন</button>';
   var left=Math.ceil((lock-age)/864e5);
-  return '<div class="meta" style="margin:0">জমা দেওয়া পরীক্ষা ৭ দিন পর মুছতে পারবেন · '+bn(left)+' দিন বাকি</div>';
+  return '<div class="meta" style="margin:6px 0 0">জমা দেওয়া পরীক্ষা ৭ দিন পর মুছতে পারবেন · '+bn(left)+' দিন বাকি</div>';
 }
 function examsView(){
   var run=S.exams.filter(function(x){return x.status!=="done";});
@@ -1062,7 +887,7 @@ function examsView(){
   run.forEach(function(x){
     var ok=x.ids.filter(function(id){return BY[id];}),n=ok.filter(function(id){return x.a[id]!==undefined;}).length;
     h+='<div class="card"><b>'+esc(x.name)+'</b><div class="meta">'+bn(n)+'/'+bn(ok.length)+' উত্তর দেওয়া · শুরু: '+fmt(x.at)+'</div>';
-    h+='<button class="btn" data-act="resume" data-exid="'+x.id+'" style="margin:0 0 6px">চালিয়ে যান</button><button class="btn alt" data-act="exdel" data-exid="'+x.id+'" style="margin:0">বাতিল করুন</button></div>';
+    h+='<button class="btn" data-act="resume" data-exid="'+x.id+'" style="margin:0 0 6px">চালিয়ে যান</button><div class="btn-row"><button class="btn alt sm" data-act="pdf-q" data-exid="'+x.id+'">📄 PDF (প্রশ্ন)</button><button class="btn alt sm" data-act="exdel" data-exid="'+x.id+'" style="color:var(--bad)">বাতিল করুন</button></div></div>';
   });
   h+='<h2>পরীক্ষার ইতিহাস</h2>';
   if(!done.length)h+='<div class="panel meta">এখনো কোনো পরীক্ষা শেষ হয়নি।</div>';
@@ -1071,7 +896,7 @@ function examsView(){
     ok.forEach(function(id){var a=x.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
     var sc=c-w*NEG;
     h+='<div class="card"><b>'+esc(x.name)+'</b><div class="meta">'+fmt(x.finishedAt||x.at)+' · সঠিক '+bn(c)+', ভুল '+bn(w)+', নম্বর '+bn(sc.toFixed(2))+'/'+bn(ok.length)+'</div>';
-    h+='<button class="btn alt" data-act="exres" data-exid="'+x.id+'" style="margin:0 0 6px">ফলাফল দেখুন</button>'+delPart(x)+'</div>';
+    h+='<button class="btn alt" data-act="exres" data-exid="'+x.id+'" style="margin:0 0 6px">ফলাফল দেখুন</button><div class="btn-row"><button class="btn alt sm" data-act="pdf-q" data-exid="'+x.id+'">📄 PDF (প্রশ্ন)</button><button class="btn alt sm" data-act="pdf-a" data-exid="'+x.id+'">📄 PDF (উত্তরসহ)</button></div>'+delPart(x)+'</div>';
   });
   return h;
 }
@@ -1094,38 +919,49 @@ function onBack(){
     var hm=Object.assign({screen:null},V.saved.home||{}); hm.tab="home";
     applyState(hm); return;
   }
-  history.back(); // home with nothing left: leave the app
+  history.back();
 }
 function applyState(st){
   st=st||{tab:"home",screen:null};
   V.tab=st.tab||"home"; V.screen=st.screen||null; V.list=st.list||null; V.title=st.title||V.title;
   if(st.exid){var ex=S.exams.filter(function(x){return x.id===st.exid;})[0];V.ex=ex||null;}
   if((V.screen==="exam"||V.screen==="result")&&!V.ex)V.screen=null;
+  if(V.tab!=="users")stopUsersWatch();
   render(); app.scrollTop=st.scroll||0;
 }
 function goTab(tab){
-  // remember exactly where this tab was: screen, running/result exam, list, drafts (kept in V.draft) and scroll position
   var mem=snap(); mem.scroll=app.scrollTop;
   V.saved[V.tab]=mem;
   var st=Object.assign({screen:null},V.saved[tab]||{});
   st.tab=tab;
+  if(tab!=="users")stopUsersWatch();
   if(tab==="users")V.usrList=null;
+  if(tab==="admin"&&ADMIN)loadPendingCount();
   history.pushState({g:1},"","#"+tab);
   applyState(st);
 }
 window.addEventListener("popstate",onBack);
 
+/* ===== ব্যবহারকারী ও লাইভ মনিটরিং ===== */
 function latestAnswer(exams,id){
   var list=exams.slice().sort(function(a,b){return (b.at||0)-(a.at||0);});
   for(var i=0;i<list.length;i++){if(list[i].a&&list[i].a[id]!==undefined)return list[i].a[id];}
   return undefined;
 }
-function loadUsers(){
+function isLive(u){
+  var d=u.data||{};
+  return d.online!==false && d.lastActive && (Date.now()-d.lastActive)<120000;
+}
+function stopUsersWatch(){if(usrUnsub){usrUnsub();usrUnsub=null;}}
+function watchUsers(){
+  if(usrUnsub||!DB)return;
   V.usrLoading=true;
-  DB.collection("users").get().then(function(snap){
+  usrUnsub=DB.collection("users").onSnapshot(function(snap){
     V.usrList=[]; snap.forEach(function(d){V.usrList.push({uid:d.id,data:d.data()||{}});});
-    V.usrLoading=false; V.usrErr=""; render();
-  }).catch(function(err){V.usrLoading=false;V.usrErr="লোড হয়নি: "+err.message;render();});
+    V.usrLoading=false; V.usrErr="";
+    if(V.tab==="users"&&!V.usrSel&&!V.screen){renderUserList();}
+    else if(V.tab==="users"){render();}
+  },function(err){V.usrLoading=false;V.usrErr="লোড হয়নি: "+err.message;render();});
 }
 function stOf(u){
   var st=normalize(u.data.state), del=u.data.adminDeleted||[];
@@ -1137,43 +973,53 @@ function userCtx(){
     var me=(firebase.auth().currentUser)||{};
     return {u:{uid:UID,data:{email:me.email||"",state:S}},st:normalize(S)};
   }
-  var u=V.usrList.filter(function(x){return x.uid===V.usrSel;})[0];
+  var u=(V.usrList||[]).filter(function(x){return x.uid===V.usrSel;})[0];
   if(!u)return null;
   return {u:u,st:stOf(u)};
 }
 function userName(u){return u.data.email||("ব্যবহারকারী "+u.uid.slice(0,6));}
+function renderUserList(){
+  var box=document.getElementById("usr-list-res");
+  if(!box){render();return;}
+  var q=(V.usrQ||"").trim().toLowerCase();
+  var list=(V.usrList||[]).slice().sort(function(a,b){return (isLive(b)?1:0)-(isLive(a)?1:0)||(b.data.lastActive||0)-(a.data.lastActive||0);})
+    .filter(function(u){return !q||(String(u.data.email||"")+" "+u.uid).toLowerCase().indexOf(q)>=0;});
+  var cutoff=Date.now()-30*864e5, liveCnt=(V.usrList||[]).filter(isLive).length;
+  var h='<div class="meta" style="margin-bottom:8px">মোট '+bn((V.usrList||[]).length)+' জন · <span class="live-badge"><i class="live-dot"></i> লাইভ '+bn(liveCnt)+' জন</span></div>';
+  if(!list.length)h+='<div class="panel meta">এই নামে কোনো ব্যবহারকারী নেই।</div>';
+  list.forEach(function(u){
+    var st=stOf(u), live=isLive(u);
+    var n=st.exams.filter(function(x){return x.status==="done"&&(x.finishedAt||0)>=cutoff;}).length;
+    var badge=live?'<span class="live-badge"><i class="live-dot"></i> লাইভ</span>':(u.data.lastActive?'<span class="off-badge">সর্বশেষ: '+fmt(u.data.lastActive)+'</span>':'');
+    h+='<button class="card" data-act="usr" data-uid="'+esc(u.uid)+'" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><b>'+esc(userName(u))+'</b>'+badge+'</div><div class="meta" style="margin:4px 0 0">গত ১ মাসে '+bn(n)+'টি পরীক্ষা · ভুল প্রশ্ন '+bn(Object.keys(st.wrong).length)+'টি</div></button>';
+  });
+  box.innerHTML=h;
+  trDom(box);
+}
 function usrView(){
   if(V.usrSel)return usrDetail();
   if(!V.usrList){
-    if(!V.usrLoading)loadUsers();
+    if(!V.usrLoading)watchUsers();
     return '<h1>ব্যবহারকারী</h1><p class="meta">লোড হচ্ছে…</p>';
   }
-  var q=(V.usrQ||"").trim().toLowerCase();
-  var list=V.usrList.filter(function(u){return !q||(String(u.data.email||"")+" "+u.uid).toLowerCase().indexOf(q)>=0;});
-  var h='<h1>ব্যবহারকারী</h1><p class="meta">মোট '+bn(V.usrList.length)+' জন। ইমেইল লিখে খুঁজে নিতে পারেন।</p>';
-  h+='<div class="panel"><div class="row"><label>খুঁজুন (ইমেইল)</label><input type="text" data-usrq="1" value="'+esc(V.usrQ||"")+'"></div></div>';
+  var h='<h1>ব্যবহারকারী</h1>';
+  h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label>খুঁজুন (ইমেইল)</label></div><input type="text" id="usr-q" placeholder="ইমেইল লিখে খুঁজুন…" value="'+esc(V.usrQ||"")+'"></div>';
   if(V.usrErr)h+='<div class="panel" style="color:var(--bad)">'+esc(V.usrErr)+'</div>';
-  var cutoff=Date.now()-30*864e5;
-  if(!list.length)h+='<div class="panel meta">এই নামে কোনো ব্যবহারকারী নেই।</div>';
-  list.forEach(function(u){
-    var st=stOf(u);
-    var n=st.exams.filter(function(x){return x.status==="done"&&(x.finishedAt||0)>=cutoff;}).length;
-    h+='<button class="card" data-act="usr" data-uid="'+esc(u.uid)+'" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer;margin-bottom:8px"><b>'+esc(userName(u))+'</b><div class="meta">গত ১ মাসে '+bn(n)+'টি পরীক্ষা · ভুল প্রশ্ন '+bn(Object.keys(st.wrong).length)+'টি</div></button>';
-  });
+  h+='<div id="usr-list-res"></div>';
   return h;
 }
 function usrDetail(){
   if(V.usrExam)return usrExamView();
   var ctx=userCtx();
   if(!ctx)return '<p class="meta">ব্যবহারকারী পাওয়া যায়নি।</p><button class="btn alt" data-act="usrback">ফিরে যান</button>';
-  var u=ctx.u, st=ctx.st, cutoff=Date.now()-30*864e5;
+  var u=ctx.u, st=ctx.st, cutoff=Date.now()-30*864e5, live=isLive(u);
   var ex=st.exams.filter(function(x){return x.status==="done"&&(x.finishedAt||0)>=cutoff;}).sort(function(a,b){return (b.finishedAt||0)-(a.finishedAt||0);});
   var tot=0,right=0;
   Object.keys(st.st).forEach(function(id){var s=st.st[id];if(s){tot+=s[0]+s[1];right+=s[0];}});
   var acc=tot?Math.round(right/tot*100):0;
   var wrongAll=Object.keys(st.wrong).filter(function(id){return BY[id];}).map(function(id){return BY[id];});
   var seen=Object.keys(st.seen).filter(function(id){return BY[id];}).length;
-  var h=(V.selfView?'':'<button class="btn alt" data-act="usrback" style="margin:0 0 10px">← সব ব্যবহারকারী</button>')+'<h1>'+esc(userName(u))+'</h1>';
+  var h=(V.selfView?'':'<button class="btn alt" data-act="usrback" style="margin:0 0 10px">← সব ব্যবহারকারী</button>')+'<h1 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+esc(userName(u))+(live?' <span class="live-badge"><i class="live-dot"></i> লাইভ</span>':'')+'</h1>';
   h+='<div class="panel"><div class="total">'+bn(seen)+' / '+bn(Q.length)+'</div><div class="meta">প্রশ্ন দেওয়া হয়েছে · মোট নির্ভুলতা '+bn(acc)+'% · বর্তমানে ভুল '+bn(wrongAll.length)+'টি · গত ১ মাসে '+bn(ex.length)+'টি পরীক্ষা</div></div>';
   h+='<button class="card" data-act="uwrongopen" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer"><b>বর্তমান ভুল প্রশ্ন</b> ('+bn(wrongAll.length)+'টি)<div class="meta">ক্লিক করে ভুল প্রশ্ন দেখুন →</div></button>';
   h+='<h2>গত ১ মাসের পরীক্ষা ('+bn(ex.length)+'টি)</h2>';
@@ -1188,7 +1034,7 @@ function usrDetail(){
   return h;
 }
 function usrWrongView(){
-  var ctx=userCtx();
+  var ctx=userCtx(), L=optL();
   if(!ctx)return '<p class="meta">ব্যবহারকারী পাওয়া যায়নি।</p>';
   var st=ctx.st, wr=Object.keys(st.wrong).filter(function(id){return BY[id];}).map(function(id){return BY[id];}), cnt={};
   wr.forEach(function(q){var k=q.s+"||"+q.t;cnt[k]=(cnt[k]||0)+1;});
@@ -1206,13 +1052,14 @@ function usrWrongView(){
         var c=i===q.a?"opt ok":(i===last?"opt bad":"opt");
         h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+(i===q.a?'সঠিক উত্তর':(i===last?'ছাত্রের উত্তর':''))+'</i></div>';
       });
+      if(ADMIN)h+='<div class="btn-row"><button class="btn alt sm" data-act="uedit" data-qid="'+q.id+'">✎ প্রশ্ন এডিট</button></div>';
       h+='</div>';
     });
   });
   return h;
 }
 function usrExamView(){
-  var ctx=userCtx();
+  var ctx=userCtx(), L=optL();
   var x=ctx?ctx.st.exams.filter(function(e){return e.id===V.usrExam;})[0]:null;
   if(!x)return '<button class="btn alt" data-act="ubackexam">← ফিরে যান</button><p class="meta">পরীক্ষা পাওয়া যায়নি।</p>';
   var f=V.usrFilter||"wrong", rows=[], cnt={all:0,wrong:0,right:0,skip:0};
@@ -1237,12 +1084,137 @@ function usrExamView(){
       h+='<div class="'+c+'"><b>'+L[k]+'</b><span>'+esc(o)+'</span><i>'+tag+'</i></div>';
     });
     if(r.kind==="skip")h+='<div class="meta">এই প্রশ্নের উত্তর দেওয়া হয়নি</div>';
+    if(ADMIN)h+='<div class="btn-row"><button class="btn alt sm" data-act="uedit" data-qid="'+q.id+'">✎ প্রশ্ন এডিট</button></div>';
     h+='</div>';
   });
   return h;
 }
 
-var TR_PAIRS=[["জমা দেওয়া পরীক্ষা ৭ দিন পর মুছতে পারবেন","Submitted exams can be deleted after 7 days"],["দিন বাকি","days left"],["এই পরীক্ষা মুছুন","Delete this exam"],["বিষয়ভিত্তিক অগ্রগতি","Progress by topic"],["ক্লিক করে ভুল প্রশ্ন দেখুন","Tap to view wrong questions"],["প্রশ্ন দেওয়া হয়েছে","questions attempted"],["মোট নির্ভুলতা","overall accuracy"],["বর্তমানে ভুল","currently wrong"],["আপনার অগ্রগতি অ্যাকাউন্টে সেভ হচ্ছে।","Your progress is saved to your account."],["আপনার উত্তর","Your answer"],["সঠিক উত্তর দিলে এখান থেকে সরে যাবে।","Answer correctly to remove it from here."],["যে টপিকে বেশি ভুল, সেটি উপরে।","Topics with the most mistakes come first."],["উত্তর যাচাই হয়নি","Answer not verified"],["নির্ভুল","Accuracy"],["দেওয়া","Attempted"],["উত্তর সেভ হয়েছে। ফলাফল শেষে দেখতে পারবেন।", "Answer saved. You can see the result at the end."], ["পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে", "Show topic with questions in exam"], ["আগে থেকে অ্যাকাউন্ট আছে, লগইন করুন", "Already have an account? Log in"], ["এই সময়ে কোনো পরীক্ষা শেষ হয়নি।", "No exam finished in this period."], ["এগুলো দিয়ে পরীক্ষা শুরু করুন", "Start exam with these"], ["শুধু নতুন (এখনো দেওয়া হয়নি)", "New only (not yet attempted)"], ["যে টপিকে বেশি ভুল, সেটি উপরে।", "Topics with most mistakes appear first."], ["পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)", "Password (min 6 characters)"], ["এই ফিল্টারে কোনো প্রশ্ন নেই।", "No questions for this filter."], ["এখনো কোনো পরীক্ষা শেষ হয়নি।", "No exam finished yet."], ["নির্বাচিতগুলো উত্তরসহ দেখুন", "View selected with answers"], ["কোনো চলমান পরীক্ষা নেই।", "No running exams."], ["প্রতিটা প্রশ্নের পরপরই", "After each question"], ["বিষয় ও টপিক বেছে নিন।", "Choose subjects and topics."], ["নতুন অ্যাকাউন্ট খুলুন", "Create account"], ["পরীক্ষা শেষ করার পর", "After finishing the exam"], ["এমসিকিউ প্র্যাকটিস", "MCQ Practice"], ["বর্তমান ভুল প্রশ্ন", "Current wrong questions"], ["গত ১ মাসের পরীক্ষা", "Exams in the last 1 month"], ["পরীক্ষা শুরু করুন", "Start exam"], ["← পরীক্ষার তালিকা", "← Exam list"], ["পরীক্ষা শেষ করুন", "Finish exam"], ["উত্তর কখন দেখাবে", "When to show answers"], ["← সব ব্যবহারকারী", "← All users"], ["অ্যাকাউন্ট খুলুন", "Create account"], ["কোন প্রশ্ন আসবে", "Which questions"], ["পরীক্ষার ইতিহাস", "Exam history"], ["সর্বশেষ ইমপোর্ট", "Latest import"], ["পছন্দের প্রশ্ন", "Favorite questions"], ["ভুল করা প্রশ্ন", "Wrong questions"], ["প্রশ্ন সংখ্যা", "Number of questions"], ["টপিক বেছে নিন", "Choose topics"], ["চলমান পরীক্ষা", "Running exams"], ["ছাত্রের উত্তর", "Student's answer"], ["পরীক্ষার নাম", "Exam name"], ["উত্তর দেওয়া", "Answered"], ["আগে ভুল করা", "Previously wrong"], ["চালিয়ে যান", "Continue"], ["ফলাফল দেখুন", "View result"], ["ব্যবহারকারী", "Users"], ["বাতিল করুন", "Cancel"], ["মুছে ফেলুন", "Delete"], ["সঠিক উত্তর", "Correct answer"], ["সঠিক করেছে", "Corrected"], ["ভুল প্রশ্ন", "Wrong questions"], ["হোমে ফিরুন", "Back to home"], ["বাংলা অর্থ", "Bangla meaning"], ["লোড হচ্ছে…", "Loading…"], ["সব প্রশ্ন", "All questions"], ["র‍্যান্ডম", "Random"], ["নির্বাচিত", "Selected"], ["← সব টপিক", "← All topics"], ["আরও দেখুন", "Show more"], ["পুরনো আগে", "Oldest first"], ["সিরিয়াল", "Serial"], ["এখনো ভুল", "Still wrong"], ["ফিরে যান", "Go back"], ["ব্যাখ্যা", "Explanation"], ["কম দেখুন", "Show less"], ["নতুন আগে", "Newest first"], ["মূল ক্রম", "Original order"], ["অগ্রগতি", "Progress"], ["পরীক্ষা", "Exams"], ["লগ আউট", "Log out"], ["প্রশ্ন", "Question"], ["সাজানো", "Sort"], ["খুঁজুন", "Search"], ["মুছুন", "Delete"], ["স্কিপ", "Skipped"], ["নম্বর", "Score"], ["ফলাফল", "Result"], ["পছন্দ", "Favorites"], ["ইমেইল", "Email"], ["ক্রম", "Order"], ["সঠিক", "Correct"], ["বাকি", "Remaining"], ["লগইন", "Log in"], ["অপশন", "Option"], ["টপিক", "Topic"], ["হোম", "Home"], ["ভুল", "Wrong"], ["মোট", "Total"], ["সব", "All"]];
+var TR_PAIRS=[
+  ["প্রশ্ন, অপশন বা ব্যাখ্যায় ভুল থাকলে ঠিক করে অ্যাডমিনের কাছে পাঠান।","Fix mistakes in question, options, or explanation and send to admin."],
+  ["উত্তর সেভ হয়েছে। ফলাফল শেষে দেখতে পারবেন।","Answer saved. You can see the result at the end."],
+  ["জমা দেওয়া পরীক্ষা ৭ দিন পর মুছতে পারবেন","Submitted exams can be deleted after 7 days"],
+  ["আগে থেকে অ্যাকাউন্ট আছে, লগইন করুন","Already have an account? Log in"],
+  ["ডেটাবেস থেকে প্রশ্ন লোড হয়নি বা কোনো প্রশ্ন নেই।","No questions loaded from database."],
+  ["সঠিক উত্তর দিলে এখান থেকে সরে যাবে।","Answer correctly to remove it from here."],
+  ["এই সময়ে কোনো পরীক্ষা শেষ হয়নি।","No exam finished in this period."],
+  ["পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)","Password (min 6 characters)"],
+  ["পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে","Show topic with questions in exam"],
+  ["আপনার অগ্রগতি অ্যাকাউন্টে সেভ হচ্ছে।","Your progress is saved to your account."],
+  ["যে টপিকে বেশি ভুল, সেটি উপরে।","Topics with the most mistakes come first."],
+  ["শুধু নতুন (এখনো দেওয়া হয়নি)","New only (not yet attempted)"],
+  ["এই ফিল্টারে কোনো প্রশ্ন নেই।","No questions for this filter."],
+  ["প্রশ্ন, অপশন বা টপিক লিখে খুঁজুন…","Search by question, option, or topic…"],
+  ["এখনো কোনো পরীক্ষা শেষ হয়নি।","No exam finished yet."],
+  ["নির্বাচিতগুলো উত্তরসহ দেখুন","View selected with answers"],
+  ["এগুলো দিয়ে পরীক্ষা শুরু করুন","Start exam with these"],
+  ["এগুলো দিয়ে পরীক্ষা দিন","Start exam with these"],
+  ["ক্লিক করে ভুল প্রশ্ন দেখুন","Tap to view wrong questions"],
+  ["কোনো চলমান পরীক্ষা নেই।","No running exams."],
+  ["প্রতিটা প্রশ্নের পরপরই","After each question"],
+  ["বিষয় ও টপিক বেছে নিন।","Choose subjects and topics."],
+  ["পরীক্ষা শেষ করার পর","After finishing the exam"],
+  ["সব প্রশ্ন থেকে খুঁজুন","Search all MCQs"],
+  ["নতুন অ্যাকাউন্ট খুলুন","Create account"],
+  ["ইমেইল লিখে খুঁজুন…","Search by email…"],
+  ["গত ১ মাসের পরীক্ষা","Exams in the last 1 month"],
+  ["মন্তব্য (ঐচ্ছিক)","Note (optional)"],
+  ["বর্তমান ভুল প্রশ্ন","Current wrong questions"],
+  ["বিষয়ভিত্তিক অগ্রগতি","Progress by topic"],
+  ["পরীক্ষা শুরু করুন","Start exam"],
+  ["প্রশ্ন দেওয়া হয়েছে","questions attempted"],
+  ["উত্তর যাচাই হয়নি","Answer not verified"],
+  ["← সব ব্যবহারকারী","← All users"],
+  ["← পরীক্ষার তালিকা","← Exam list"],
+  ["পরীক্ষা শেষ করুন","Finish exam"],
+  ["উত্তর কখন দেখাবে","When to show answers"],
+  ["অ্যাকাউন্ট খুলুন","Create account"],
+  ["এমসিকিউ প্র্যাকটিস","MCQ Practice"],
+  ["সংশোধন প্রস্তাব","Suggest edit"],
+  ["কোন প্রশ্ন আসবে","Which questions"],
+  ["সংশোধন অনুরোধ","Edit requests"],
+  ["পরীক্ষার ইতিহাস","Exam history"],
+  ["সর্বশেষ ইমপোর্ট","Latest import"],
+  ["পছন্দের প্রশ্ন","Favorite questions"],
+  ["ভুল করা প্রশ্ন","Wrong questions"],
+  ["প্রশ্ন সংখ্যা","Number of questions"],
+  ["টপিক বেছে নিন","Choose topics"],
+  ["চলমান পরীক্ষা","Running exams"],
+  ["প্রস্তাব পাঠান","Submit request"],
+  ["মোট নির্ভুলতা","overall accuracy"],
+  ["PDF (উত্তরসহ)","PDF (With Answers)"],
+  ["ছাত্রের উত্তর","Student's answer"],
+  ["পরীক্ষার নাম","Exam name"],
+  ["উত্তর দেওয়া","Answered"],
+  ["আগে ভুল করা","Previously wrong"],
+  ["উত্তরসহ দেখুন","View with answers"],
+  ["বর্তমানে ভুল","currently wrong"],
+  ["উত্তর লুকান","Hide answer"],
+  ["উত্তর দেখুন","Show answer"],
+  ["আপনার উত্তর","Your answer"],
+  ["চালিয়ে যান","Continue"],
+  ["ফলাফল দেখুন","View result"],
+  ["ব্যবহারকারী","Users"],
+  ["বাতিল করুন","Cancel"],
+  ["মুছে ফেলুন","Delete"],
+  ["সঠিক উত্তর","Correct answer"],
+  ["সঠিক করেছে","Corrected"],
+  ["ভুল প্রশ্ন","Wrong questions"],
+  ["হোমে ফিরুন","Back to home"],
+  ["বাংলা অর্থ","Bangla meaning"],
+  ["PDF (প্রশ্ন)","PDF (Questions)"],
+  ["লাইট মোড","Light Mode"],
+  ["ডার্ক মোড","Dark Mode"],
+  ["থিম: অটো","Theme: Auto"],
+  ["পাওয়া গেছে:","Found:"],
+  ["লোড হচ্ছে…","Loading…"],
+  ["প্রশ্ন এডিট","Edit Question"],
+  ["সব প্রশ্ন","All questions"],
+  ["র‍্যান্ডম","Random"],
+  ["নির্বাচিত","Selected"],
+  ["← সব টপিক","← All topics"],
+  ["আরও দেখুন","Show more"],
+  ["পুরনো আগে","Oldest first"],
+  ["সিরিয়াল","Serial"],
+  ["এখনো ভুল","Still wrong"],
+  ["ফিরে যান","Go back"],
+  ["ব্যাখ্যা","Explanation"],
+  ["কম দেখুন","Show less"],
+  ["নতুন আগে","Newest first"],
+  ["মূল ক্রম","Original order"],
+  ["দিন বাকি","days left"],
+  ["ড্যাশবোর্ড","Dashboard"],
+  ["অগ্রগতি","Progress"],
+  ["পরীক্ষা","Exams"],
+  ["লগ আউট","Log out"],
+  ["নির্ভুল","Accuracy"],
+  ["প্রশ্ন","Question"],
+  ["সাজানো","Sort"],
+  ["খুঁজুন","Search"],
+  ["মুছুন","Delete"],
+  ["দেওয়া","Attempted"],
+  ["বাতিল","Cancel"],
+  ["স্কিপ","Skipped"],
+  ["নম্বর","Score"],
+  ["ফলাফল","Result"],
+  ["পছন্দ","Favorites"],
+  ["ইমেইল","Email"],
+  ["লাইভ","Live"],
+  ["সর্বশেষ:","Last:"],
+  ["ক্রম","Order"],
+  ["সঠিক","Correct"],
+  ["বাকি","Remaining"],
+  ["লগইন","Log in"],
+  ["অপশন","Option"],
+  ["টপিক","Topic"],
+  ["হোম","Home"],
+  ["ভুল","Wrong"],
+  ["মোট","Total"],
+  ["নতুন","New"],
+  ["সব","All"]
+];
+TR_PAIRS.sort(function(a,b){return b[0].length-a[0].length;});
+
 function tr(html){
   if((S.lang||"en")!=="en")return html;
   html=html.replace(/(\d)\s*(টি|জন)/g,"$1");
@@ -1267,8 +1239,26 @@ function render(){
   var s=V.screen,y=app.scrollTop;
   if(!booted){document.getElementById("nav").innerHTML="";app.innerHTML='<p class="meta">লোড হচ্ছে…</p>';return;}
   if(!UID){document.getElementById("nav").innerHTML="";app.innerHTML=authScreen();return;}
-  app.innerHTML=(s==="uwrong"?usrWrongView():s==="wrong"?wrongView():s==="exam"?exam():s==="result"?result():s==="browse"?browse():V.tab==="home"?home():V.tab==="users"&&ADMIN?usrView():V.tab==="exams"?examsView():V.tab==="prog"?prog():V.tab==="admin"&&ADMIN?adminView():listTab(V.tab==="admin"?"fav":V.tab));
+  var html;
+  if(V.edit&&ADMIN)html=editForm();
+  else if(s==="reqedit")html=reqEditForm();
+  else if(s==="uwrong")html=usrWrongView();
+  else if(s==="wrong")html=wrongView();
+  else if(s==="exam")html=exam();
+  else if(s==="result")html=result();
+  else if(s==="browse")html=browse();
+  else if(V.tab==="home")html=home();
+  else if(V.tab==="users"&&ADMIN)html=usrView();
+  else if(V.tab==="exams")html=examsView();
+  else if(V.tab==="prog")html=prog();
+  else if(V.tab==="admin"&&ADMIN)html=adminView();
+  else html=listTab(V.tab==="admin"?"fav":V.tab);
+
+  app.innerHTML=html;
   trDom(app);
+  if(V.tab==="home"&&!V.screen&&!V.edit)renderHomeSearch();
+  if(V.tab==="admin"&&ADMIN&&!V.edit&&!V.admReqs&&!(V.adm&&V.adm.key))renderAdmSearch();
+  if(V.tab==="users"&&ADMIN&&!V.usrSel&&!V.edit&&V.usrList)renderUserList();
   nav();
   trDom(document.getElementById("nav"));
   app.scrollTop=(s==="exam")?y:0;
@@ -1286,14 +1276,40 @@ app.addEventListener("click",function(e){
     p.catch(function(err){V_AUTH={mode:isLogin?"login":"signup",msg:"ত্রুটি: "+err.message};render();});
     return;
   }
-  if(t.id==="adm-new"){V.edit="new";return render();}
-  if(t.id==="adm-cancel"){V.edit=null;return render();}
+  if(t.id==="adm-new"){V.edit="new";V.editRet=null;return render();}
+  if(t.id==="adm-cancel"){return finishAdmEdit();}
   if(t.id==="adm-save"){return admSave();}
   if(t.id==="adm-import"){return admImportText();}
-  if(t.id==="adm-seed"){if(!confirm("মূল প্রশ্নগুলো ডেটাবেসে লিখবেন?"))return;return writeAll(SEED.slice());}
   if(t.id==="adm-export"){return admExport();}
-  if(t.dataset.act==="edit"){V.edit=t.dataset.qid;return render();}
+  if(t.id==="req-submit"){return submitEditReq();}
+  if(t.id==="req-cancel"){V.reqId=null;V.screen=V.reqBackScreen||null;return render();}
+  if(t.dataset.act==="reqedit"){V.reqId=t.dataset.qid;V.reqBackScreen=V.screen;V.screen="reqedit";push();render();app.scrollTop=0;return;}
+  if(t.dataset.act==="adm-reqs"){V.admReqs=true;loadPendingCount();return render();}
+  if(t.dataset.act==="reqs-back"){V.admReqs=false;return render();}
+  if(t.dataset.act==="req-approve"){return approveReq(t.dataset.rid);}
+  if(t.dataset.act==="req-reject"){return rejectReq(t.dataset.rid);}
+  if(t.dataset.act==="edit"){V.edit=t.dataset.qid;V.editRet=null;return render();}
+  if(t.dataset.act==="uedit"){
+    V.editRet={tab:V.tab,screen:V.screen,usrSel:V.usrSel,usrExam:V.usrExam,usrFilter:V.usrFilter,usrTopic:V.usrTopic,selfView:V.selfView};
+    V.edit=t.dataset.qid; return render();
+  }
   if(t.dataset.act==="del"){return admDelete(t.dataset.qid);}
+  if(t.dataset.act==="pdf-q"||t.dataset.act==="pdf-a"){
+    var exP=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0]||(V.ex&&V.ex.id===t.dataset.exid?V.ex:null);
+    return printExamPdf(exP,t.dataset.act==="pdf-a");
+  }
+  if(t.dataset.act==="hsearch-exam"){
+    var list=homeMatches(); if(!list.length)return;
+    return begin(list.map(function(x){return x.id;}),"খোঁজা প্রশ্ন: "+V.homeQ.trim().slice(0,25));
+  }
+  if(t.dataset.act==="hsearch-browse"){
+    var list2=homeMatches(); if(!list2.length)return;
+    V.title="খোঁজা প্রশ্ন: "+V.homeQ.trim(); V.list=list2.map(function(x){return x.id;}); V.screen="browse"; push(); return render();
+  }
+  if(t.dataset.act==="htogans"){
+    var qid=t.dataset.qid; V.homeShowAns[qid]=!V.homeShowAns[qid];
+    return renderHomeSearch();
+  }
   if(t.dataset.act==="resume"||t.dataset.act==="exres"){
     var ex=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0];
     if(!ex)return;
@@ -1312,6 +1328,7 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="usr"){V.usrSel=t.dataset.uid;return render();}
   if(t.dataset.act==="usrback"){V.usrSel=null;V.usrExam=null;V.usrTopic="";return render();}
   if(t.dataset.act==="lang"){S.lang=(S.lang==="bn")?"en":"bn";save();return render();}
+  if(t.dataset.act==="theme"){S.theme=(S.theme==="dark")?"light":(S.theme==="light"?"auto":"dark");applyTheme();save();return render();}
   if(t.dataset.act==="usrmore"){V.usrMore=!V.usrMore;return render();}
   if(t.dataset.act==="uwrongopen"){V.usrTopic="";V.screen="uwrong";push();render();app.scrollTop=0;return;}
   if(t.dataset.act==="uwrongback"){history.back();return;}
@@ -1341,14 +1358,12 @@ app.addEventListener("click",function(e){
     cacheClear().then(function(){return loadQuestions();}).then(function(){alert("নতুন করে আনা হয়েছে: "+Q.length+"টি প্রশ্ন");render();}).catch(function(err){alert("সমস্যা: "+err.message);});
     return;
   }
-  if(t.id==="adm-seedcopy"){return admSeedCopy();}
   if(t.id==="adm-undo"){return admUndo();}
   if(t.id==="adm-redo"){return admRedo();}
-  if(t.id==="logout"){firebase.auth().signOut();return;}
+  if(t.id==="logout"){pingPresence(false);firebase.auth().signOut();return;}
   if(t.dataset.fav){var id=t.dataset.fav;if(S.fav[id])delete S.fav[id];else S.fav[id]=1;save();t.textContent=S.fav[id]?"★":"☆";return;}
   if(t.dataset.k!==undefined)return answer(t.dataset.id,+t.dataset.k);
   if(t.id==="start"){var p=pool(),n=Math.max(1,Math.min(+V.cfg.n||1,p.length));var ids=(V.cfg.order==="rand"?weightedPick(p,n):p.slice(0,n)).map(function(x){return x.id;});var nm=((document.getElementById("exname")||{}).value||"").trim();return begin(ids,nm||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")));}
-  if(t.id==="next"){var ex=V.ex;if(ex.i+1<ex.ids.length){ex.i++;render();}else finish();return;}
   if(t.id==="quit")return finish();
   if(t.id==="redo")return begin(shuffle(V.ex.bad),"ভুলগুলো আবার");
   if(t.dataset.filter){V.filter=t.dataset.filter;return render();}
@@ -1362,10 +1377,10 @@ app.addEventListener("click",function(e){
   }
   if(t.dataset.tab){goTab(t.dataset.tab);return;}
 });
+
 app.addEventListener("change",function(e){
   var t=e.target,c=V.cfg;
-  if(t.id&&/^(a_|imp|em|pw|exname|lname)/.test(t.id))return;
-  if(t.dataset.usrq!==undefined){V.usrQ=t.value;return render();}
+  if(t.id&&/^(a_|r_|imp|em|pw|exname|lname|home-q|adm-all-q|usr-q)/.test(t.id))return;
   if(t.dataset.usrtopic!==undefined){V.usrTopic=t.value;return render();}
   if(t.dataset.admsort){V.adm.sort=t.value;return render();}
   if(t.dataset.admtext){V.adm.text=t.value;return render();}
@@ -1386,7 +1401,15 @@ app.addEventListener("change",function(e){
   else if(t.dataset.sub){Q.forEach(function(x){if(x.s===t.dataset.sub)c.topics[x.s+"||"+x.t]=t.checked;});}
   var y=app.scrollTop;render();app.scrollTop=y;
 });
-app.addEventListener("input",function(e){var t=e.target;if(t.id==="exname"||t.id==="lname")V.draft[t.id]=t.value;});
+
+app.addEventListener("input",function(e){
+  var t=e.target;
+  if(t.id==="exname"||t.id==="lname")V.draft[t.id]=t.value;
+  else if(t.id==="home-q"){V.homeQ=t.value;renderHomeSearch();}
+  else if(t.id==="adm-all-q"){V.admAllQ=t.value;renderAdmSearch();}
+  else if(t.id==="usr-q"){V.usrQ=t.value;renderUserList();}
+});
+
 document.getElementById("nav").addEventListener("click",function(e){var t=e.target.closest("button");if(t)goTab(t.dataset.tab);});
 boot();
 </script>
