@@ -569,7 +569,7 @@ function printExamPdf(ex,withAns){
     '.hdr h1{font-size:18px;margin:0 0 4px} .hdr .meta{color:#555;font-size:11.5px}'+
     '.cols{column-count:2;column-gap:18px;column-rule:1px solid #ddd}'+
     '.q-item{break-inside:avoid;page-break-inside:avoid;margin-bottom:10px;padding-bottom:4px}'+
-    '.q-txt{font-weight:600;margin-bottom:3px}'+
+    '.q-txt{font-weight:400;margin-bottom:3px}'+
     '.opts-grid{display:grid;gap:2px 10px;margin-left:4px}'+
     '.opts-4{grid-template-columns:repeat(4,1fr)} .opts-2{grid-template-columns:1fr 1fr} .opts-1{grid-template-columns:1fr}'+
     '.opt-cell b{margin-right:2px} .opt-cell.ok{color:#0e6b40;font-weight:700}'+
@@ -852,7 +852,7 @@ function wrongView(){
   var wr=wrongList(), cnt={}, L=optL();
   wr.forEach(function(q){var k=q.s+"||"+q.t;cnt[k]=(cnt[k]||0)+1;});
   var keys=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];});
-  var h='<button class="btn alt" data-act="wrongback" style="margin:0 0 10px">← ফিরে যান</button><h1>বর্তমান ভুল প্রশ্ন ('+bn(wr.length)+'টি)</h1><p class="meta">সঠিক উত্তর দিলে এখান থেকে সরে যাবে।</p>';
+  var h='<button class="btn alt" data-act="wrongback" style="margin:0 0 10px">← ফিরে যান</button><h1>বর্তমান ভুল প্রশ্ন ('+bn(wr.length)+'টি)</h1><p class="meta">সঠিক উত্তর দিলে এখান থেকে সরে যাবে।</p><button class="btn alt" data-act="togans" style="margin:0 0 10px">'+(V.showAns?"উত্তর লুকান":"উত্তর দেখান")+'</button>';
   if(!wr.length)return h+'<div class="panel meta">এখন কোনো ভুল প্রশ্ন নেই।</div>';
   h+='<p class="meta">যে টপিকে বেশি ভুল, সেটি উপরে।</p><div class="chips"><button class="chip" data-act="usrtop" data-key="" aria-pressed="'+(!V.usrTopic)+'">সব ('+bn(wr.length)+')</button>'+keys.map(function(k){var p=k.split("||");return '<button class="chip" data-act="usrtop" data-key="'+esc(k)+'" aria-pressed="'+(V.usrTopic===k)+'">'+esc(tlabel(p[1]))+' ('+bn(cnt[k])+')</button>';}).join("")+'</div>';
   keys.filter(function(k){return !V.usrTopic||V.usrTopic===k;}).forEach(function(k){
@@ -862,8 +862,8 @@ function wrongView(){
       var last=latestAnswer(S.exams,q.id);
       h+='<div class="card"><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
       q.o.forEach(function(o,i){
-        var c=i===q.a?"opt ok":(i===last?"opt bad":"opt");
-        h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+(i===q.a?'সঠিক উত্তর':(i===last?'ছাত্রের উত্তর':''))+'</i></div>';
+        var c=V.showAns?(i===q.a?"opt ok":(i===last?"opt bad":"opt")):"opt";
+        h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+(V.showAns?(i===q.a?'সঠিক উত্তর':(i===last?'ছাত্রের উত্তর':'')):'')+'</i></div>';
       });
       h+='<div class="btn-row">';
       if(ADMIN)h+='<button class="btn alt sm" data-act="edit" data-qid="'+q.id+'">✎ এডিট</button>';
@@ -1388,7 +1388,8 @@ function admMTPickView(){
   var qs=Q.filter(function(x){return x.s===s&&x.t===t;});
   var qTxt=(V.admPickQ||"").trim().toLowerCase(), L=optL();
   var h='<button class="btn alt" data-act="mt-pick-done" style="margin:0 0 10px">← নির্বাচন শেষ</button>';
-  h+='<h1>প্রশ্ন নির্বাচন: '+esc(tlabel(t))+'</h1>';
+  var hp=Q.filter(function(x){return x.s===s&&x.t===t&&V.mtForm.picked&&V.mtForm.picked[x.id];}).length;
+  h+='<h1>প্রশ্ন নির্বাচন: '+esc(tlabel(t))+'</h1><p class="meta">এই টপিকে নির্বাচিত: <b>'+bn(hp)+'</b>টি</p>';
   h+='<div class="panel"><input type="text" id="mt-pick-srch" placeholder="প্রশ্ন লিখে খুঁজুন…" value="'+esc(V.admPickQ||"")+'"></div>';
   var list=qs.filter(function(x){return !qTxt||(x.q+" "+x.o.join(" ")).toLowerCase().indexOf(qTxt)>=0;});
   h+='<p class="meta">'+bn(list.length)+'টি দেখাচ্ছে</p>';
@@ -1400,6 +1401,12 @@ function admMTPickView(){
       '<div class="meta" style="margin:0">'+q.o.map(function(o,k){return L[k]+') '+esc(o);}).join(' · ')+'</div></div></div>';
   });
   return h;
+}
+function mtPreview(f){
+  var act=Object.keys(f.selTopics||{}).filter(function(k){return f.selTopics[k];});
+  var cust=act.reduce(function(a,k){return a+(+((f.custom||{})[k])||0);},0);
+  var tot=+f.tot||50, rest=Math.max(0,tot-cust);
+  return '<div class="panel" style="background:var(--okbg)"><b>হিসাব:</b> টপিক '+bn(act.length)+'টি · কাস্টম মোট '+bn(cust)+'টি · বাকি অটো থেকে '+bn(rest)+'টি · লক্ষ্য '+bn(tot)+'টি</div>';
 }
 function admMTFormView(){
   var T=groupTree(), f=V.mtForm;
@@ -1414,6 +1421,7 @@ function admMTFormView(){
   h+='<div class="row"><label>অটো-আনুপাতিক বণ্টন করতে মোট প্রশ্ন সংখ্যা</label><input type="number" id="mt_tot" min="1" value="'+(f.tot||50)+'"></div>';
   h+='</div>';
 
+  h+=mtPreview(f);
   var pickedCount=Object.keys(f.picked||{}).filter(function(id){return f.picked[id];}).length;
   h+='<h2>টপিক নির্বাচন ও প্রশ্ন সংখ্যা (হ্যান্ডপিককৃত '+bn(pickedCount)+'টি)</h2>'+
     '<p class="meta">যেসকল টপিক থেকে প্রশ্ন নিতে চান, সেগুলোতে টিক দিন এবং চাইলে কাস্টম সংখ্যা বা হ্যান্ডপিক করুন।</p>';
@@ -1457,7 +1465,10 @@ function createModelTest(){
   var customAdded={};
 
   activeKeys.forEach(function(k){
-    var n=+custom[k]||0; if(n<=0)return;
+    var cv=+custom[k]||0; if(cv<=0)return;
+    customAdded[k]=true;
+    var have0=finalIds.filter(function(id){var b=BY[id];return b&&(b.s+"||"+b.t)===k;}).length;
+    var n=cv-have0; if(n<=0)return;
     var parts=k.split("||"), s=parts[0], t=parts[1];
     var cands=Q.filter(function(x){
       if(x.s!==s||x.t!==t||finalIds.indexOf(x.id)>=0)return false;
@@ -1754,7 +1765,7 @@ function usrWrongView(){
   var st=ctx.st, wr=Object.keys(st.wrong).filter(function(id){return BY[id];}).map(function(id){return BY[id];}), cnt={};
   wr.forEach(function(q){var k=q.s+"||"+q.t;cnt[k]=(cnt[k]||0)+1;});
   var keys=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];});
-  var h='<button class="btn alt" data-act="uwrongback" style="margin:0 0 10px">← ফিরে যান</button><h1>'+esc(userName(ctx.u))+'</h1><h2>বর্তমান ভুল প্রশ্ন ('+bn(wr.length)+'টি)</h2><p class="meta">সঠিক উত্তর দিলে এখান থেকে সরে যাবে।</p>';
+  var h='<button class="btn alt" data-act="uwrongback" style="margin:0 0 10px">← ফিরে যান</button><h1>'+esc(userName(ctx.u))+'</h1><h2>বর্তমান ভুল প্রশ্ন ('+bn(wr.length)+'টি)</h2><p class="meta">সঠিক উত্তর দিলে এখান থেকে সরে যাবে।</p><button class="btn alt" data-act="togansU" style="margin:0 0 10px">'+(V.showAnsU?"উত্তর লুকান":"উত্তর দেখান")+'</button>';
   if(!wr.length)return h+'<div class="panel meta">এখন কোনো ভুল প্রশ্ন নেই।</div>';
   h+='<p class="meta">যে টপিকে বেশি ভুল, সেটি উপরে।</p><div class="chips"><button class="chip" data-act="usrtop" data-key="" aria-pressed="'+(!V.usrTopic)+'">সব ('+bn(wr.length)+')</button>'+keys.map(function(k){var p=k.split("||");return '<button class="chip" data-act="usrtop" data-key="'+esc(k)+'" aria-pressed="'+(V.usrTopic===k)+'">'+esc(tlabel(p[1]))+' ('+bn(cnt[k])+')</button>';}).join("")+'</div>';
   keys.filter(function(k){return !V.usrTopic||V.usrTopic===k;}).forEach(function(k){
@@ -1764,8 +1775,8 @@ function usrWrongView(){
       var last=latestAnswer(st.exams,q.id);
       h+='<div class="card"><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
       q.o.forEach(function(o,i){
-        var c=i===q.a?"opt ok":(i===last?"opt bad":"opt");
-        h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+(i===q.a?'সঠিক উত্তর':(i===last?'ছাত্রের উত্তর':''))+'</i></div>';
+        var c=V.showAnsU?(i===q.a?"opt ok":(i===last?"opt bad":"opt")):"opt";
+        h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+(V.showAnsU?(i===q.a?'সঠিক উত্তর':(i===last?'ছাত্রের উত্তর':'')):'')+'</i></div>';
       });
       if(ADMIN)h+='<div class="btn-row"><button class="btn alt sm" data-act="uedit" data-qid="'+q.id+'">✎ প্রশ্ন এডিট</button></div>';
       h+='</div>';
@@ -1805,7 +1816,7 @@ function usrExamView(){
   return h;
 }
 
-var TR_PAIRS=[
+var TR_PAIRS=[["উত্তর লুকান","Hide answers"],["উত্তর দেখান","Show answers"],["এই টপিকে নির্বাচিত","Selected in this topic"],["হিসাব:","Summary:"],["টপিক","Topic"],
   ["পাঠানো প্রস্তাবগুলোর অবস্থা (Approved / Rejected) দেখুন →","View status of your sent requests (Approved / Rejected) →"],
   ["প্রশ্ন, অপশন, প্রতিষ্ঠান, ব্যাখ্যা বা উদাহরণে ভুল থাকলে ঠিক করে অ্যাডমিনের কাছে পাঠান।","Fix mistakes in question, options, institution, explanation, or examples and send to admin."],
   ["আপনি এখনো কোনো সংশোধন প্রস্তাব পাঠাননি।","You haven't sent any edit requests yet."],
@@ -2224,7 +2235,17 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="mt-del"){return deleteModelTest(t.dataset.mtid);}
   if(t.dataset.act==="mt-lb"){return showMTLeaderboard(t.dataset.mtid);}
   if(t.dataset.act==="mt-pick-open"){navPush(function(){V.admPickKey=t.dataset.key;V.admPickQ="";});return;}
-  if(t.dataset.act==="mt-pick-done"){V.admPickKey=null;return render();}
+  if(t.dataset.act==="togans"){V.showAns=!V.showAns;return render();}
+  if(t.dataset.act==="togansU"){V.showAnsU=!V.showAnsU;return render();}
+  if(t.dataset.act==="mt-pick-done"){
+    var pk=V.admPickKey;
+    if(pk){
+      var pp=pk.split("||"), cntP=Q.filter(function(x){return x.s===pp[0]&&x.t===pp[1]&&V.mtForm.picked&&V.mtForm.picked[x.id];}).length;
+      V.mtForm.custom=V.mtForm.custom||{};
+      if(cntP>0)V.mtForm.custom[pk]=String(cntP); else delete V.mtForm.custom[pk];
+    }
+    V.admPickKey=null;return render();
+  }
   if(t.dataset.act==="mt-join"){
     var mt=MT_LIST.filter(function(x){return x.id===t.dataset.mtid;})[0];
     if(!mt)return;
@@ -2249,12 +2270,18 @@ app.addEventListener("change",function(e){
   if(t.dataset.act==="mt-pick-tog"){
     V.mtForm.picked=V.mtForm.picked||{};
     V.mtForm.picked[t.dataset.qid]=t.checked;
-    return;
+    var yp=app.scrollTop;render();app.scrollTop=yp;return;
   }
   if(t.dataset.mtcust){
     V.mtForm.custom=V.mtForm.custom||{};
     V.mtForm.custom[t.dataset.mtcust]=t.value;
-    return;
+    var yc=app.scrollTop;render();app.scrollTop=yc;return;
+  }
+  if(t.id&&/^mt_/.test(t.id)){
+    var mf=V.mtForm;
+    if(t.id==="mt_ex_used"){mf.exUsed=t.checked;}
+    else{var mk={mt_title:"title",mt_start:"startAt",mt_end:"endAt",mt_dur:"durMin",mt_neg:"neg",mt_tot:"tot"}[t.id];if(mk)mf[mk]=t.value;}
+    var ym=app.scrollTop;render();app.scrollTop=ym;return;
   }
   if(t.id&&/^(a_|r_|rr_|mt_|imp|em|pw|exname|lname|home-q|adm-all-q|usr-q)/.test(t.id))return;
   if(t.dataset.usrtopic!==undefined){V.usrTopic=t.value;return render();}
