@@ -656,9 +656,6 @@ function runBanner(){
   return '<div class="panel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1">চলমান পরীক্ষা: <b>'+esc(x.name)+'</b> ('+bn(n)+'/'+bn(x.ids.length)+tInf+')</span><button class="btn sm" data-act="resume" data-exid="'+x.id+'">চালিয়ে যান</button></div>';
 }
 
-/* ===== পার্ট ২ শুরু ===== */
-
-/* ===== স্ক্রিন ===== */
 function home(){
   var c=V.cfg,T=groupTree(),p=pool();
   var thLabel=(S.theme==="dark")?"☀️ লাইট":(S.theme==="light"?"🌙 ডার্ক":"🌓 অটো");
