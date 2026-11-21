@@ -1423,11 +1423,27 @@ function admMTPickView(){
   });
   return h;
 }
+function mtAvail(s,t,f){
+  return Q.filter(function(x){
+    if(x.s!==s||x.t!==t)return false;
+    if(!f.exUsed)return true;
+    var used=!!(x.usedMT&&x.usedMT.length);
+    return !used||!!(f.picked&&f.picked[x.id]);
+  }).length;
+}
+function pickedFor(s,t,f){
+  return Q.filter(function(x){return x.s===s&&x.t===t&&f.picked&&f.picked[x.id];}).length;
+}
 function mtPreview(f){
   var act=Object.keys(f.selTopics||{}).filter(function(k){return f.selTopics[k];});
-  var cust=act.reduce(function(a,k){return a+(+((f.custom||{})[k])||0);},0);
+  var avail=0,cust=0,warn=[];
+  act.forEach(function(k){
+    var p=k.split("||"),a=mtAvail(p[0],p[1],f),cv=+((f.custom||{})[k])||0;
+    avail+=a; cust+=Math.min(cv,a);
+    if(cv>a)warn.push(tlabel(p[1])+': সর্বোচ্চ '+bn(a)+', আপনি '+bn(cv)+' লিখেছেন');
+  });
   var tot=+f.tot||50, rest=Math.max(0,tot-cust);
-  return '<div class="panel" style="background:var(--okbg);position:sticky;top:0;z-index:3"><b>হিসাব:</b> টপিক '+bn(act.length)+'টি · কাস্টম মোট '+bn(cust)+'টি · বাকি অটো থেকে '+bn(rest)+'টি · লক্ষ্য '+bn(tot)+'টি</div>';
+  return '<div class="panel" style="background:var(--okbg);position:sticky;top:0;z-index:3"><b>হিসাব:</b> টপিক '+bn(act.length)+'টি · উপলব্ধ MCQ '+bn(avail)+'টি · কাস্টম মোট '+bn(cust)+'টি · বাকি (অটো) '+bn(rest)+'টি · লক্ষ্য '+bn(tot)+'টি'+(warn.length?'<div style="color:var(--bad);margin-top:4px">⚠️ '+warn.map(function(w){return esc(w);}).join(' · ')+'</div>':'')+'</div>';
 }
 function admMTFormView(){
   var T=groupTree(), f=V.mtForm;
@@ -1451,15 +1467,15 @@ function admMTFormView(){
     h+='<div class="panel"><h3>'+esc(s)+'</h3>';
     Object.keys(T[s]).forEach(function(g){
       if(g!==s)h+='<div style="font-weight:600;color:var(--muted);margin:8px 0 2px">'+esc(g)+'</div>';
-      Object.keys(T[s][g]).forEach(function(t){
+      Object.keys(T[s][g]).sort(function(a,b){return mtAvail(s,b,f)-mtAvail(s,a,f);}).forEach(function(t){
         var key=s+"||"+t, qs=T[s][g][t];
-        if(f.exUsed)qs=qs.filter(function(x){return !x.usedMT||!x.usedMT.length;});
+        if(f.exUsed)qs=qs.filter(function(x){return !x.usedMT||!x.usedMT.length||!!(f.picked&&f.picked[x.id]);});
         var isSel=f.selTopics&&f.selTopics[key];
         var cVal=(f.custom&&f.custom[key])!=null?f.custom[key]:"";
         h+='<div class="row" style="border-top:1px solid var(--line);padding-top:6px;align-items:center">'+
           '<input type="checkbox" data-mttop="'+esc(key)+'"'+(isSel?' checked':'')+'>'+
-          '<label style="flex:1;margin:0">'+esc(tlabel(t))+' <small>('+bn(qs.length)+'টি উপলব্ধ)</small></label>'+
-          '<input type="number" min="0" max="'+qs.length+'" placeholder="অটো" data-mtcust="'+esc(key)+'" value="'+esc(cVal)+'" style="width:75px"'+(!isSel?' disabled':'')+'>'+
+          '<label style="flex:1;margin:0">'+esc(tlabel(t))+' <small>(উপলব্ধ '+bn(qs.length)+' · বাছাই '+bn(pickedFor(s,t,f))+')</small></label>'+
+          '<input type="number" min="0" max="'+qs.length+'" placeholder="অটো" data-mtcust="'+esc(key)+'" value="'+esc(cVal)+'" style="width:75px"'+(!isSel?' disabled':'')+'>'+(+cVal>qs.length?'<small style="color:var(--bad)">সর্বোচ্চ '+bn(qs.length)+'</small>':'')+
           '<button type="button" class="btn alt sm" data-act="mt-pick-open" data-key="'+esc(key)+'"'+(!isSel?' disabled style="opacity:.4"':'')+'>বাছাই</button></div>';
       });
     });
@@ -1487,7 +1503,7 @@ function createModelTest(){
   var customAdded={};
 
   activeKeys.forEach(function(k){
-    var cv=+custom[k]||0; if(cv<=0)return;
+    var kp=k.split("||"); var cv=Math.min(+custom[k]||0,mtAvail(kp[0],kp[1],V.mtForm)); if(cv<=0)return;
     customAdded[k]=true;
     var have0=finalIds.filter(function(id){var b=BY[id];return b&&(b.s+"||"+b.t)===k;}).length;
     var n=cv-have0; if(n<=0)return;
@@ -1840,7 +1856,7 @@ function usrExamView(){
   return h;
 }
 
-var TR_PAIRS=[["সব","All"],["ব্যাখ্যা দেখান","Show explanation"],["ব্যাখ্যা দেখান","Show explanation"],["ব্যাখ্যা লুকান","Hide explanation"],["উত্তর দেখান","Show answer"],["উত্তর লুকান","Hide answer"],["বিষয় অনুযায়ী (বাংলা → English → GK → Math)","By subject (Bangla → English → GK → Math)"],["মিশ্র","Mixed"],["প্রশ্নের ক্রম","Question order"],["শুধু নতুন (আগের মডেল টেস্টে আসেনি)","New only (not in earlier model test)"],["শুধু ব্যবহৃত","Used only"],["দেখান","Show"],["উত্তর লুকান","Hide answers"],["উত্তর দেখান","Show answers"],["এই টপিকে নির্বাচিত","Selected in this topic"],["হিসাব:","Summary:"],["টপিক","Topic"],
+var TR_PAIRS=[["উপলব্ধ","Available"],["বাছাই","Picked"],["সর্বোচ্চ","Max"],["বাকি (অটো)","Auto remaining"],["কাস্টম মোট","Custom total"],["টপিক","Topic"],["সব","All"],["ব্যাখ্যা দেখান","Show explanation"],["ব্যাখ্যা দেখান","Show explanation"],["ব্যাখ্যা লুকান","Hide explanation"],["উত্তর দেখান","Show answer"],["উত্তর লুকান","Hide answer"],["বিষয় অনুযায়ী (বাংলা → English → GK → Math)","By subject (Bangla → English → GK → Math)"],["মিশ্র","Mixed"],["প্রশ্নের ক্রম","Question order"],["শুধু নতুন (আগের মডেল টেস্টে আসেনি)","New only (not in earlier model test)"],["শুধু ব্যবহৃত","Used only"],["দেখান","Show"],["উত্তর লুকান","Hide answers"],["উত্তর দেখান","Show answers"],["এই টপিকে নির্বাচিত","Selected in this topic"],["হিসাব:","Summary:"],["টপিক","Topic"],
   ["পাঠানো প্রস্তাবগুলোর অবস্থা (Approved / Rejected) দেখুন →","View status of your sent requests (Approved / Rejected) →"],
   ["প্রশ্ন, অপশন, প্রতিষ্ঠান, ব্যাখ্যা বা উদাহরণে ভুল থাকলে ঠিক করে অ্যাডমিনের কাছে পাঠান।","Fix mistakes in question, options, institution, explanation, or examples and send to admin."],
   ["আপনি এখনো কোনো সংশোধন প্রস্তাব পাঠাননি।","You haven't sent any edit requests yet."],
