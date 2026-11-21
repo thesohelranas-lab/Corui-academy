@@ -1277,6 +1277,7 @@ function impApply(){
   V.imp.items.forEach(function(x){
     if(x.status==="new"){out.push(x.json);return;}
     if(x.status!=="changed")return;
+    if(!x.diffs.some(function(d){return d.choice==="take";}))return;
     var obj=Object.assign({},x.cur);
     x.diffs.forEach(function(d){obj[d.f]=d.choice==="take"?d.nw:d.old;});
     obj.id=x.id; out.push(obj);
