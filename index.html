@@ -360,6 +360,31 @@ function gname(x){
   return x.s;
 }
 function tlabel(t){return t.indexOf("Grammar: ")===0?t.slice(9):t;}
+/* ===== টপিক সর্ট ===== */
+var COLL=(function(){try{return new Intl.Collator(["bn","en"],{numeric:true,sensitivity:"base"});}catch(e){return {compare:function(a,b){return a<b?-1:(a>b?1:0);}};}})();
+function topicStat(qs){
+  var a=0,b=0,nw=0,used=0;
+  qs.forEach(function(x){var st=S.st[x.id];if(st){a+=st[0];b+=st[1];} if(!S.seen[x.id])nw++; if(x.usedMT&&x.usedMT.length)used++;});
+  return {n:qs.length,att:a+b,wr:b,pct:(a+b)?Math.round(a/(a+b)*100):null,nw:nw,used:used};
+}
+/* mode: az | new | weak | most | least | (অন্যথায় ডিফল্ট ক্রম) */
+function sortTopics(names,getQs,mode,availFn){
+  var arr=names.map(function(t,i){var qs=getQs(t),st=topicStat(qs);st.t=t;st.i=i;st.av=availFn?availFn(t):qs.length;return st;});
+  var byName=function(x,y){return COLL.compare(tlabel(x.t),tlabel(y.t));};
+  var cmp;
+  if(mode==="az")cmp=byName;
+  else if(mode==="new")cmp=function(x,y){return (y.nw-x.nw)||(y.n-x.n)||byName(x,y);};
+  else if(mode==="weak")cmp=function(x,y){var xa=x.pct===null,ya=y.pct===null;if(xa!==ya)return xa?1:-1;if(!xa&&x.pct!==y.pct)return x.pct-y.pct;return (y.wr-x.wr)||byName(x,y);};
+  else if(mode==="most")cmp=function(x,y){return (y.av-x.av)||byName(x,y);};
+  else if(mode==="least")cmp=function(x,y){var xr=x.n?x.used/x.n:0,yr=y.n?y.used/y.n:0;return (xr-yr)||(y.av-x.av)||byName(x,y);};
+  else cmp=function(x,y){return x.i-y.i;};
+  return arr.sort(cmp).map(function(x){return x.t;});
+}
+function topicSortSelect(cfgKey,cur,opts){
+  return '<div class="row" style="margin:0 0 10px"><label>টপিক সাজান</label><select data-cfg="'+cfgKey+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(cur===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div>';
+}
+var STU_SORT_OPTS=[["default","ডিফল্ট"],["az","নাম অনুযায়ী (A→Z)"],["new","নতুন MCQ বেশি থেকে কম"],["weak","দুর্বল টপিক আগে"]];
+var ADM_SORT_OPTS=[["most","প্রশ্ন বেশি থেকে কম"],["az","নাম অনুযায়ী (A→Z)"],["least","সবচেয়ে কম ব্যবহৃত আগে"]];
 function groupTree(list){
   var T={};
   (list||Q).forEach(function(x){
@@ -521,18 +546,18 @@ function composeExplText(q){
   if(q.bn)lines.push("Bangla Meaning: "+q.bn);
   if(q.e)lines.push("Explanation: "+q.e);
   var ex=q.ex||[];
-  if(ex[0])lines.push("Example 1: "+ex[0].q+(ex[0].a?" → "+ex[0].a:"")+(ex[0].src?" ["+ex[0].src+"]":"")+(ex[0].bn?"\n("+ex[0].bn+")":""));
-  if(ex[1])lines.push("Example 2: "+ex[1].q+(ex[1].a?" → "+ex[1].a:"")+(ex[1].src?" ["+ex[1].src+"]":"")+(ex[1].bn?"\n("+ex[1].bn+")":""));
+  if(ex[0])lines.push("Example 1: "+ex[0].q+(ex[0].a?" → "+ex[0].a:"")+(ex[0].src?" ["+ex[0].src+"]":"")+(ex[0].bn?"\r\n("+ex[0].bn+")":""));
+  if(ex[1])lines.push("Example 2: "+ex[1].q+(ex[1].a?" → "+ex[1].a:"")+(ex[1].src?" ["+ex[1].src+"]":"")+(ex[1].bn?"\r\n("+ex[1].bn+")":""));
   if(q.rule){
     lines.push("Exceptional Rule: "+q.rule.t);
-    if(q.rule.ex)lines.push("Example: "+q.rule.ex.q+(q.rule.ex.bn?"\n("+q.rule.ex.bn+")":""));
+    if(q.rule.ex)lines.push("Example: "+q.rule.ex.q+(q.rule.ex.bn?"\r\n("+q.rule.ex.bn+")":""));
   }
-  return lines.join("\n");
+  return lines.join("\r\n");
 }
 function parseExplText(raw,qObj){
   raw=raw.trim();
   if(!raw)return {explText:"",bn:"",e:"",ex:[],rule:null};
-  var mBn=raw.match(/Bangla Meaning:\s*([^\n\r]+)/i);
+  var mBn=raw.match(/Bangla Meaning:\s*([^\r\n\r]+)/i);
   var mExp=raw.match(/Explanation:\s*([\s\S]*?)(?=(Example \d+:|Exceptional Rule:|$))/i);
   return {
     explText:raw,
@@ -708,6 +733,7 @@ function home(){
   h+='<button class="btn" id="start"'+(p.length?'':' disabled')+'>'+(p.length?'পরীক্ষা শুরু করুন'+(c.timer?' ('+fmtSec(estN*SEC_PER_Q)+')':''):'টপিক বেছে নিন')+'</button></div>';
   h+='<div class="meta">এক বা একাধিক টপিক বেছে নিন। প্রতি ভুল উত্তরে '+bn(NEG)+' নম্বর কাটা যায়।</div>';
   if(!Q.length)return h+'<div class="panel meta">ডেটাবেস থেকে প্রশ্ন লোড হয়নি বা কোনো প্রশ্ন নেই।</div>';
+  h+=topicSortSelect("topicSort",c.topicSort||"default",STU_SORT_OPTS);
   Object.keys(T).forEach(function(s){
     var gs=Object.keys(T[s]),allT=[];
     gs.forEach(function(g){Object.keys(T[s][g]).forEach(function(t){allT.push(t);});});
@@ -715,9 +741,10 @@ function home(){
     h+='<div class="panel"><label class="sub"><input type="checkbox" data-sub="'+esc(s)+'"'+(all?" checked":"")+'>'+esc(s)+'</label>';
     gs.forEach(function(g){
       if(g!==s)h+=groupHead(s,g,T,null);
-      Object.keys(T[s][g]).forEach(function(t){
+      sortTopics(Object.keys(T[s][g]),function(t){return T[s][g][t];},c.topicSort||"default").forEach(function(t){
         var qs=T[s][g][t],nw=qs.filter(function(x){return !S.seen[x.id];}).length;
-        var dis=(c.pool==="new"&&nw===0);h+='<label class="top"'+(dis?' style="opacity:.45"':'')+'><input type="checkbox" data-top="'+esc(s+"||"+t)+'"'+(c.topics[s+"||"+t]?" checked":"")+(dis?' disabled':'')+'><span>'+esc(tlabel(t))+'</span><small>'+bn(qs.length)+'টি, নতুন '+bn(nw)+'</small></label>';
+        var accTxt="";if((c.topicSort||"")==="weak"){var ts=topicStat(qs);if(ts.pct!==null)accTxt=' · নির্ভুলতা '+bn(ts.pct)+'%';}
+        var dis=(c.pool==="new"&&nw===0);h+='<label class="top"'+(dis?' style="opacity:.45"':'')+'><input type="checkbox" data-top="'+esc(s+"||"+t)+'"'+(c.topics[s+"||"+t]?" checked":"")+(dis?' disabled':'')+'><span>'+esc(tlabel(t))+'</span><small>'+bn(qs.length)+'টি, নতুন '+bn(nw)+accTxt+'</small></label>';
       });
     });
     h+='</div>';
@@ -746,6 +773,7 @@ function listTab(kind){
   h+='<div class="row"><label>টাইমার (প্রতি প্রশ্নে ৩০ সেকেন্ড)</label><input type="checkbox" data-cfg="timer"'+(V.cfg.timer?' checked':'')+'></div>';
   h+='<div class="meta">বিষয় ও টপিক বেছে নিন। নির্বাচিত '+bn(sel.length)+'টি প্রশ্ন।</div></div>';
   var T=groupTree(all);
+  h+=topicSortSelect("topicSort",V.cfg.topicSort||"default",STU_SORT_OPTS);
   Object.keys(T).forEach(function(s){
     var gs=Object.keys(T[s]),keys=[];
     gs.forEach(function(g){Object.keys(T[s][g]).forEach(function(t){keys.push(s+"||"+t);});});
@@ -753,7 +781,7 @@ function listTab(kind){
     h+='<div class="panel"><label class="sub"><input type="checkbox" data-lkind="'+kind+'" data-lsub="'+esc(s)+'"'+(allOn?" checked":"")+'>'+esc(s)+'</label>';
     gs.forEach(function(g){
       if(g!==s)h+=groupHead(s,g,T,kind);
-      Object.keys(T[s][g]).forEach(function(t){
+      sortTopics(Object.keys(T[s][g]),function(t){return T[s][g][t];},V.cfg.topicSort||"default").forEach(function(t){
         var key=s+"||"+t;
         h+='<label class="top"><input type="checkbox" data-lkind="'+kind+'" data-ltop="'+esc(key)+'"'+(lsOn(kind,key)?" checked":"")+'><span>'+esc(tlabel(t))+'</span><small>'+bn(T[s][g][t].length)+'টি</small></label>';
       });
@@ -1151,7 +1179,7 @@ function admUndo(){
   DB.collection("adminLog").orderBy("at","desc").limit(1).get().then(function(snap){
     if(snap.empty){alert("আনডু করার কিছু নেই");return;}
     var doc=snap.docs[0],entry=doc.data();
-    if(!confirm("শেষ পরিবর্তনটি ফিরিয়ে আনবেন?\n\n"+entry.label))return;
+    if(!confirm("শেষ পরিবর্তনটি ফিরিয়ে আনবেন?\r\n\r\n"+entry.label))return;
     var b=DB.batch();
     entry.changes.forEach(function(c){
       var ref=DB.collection("questions").doc(c.id);
@@ -1196,7 +1224,7 @@ function admImportText(){
     }
     toWrite.push(x);
   });
-  var msg="নতুন যোগ হবে: "+nNew+"\nআগে থেকে আছে (আপডেট হবে): "+nUpd+"\nতালিকায় ডুপ্লিকেট বাদ: "+nDup+"\n\nচালিয়ে যাবেন?";
+  var msg="নতুন যোগ হবে: "+nNew+"\r\nআগে থেকে আছে (আপডেট হবে): "+nUpd+"\r\nতালিকায় ডুপ্লিকেট বাদ: "+nDup+"\r\n\r\nচালিয়ে যাবেন?";
   if(!confirm(msg))return;
   if(!toWrite.length){alert("লেখার মতো কিছু নেই");return;}
   writeAll(toWrite,"JSON ইমপোর্ট");
@@ -1242,7 +1270,7 @@ function admSave(){
     var exact=Q.filter(function(x){
       return fullSimKey(x.q,x.o)===fsk || (simKey(x.q)===qsk && simKey((x.o||[])[x.a]||"")===ask);
     })[0];
-    if(exact&&!confirm("⚠️ সতর্কতা: এই প্রশ্নটি আগে থেকেই ডেটাবেসে আছে!\n\nটপিক: "+exact.s+" – "+exact.t+"\nপ্রশ্ন: "+exact.q+"\n\nতবুও কি নতুন প্রশ্ন হিসেবে সেভ করবেন?"))return;
+    if(exact&&!confirm("⚠️ সতর্কতা: এই প্রশ্নটি আগে থেকেই ডেটাবেসে আছে!\r\n\r\nটপিক: "+exact.s+" – "+exact.t+"\r\nপ্রশ্ন: "+exact.q+"\r\n\r\nতবুও কি নতুন প্রশ্ন হিসেবে সেভ করবেন?"))return;
   }
   var btn=document.getElementById("adm-save"); if(btn)btn.disabled=true;
   var src=gv("a_src"), iVal="", yVal="";
@@ -1294,7 +1322,7 @@ function admRedo(){
   DB.collection("adminRedo").orderBy("at","desc").limit(1).get().then(function(snap){
     if(snap.empty){alert("আবার করার কিছু নেই");return;}
     var doc=snap.docs[0],entry=doc.data();
-    if(!confirm("আবার করা হবেবা?\n\n"+entry.label))return;
+    if(!confirm("আবার করা হবেবা?\r\n\r\n"+entry.label))return;
     var b=DB.batch();
     entry.changes.forEach(function(c){
       var ref=DB.collection("questions").doc(c.id);
@@ -1434,28 +1462,46 @@ function admMTDetailView(){
 function admMTPickFiltered(){
   var parts=V.admPickKey.split("||"), s=parts[0], t=parts[1];
   var qs=Q.filter(function(x){return x.s===s&&x.t===t;});
-  var qTxt=(V.admPickQ||"").trim().toLowerCase(), mf=V.mtForm.filter||"new";
-  return qs.filter(function(x){var used=!!(x.usedMT&&x.usedMT.length);if(mf==="new"&&used)return false;if(mf==="used"&&!used)return false;return !qTxt||(x.q+" "+x.o.join(" ")).toLowerCase().indexOf(qTxt)>=0;});
+  var qTxt=(V.admPickQ||"").trim().toLowerCase(), mf=V.mtForm.filter||"new", pi=V.mtForm.pickInst||"";
+  return qs.filter(function(x){
+    var used=!!(x.usedMT&&x.usedMT.length);
+    if(mf==="new"&&used)return false;
+    if(mf==="used"&&!used)return false;
+    if(pi==="__none"){if(x.i)return false;}
+    else if(pi&&x.i!==pi)return false;
+    return !qTxt||(x.q+" "+x.o.join(" ")+" "+(x.i||"")+" "+(x.y||"")).toLowerCase().indexOf(qTxt)>=0;
+  });
 }
 function admMTPickListHtml(){
   var L=optL(), list=admMTPickFiltered();
   var h='<p class="meta">'+bn(list.length)+'টি দেখাচ্ছে</p>';
   list.forEach(function(q){
     var checked=!!(V.mtForm.picked&&V.mtForm.picked[q.id]);
+    var used=!!(q.usedMT&&q.usedMT.length);
+    var tags='<div class="tags">'+(q.i?'<span data-notr>উৎস: '+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'<span>উৎস নেই</span>')+(used?'<span style="color:var(--bad)">আগের টেস্টে ব্যবহৃত</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'</div>';
+    var hasAns=(typeof q.a==="number"&&q.a>=0&&q.a<q.o.length);
+    var opts=q.o.map(function(o,k){var ok=hasAns&&k===q.a;return '<div style="margin:2px 0;'+(ok?'color:var(--ok);font-weight:700':'')+'">'+(ok?'✔ ':'')+L[k]+') '+esc(o)+'</div>';}).join('');
     h+='<div class="card" style="display:flex;gap:10px;align-items:flex-start'+(checked?';border-color:var(--accent);background:rgba(47,91,234,.10)':'')+'">'+
       '<input type="checkbox" data-act="mt-pick-tog" data-qid="'+q.id+'"'+(checked?' checked':'')+' style="margin-top:4px">'+
-      '<div style="flex:1"><p class="q" style="font-size:16px;margin:0 0 4px">'+esc(q.q)+'</p>'+
-      '<div class="meta" style="margin:0">'+q.o.map(function(o,k){return L[k]+') '+esc(o);}).join(' · ')+'</div></div></div>';
+      '<div style="flex:1">'+tags+'<p class="q" style="font-size:16px;margin:0 0 6px">'+esc(q.q)+'</p>'+
+      '<div class="meta" style="margin:0">'+opts+'</div>'+
+      (hasAns?'<div class="meta" style="margin:4px 0 0;color:var(--ok)">সঠিক উত্তর: <b>'+L[q.a]+'</b></div>':'')+'</div></div>';
   });
   return h;
 }
 function admMTPickView(){
   var key=V.admPickKey, parts=key.split("||"), s=parts[0], t=parts[1];
   var h='<button class="btn alt" data-act="mt-pick-done" style="margin:0 0 10px">← নির্বাচন শেষ</button>';
-  var hp=Q.filter(function(x){return x.s===s&&x.t===t&&V.mtForm.picked&&V.mtForm.picked[x.id];}).length;
+  var allQ=Q.filter(function(x){return x.s===s&&x.t===t;});
+  var hp=allQ.filter(function(x){return V.mtForm.picked&&V.mtForm.picked[x.id];}).length;
   h+='<h1>প্রশ্ন নির্বাচন: '+esc(tlabel(t))+'</h1><p class="meta">এই টপিকে নির্বাচিত: <b id="mt-pick-cnt">'+bn(hp)+'</b>টি</p>';
-  var mf=V.mtForm.filter||"new";
-  h+='<div class="panel"><div class="row"><label>দেখান</label><select id="mt-pick-filter"><option value="new"'+(mf==="new"?" selected":"")+'>শুধু নতুন (আগের মডেল টেস্টে আসেনি)</option><option value="used"'+(mf==="used"?" selected":"")+'>শুধু ব্যবহৃত</option><option value="all"'+(mf==="all"?" selected":"")+'>সব</option></select></div><input type="text" id="mt-pick-srch" placeholder="প্রশ্ন লিখে খুঁজুন…" value="'+esc(V.admPickQ||"")+'">'+
+  var mf=V.mtForm.filter||"new", pi=V.mtForm.pickInst||"";
+  var instCnt={},noneCnt=0;
+  allQ.forEach(function(x){if(x.i)instCnt[x.i]=(instCnt[x.i]||0)+1;else noneCnt++;});
+  var instOpts='<option value="">সব প্রতিষ্ঠান ('+bn(allQ.length)+')</option>'+Object.keys(instCnt).sort(function(a,b){return COLL.compare(a,b);}).map(function(i){return '<option data-notr value="'+esc(i)+'"'+(pi===i?' selected':'')+'>'+esc(i)+' ('+bn(instCnt[i])+')</option>';}).join('')+(noneCnt?'<option value="__none"'+(pi==="__none"?' selected':'')+'>উৎস নেই ('+bn(noneCnt)+')</option>':'');
+  h+='<div class="panel"><div class="row"><label>দেখান</label><select id="mt-pick-filter"><option value="new"'+(mf==="new"?" selected":"")+'>শুধু নতুন (আগের মডেল টেস্টে আসেনি)</option><option value="used"'+(mf==="used"?" selected":"")+'>শুধু ব্যবহৃত</option><option value="all"'+(mf==="all"?" selected":"")+'>সব</option></select></div>'+
+    '<div class="row"><label>উৎস / প্রতিষ্ঠান</label><select id="mt-pick-inst">'+instOpts+'</select></div>'+
+    '<input type="text" id="mt-pick-srch" placeholder="প্রশ্ন, অপশন বা উৎস লিখে খুঁজুন…" value="'+esc(V.admPickQ||"")+'">'+
     '<div class="btn-row"><button type="button" class="btn alt sm" data-act="mt-pick-all">সব নির্বাচন</button><button type="button" class="btn alt sm" data-act="mt-pick-none">সব বাদ</button></div></div>';
   h+='<div id="mt-pick-list">'+admMTPickListHtml()+'</div>';
   return h;
@@ -1509,12 +1555,13 @@ function admMTFormView(){
   var pickedCount=Object.keys(f.picked||{}).filter(function(id){var b=BY[id];return f.picked[id]&&b&&f.selTopics&&f.selTopics[b.s+"||"+b.t];}).length;
   h+='<h2>টপিক নির্বাচন ও প্রশ্ন সংখ্যা (হ্যান্ডপিককৃত '+bn(pickedCount)+'টি)</h2>'+
     '<p class="meta">যেসকল টপিক থেকে প্রশ্ন নিতে চান, সেগুলোতে টিক দিন এবং চাইলে কাস্টম সংখ্যা বা হ্যান্ডপিক করুন।</p>';
+  h+=topicSortSelect("mtSort",V.cfg.mtSort||"most",ADM_SORT_OPTS);
 
   Object.keys(T).forEach(function(s){
     h+='<div class="panel"><h3>'+esc(s)+'</h3>';
     Object.keys(T[s]).forEach(function(g){
       if(g!==s)h+='<div style="font-weight:600;color:var(--muted);margin:8px 0 2px">'+esc(g)+'</div>';
-      Object.keys(T[s][g]).sort(function(a,b){return mtAvail(s,b,f)-mtAvail(s,a,f);}).forEach(function(t){
+      sortTopics(Object.keys(T[s][g]),function(t){return T[s][g][t];},V.cfg.mtSort||"most",function(t){return mtAvail(s,t,f);}).forEach(function(t){
         var key=s+"||"+t, qs=T[s][g][t];
         if(f.exUsed)qs=qs.filter(function(x){return !x.usedMT||!x.usedMT.length||!!(f.picked&&f.picked[x.id]);});
         var isSel=f.selTopics&&f.selTopics[key];
@@ -1524,7 +1571,7 @@ function admMTFormView(){
         var pkHint=(isBlue&&+cVal>0&&+cVal<pkN)?'<div class="meta" style="margin:0 0 4px;flex-basis:100%;color:var(--accent)">বাছাই করা '+bn(pkN)+'টি থেকে র‍্যান্ডম '+bn(+cVal)+'টি যাবে</div>':'';
         h+='<div class="row" style="'+rowSt+';align-items:center;flex-wrap:wrap">'+
           '<input type="checkbox" data-mttop="'+esc(key)+'"'+(isSel?' checked':'')+'>'+
-          '<label style="flex:1;margin:0">'+esc(tlabel(t))+' <small>(উপলব্ধ '+bn(qs.length)+' · বাছাই '+bn(pkN)+')</small>'+(isBlue?' <span style="background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap">✔ বাছাই '+bn(pkN)+'টি</span>':'')+'</label>'+
+          '<label style="flex:1;margin:0">'+esc(tlabel(t))+' <small>(উপলব্ধ '+bn(qs.length)+' · বাছাই '+bn(pkN)+((V.cfg.mtSort||"")==="least"?' · ব্যবহৃত '+bn(topicStat(T[s][g][t]).used)+'/'+bn(T[s][g][t].length):'')+')</small>'+(isBlue?' <span style="background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap">✔ বাছাই '+bn(pkN)+'টি</span>':'')+'</label>'+
           '<input type="number" min="0" max="'+qs.length+'" placeholder="অটো" data-mtcust="'+esc(key)+'" value="'+esc(cVal)+'" style="width:75px"'+(!isSel?' disabled':'')+'>'+(+cVal>qs.length?'<small style="color:var(--bad)">সর্বোচ্চ '+bn(qs.length)+'</small>':'')+
           '<button type="button" class="btn alt sm" data-act="mt-pick-open" data-key="'+esc(key)+'"'+(!isSel?' disabled style="opacity:.4"':'')+'>বাছাই</button>'+pkHint+'</div>';
       });
@@ -1591,8 +1638,8 @@ function createModelTest(){
   var subjOrder=mtSortSubjects(finalIds.map(function(id){return BY[id].s;}),V.mtForm.subjOrder);
   finalIds=mtOrderIds(finalIds,subjOrder);
   var cntS={};finalIds.forEach(function(id){var s2=BY[id].s;cntS[s2]=(cntS[s2]||0)+1;});
-  var sumTxt=subjOrder.map(function(s2,i){return (i+1)+". "+s2+": "+cntS[s2]+"টি";}).join("\n");
-  if(!confirm("'"+title+"' – মোট "+finalIds.length+"টি প্রশ্ন\n\n"+sumTxt+"\n\nপাবলিশ করবেন?"))return;
+  var sumTxt=subjOrder.map(function(s2,i){return (i+1)+". "+s2+": "+cntS[s2]+"টি";}).join("\r\n");
+  if(!confirm("'"+title+"' – মোট "+finalIds.length+"টি প্রশ্ন\r\n\r\n"+sumTxt+"\r\n\r\nপাবলিশ করবেন?"))return;
   var finalDur=durMin>0?(durMin*60):(finalIds.length*SEC_PER_Q);
   var mtId="mt_"+Date.now().toString(36);
   var mtData={
@@ -2079,6 +2126,21 @@ var TR_PAIRS=[["উপলব্ধ","Available"],["বাছাই","Picked"],["
   ["মোট","Total"],
   ["নতুন","New"],
   ["বিষয়ভিত্তিক ফলাফল","Subject-wise result"],
+  ["টপিক সাজান","Sort topics"],
+  ["নাম অনুযায়ী (A→Z)","By name (A→Z)"],
+  ["নতুন MCQ বেশি থেকে কম","Most new MCQs first"],
+  ["দুর্বল টপিক আগে","Weak topics first"],
+  ["প্রশ্ন বেশি থেকে কম","Most questions first"],
+  ["সবচেয়ে কম ব্যবহৃত আগে","Least used first"],
+  ["সব প্রতিষ্ঠান","All sources"],
+  ["উৎস / প্রতিষ্ঠান","Source / Institution"],
+  ["উৎস নেই","No source"],
+  ["উৎস:","Source:"],
+  ["প্রশ্ন, অপশন বা উৎস লিখে খুঁজুন…","Search question, option or source…"],
+  ["আগের টেস্টে ব্যবহৃত","Used in earlier test"],
+  ["সঠিক উত্তর:","Correct answer:"],
+  ["ব্যবহৃত","Used"],
+  ["ডিফল্ট","Default"],
   ["বিষয়ভিত্তিক কাস্টম:","Subject-wise custom:"],
   ["বিষয়ের ক্রম","Subject order"],
   ["পরীক্ষায় এই ক্রমে বিষয় আসবে। প্রতিটি বিষয়ের ভেতরে প্রশ্ন র‍্যান্ডম হবে।","Subjects appear in this order. Questions are random within each subject."],
@@ -2291,7 +2353,7 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="uexdel"){
     var ctx2=userCtx(); if(!ctx2)return;
     var ex2=ctx2.st.exams.filter(function(x){return x.id===t.dataset.exid;})[0];
-    if(!confirm("এই পরীক্ষাটি ব্যবহারকারীর তালিকা থেকে মুছবেন?\n"+(ex2?ex2.name:"")))return;
+    if(!confirm("এই পরীক্ষাটি ব্যবহারকারীর তালিকা থেকে মুছবেন?\r\n"+(ex2?ex2.name:"")))return;
     var uid2=ctx2.u.uid, left=ctx2.st.exams.filter(function(x){return x.id!==t.dataset.exid;});
     DB.collection("users").doc(uid2).update({"state.exams":left,adminDeleted:firebase.firestore.FieldValue.arrayUnion(t.dataset.exid)})
       .then(function(){
@@ -2344,7 +2406,7 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="mt-lock-one"){return toggleOneQRelease(t.dataset.mtid,t.dataset.qid,true);}
   if(t.dataset.act==="mt-del"){return deleteModelTest(t.dataset.mtid);}
   if(t.dataset.act==="mt-lb"){return showMTLeaderboard(t.dataset.mtid);}
-  if(t.dataset.act==="mt-pick-open"){V.mtFormScroll=app.scrollTop;navPush(function(){V.admPickKey=t.dataset.key;V.admPickQ="";});return;}
+  if(t.dataset.act==="mt-pick-open"){V.mtFormScroll=app.scrollTop;navPush(function(){V.admPickKey=t.dataset.key;V.admPickQ="";V.mtForm.pickInst="";});return;}
   if(t.dataset.act==="mt-subj-up"||t.dataset.act==="mt-subj-down"){
     var ord=mtActiveSubjects(V.mtForm), si=ord.indexOf(t.dataset.subj), sj2=t.dataset.act==="mt-subj-up"?si-1:si+1;
     if(si>=0&&sj2>=0&&sj2<ord.length){var tmpS=ord[si];ord[si]=ord[sj2];ord[sj2]=tmpS;V.mtForm.subjOrder=ord;}
@@ -2403,6 +2465,7 @@ app.addEventListener("change",function(e){
     var yc=app.scrollTop;render();app.scrollTop=yc;return;
   }
   if(t.id==="mt-pick-filter"){V.mtForm.filter=t.value;var yf=app.scrollTop;render();app.scrollTop=yf;return;}
+  if(t.id==="mt-pick-inst"){V.mtForm.pickInst=t.value;var yi=app.scrollTop;render();app.scrollTop=yi;return;}
   if(t.id&&/^mt_/.test(t.id)){
     var mf=V.mtForm;
     if(t.id==="mt_ex_used"){mf.exUsed=t.checked;}
