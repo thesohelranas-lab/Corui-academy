@@ -424,7 +424,7 @@ function begin(ids,title,extraOpt){
     dur:dur,left:dur,reveal:extraOpt.reveal||V.cfg.reveal||"instant",showTopic:extraOpt.showTopic!==undefined?extraOpt.showTopic:!!V.cfg.showTopic,
     mtId:extraOpt.mtId||null,neg:neg,mode:extraOpt.mode||"mixed"
   };
-  S.exams.unshift(ex);
+  S.exams.unshift(ex);V.exSubj="";
   save(true);
   navPush(function(){
     V.ex=ex; V.filter="all"; V.title=ex.name; V.screen="exam";
@@ -774,9 +774,13 @@ function exam(){
     tBadge+
     '<button class="btn alt sm" id="ex-next-un" data-act="next-un"'+(rem===0?' disabled':'')+'>বাকি প্রশ্ন ↓</button>'+
     '<button class="btn alt sm" data-act="pdf-q" data-exid="'+e.id+'">📄 PDF</button></div>';
+  var subs=[];e.ids.forEach(function(id){var q0=BY[id];if(q0&&subs.indexOf(q0.s)<0)subs.push(q0.s);});
+  var cur=(V.exSubj&&subs.indexOf(V.exSubj)>=0)?V.exSubj:"";
+  if(subs.length>1){h+='<div class="chips"><button class="chip" data-act="exsubj" data-subj="" aria-pressed="'+(!cur)+'">সব</button>'+subs.map(function(s){return '<button class="chip" data-act="exsubj" data-subj="'+esc(s)+'" aria-pressed="'+(cur===s)+'">'+esc(s)+'</button>';}).join('')+'</div>';}
   var partNo=0,lastS=null;
   e.ids.forEach(function(id,idx){
     var q=BY[id];
+    if(cur&&(!q||q.s!==cur))return;
     if(e.mode==="subject"&&q&&q.s!==lastS){lastS=q.s;partNo=0;h+='<h2 style="margin:16px 0 6px">'+esc(q.s)+'</h2>';}
     partNo++;
     h+='<div class="card" id="qc_'+id+'">'+examCardInner(id,e.mode==="subject"?partNo-1:idx)+'</div>';
@@ -1829,13 +1833,14 @@ function usrExamView(){
       h+='<div class="'+c+'"><b>'+L[k]+'</b><span>'+esc(o)+'</span><i>'+tag+'</i></div>';
     });
     if(r.kind==="skip")h+='<div class="meta">এই প্রশ্নের উত্তর দেওয়া হয়নি</div>';
+    h+=expl(q);
     if(ADMIN)h+='<div class="btn-row"><button class="btn alt sm" data-act="uedit" data-qid="'+q.id+'">✎ প্রশ্ন এডিট</button></div>';
     h+='</div>';
   });
   return h;
 }
 
-var TR_PAIRS=[["ব্যাখ্যা দেখান","Show explanation"],["ব্যাখ্যা লুকান","Hide explanation"],["উত্তর দেখান","Show answer"],["উত্তর লুকান","Hide answer"],["বিষয় অনুযায়ী (বাংলা → English → GK → Math)","By subject (Bangla → English → GK → Math)"],["মিশ্র","Mixed"],["প্রশ্নের ক্রম","Question order"],["শুধু নতুন (আগের মডেল টেস্টে আসেনি)","New only (not in earlier model test)"],["শুধু ব্যবহৃত","Used only"],["দেখান","Show"],["উত্তর লুকান","Hide answers"],["উত্তর দেখান","Show answers"],["এই টপিকে নির্বাচিত","Selected in this topic"],["হিসাব:","Summary:"],["টপিক","Topic"],
+var TR_PAIRS=[["সব","All"],["ব্যাখ্যা দেখান","Show explanation"],["ব্যাখ্যা দেখান","Show explanation"],["ব্যাখ্যা লুকান","Hide explanation"],["উত্তর দেখান","Show answer"],["উত্তর লুকান","Hide answer"],["বিষয় অনুযায়ী (বাংলা → English → GK → Math)","By subject (Bangla → English → GK → Math)"],["মিশ্র","Mixed"],["প্রশ্নের ক্রম","Question order"],["শুধু নতুন (আগের মডেল টেস্টে আসেনি)","New only (not in earlier model test)"],["শুধু ব্যবহৃত","Used only"],["দেখান","Show"],["উত্তর লুকান","Hide answers"],["উত্তর দেখান","Show answers"],["এই টপিকে নির্বাচিত","Selected in this topic"],["হিসাব:","Summary:"],["টপিক","Topic"],
   ["পাঠানো প্রস্তাবগুলোর অবস্থা (Approved / Rejected) দেখুন →","View status of your sent requests (Approved / Rejected) →"],
   ["প্রশ্ন, অপশন, প্রতিষ্ঠান, ব্যাখ্যা বা উদাহরণে ভুল থাকলে ঠিক করে অ্যাডমিনের কাছে পাঠান।","Fix mistakes in question, options, institution, explanation, or examples and send to admin."],
   ["আপনি এখনো কোনো সংশোধন প্রস্তাব পাঠাননি।","You haven't sent any edit requests yet."],
@@ -2254,6 +2259,7 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="mt-del"){return deleteModelTest(t.dataset.mtid);}
   if(t.dataset.act==="mt-lb"){return showMTLeaderboard(t.dataset.mtid);}
   if(t.dataset.act==="mt-pick-open"){navPush(function(){V.admPickKey=t.dataset.key;V.admPickQ="";});return;}
+  if(t.dataset.act==="exsubj"){V.exSubj=t.dataset.subj||"";var ysu=app.scrollTop;render();app.scrollTop=ysu;return;}
   if(t.dataset.act==="revq"){V.rev=V.rev||{};V.rev[t.dataset.qid]=!V.rev[t.dataset.qid];var yr=app.scrollTop;render();app.scrollTop=yr;return;}
   if(t.dataset.act==="togans"){V.showAns=!V.showAns;var y1=app.scrollTop;render();app.scrollTop=y1;return;}
   if(t.dataset.act==="togansU"){V.showAnsU=!V.showAnsU;var y2=app.scrollTop;render();app.scrollTop=y2;return;}
