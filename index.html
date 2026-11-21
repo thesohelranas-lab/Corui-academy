@@ -852,7 +852,7 @@ function wrongView(){
   var wr=wrongList(), cnt={}, L=optL();
   wr.forEach(function(q){var k=q.s+"||"+q.t;cnt[k]=(cnt[k]||0)+1;});
   var keys=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];});
-  var h='<button class="btn alt" data-act="wrongback" style="margin:0 0 10px">← ফিরে যান</button><h1>বর্তমান ভুল প্রশ্ন ('+bn(wr.length)+'টি বয়স)</h1><p class="meta">সঠিক উত্তর দেখলে বা ঠিক করলে এখান থেকে সরে যাবে।</p>';
+  var h='<button class="btn alt" data-act="wrongback" style="margin:0 0 10px">← ফিরে যান</button><h1>বর্তমান ভুল প্রশ্ন ('+bn(wr.length)+'টি)</h1><p class="meta">সঠিক উত্তর দেখলে বা ঠিক করলে এখান থেকে সরে যাবে।</p>';
   if(!wr.length)return h+'<div class="panel meta">এখন কোনো ভুল প্রশ্ন নেই।</div>';
   h+='<p class="meta">যে টপিকে বেশি ভুল, সেটি উপরে।</p><div class="chips"><button class="chip" data-act="usrtop" data-key="" aria-pressed="'+(!V.usrTopic)+'">সব ('+bn(wr.length)+')</button>'+keys.map(function(k){var p=k.split("||");return '<button class="chip" data-act="usrtop" data-key="'+esc(k)+'" aria-pressed="'+(V.usrTopic===k)+'">'+esc(tlabel(p[1]))+' ('+bn(cnt[k])+')</button>';}).join("")+'</div>';
   keys.filter(function(k){return !V.usrTopic||V.usrTopic===k;}).forEach(function(k){
@@ -867,7 +867,7 @@ function wrongView(){
         var c=i===q.a?"opt ok":(i===last?"opt bad":"opt");
         h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+(i===q.a?'সঠিক উত্তর':(i===last?'আপনার উত্তর':''))+'</i></div>';
       });
-      h+='<div class="btn-row"><button class="btn alt sm" data-act="togwrongexp" data-qid="'+q.id+'">'+(isToggled?'ব্যাখ্যা লুকান':'ব্যাখ্যা দেখুন')+' رائے</button><button class="btn alt sm" data-act="reqedit" data-qid="'+q.id+'">✎ সংশোধন প্রস্তাব</button></div>';
+      h+='<div class="btn-row"><button class="btn alt sm" data-act="togwrongexp" data-qid="'+q.id+'">'+(isToggled?'ব্যাখ্যা লুকান':'ব্যাখ্যা দেখুন')+'</button><button class="btn alt sm" data-act="reqedit" data-qid="'+q.id+'">✎ সংশোধন প্রস্তাব</button></div>';
       if(isToggled)h+=expl(q);
       h+='</div>';
     });
@@ -1245,7 +1245,7 @@ function topicBulkRename(s,t){
 }
 function admRedo(){
   DB.collection("adminRedo").orderBy("at","desc").limit(1).get().then(function(snap){
-    if(snap.empty){alert("আবার করার কিছু নেই");return;}
+    if(snap.empty){alert("আনডু করার কিছু নেই");return;}
     var doc=snap.docs[0],entry=doc.data();
     if(!confirm("আবার করা হবে?\n\n"+entry.label))return;
     var b=DB.batch();
