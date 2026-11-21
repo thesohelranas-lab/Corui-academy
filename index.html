@@ -875,12 +875,13 @@ function wrongView(){
     h+='<h3>'+esc(tlabel(p[1]))+' ('+bn(cnt[k])+'টি)</h3>';
     wr.filter(function(q){return (q.s+"||"+q.t)===k;}).forEach(function(q){
       var last=latestAnswer(S.exams,q.id);
-      h+='<div class="card"><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p><button class="btn alt sm" data-act="revq" data-qid="'+q.id+'" style="margin:0 0 8px">'+((V.rev&&V.rev[q.id])?'উত্তর লুকান':'উত্তর দেখান')+'</button>';
+      h+='<div class="card"><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
       q.o.forEach(function(o,i){
-        var c=(V.rev&&V.rev[q.id])?(i===q.a?"opt ok":(i===last?"opt bad":"opt")):"opt";
-        h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+((V.rev&&V.rev[q.id])?(i===q.a?'সঠিক উত্তর':(i===last?'আপনার উত্তর':'')):'')+'</i></div>';
+        var c=i===q.a?"opt ok":(i===last?"opt bad":"opt");
+        h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+(i===q.a?'সঠিক উত্তর':(i===last?'আপনার উত্তর':''))+'</i></div>';
       });
-      h+='<div class="btn-row">';
+      h+=(V.rev&&V.rev[q.id])?expl(q):'';
+      h+='<div class="btn-row"><button class="btn alt sm" data-act="revq" data-qid="'+q.id+'">'+((V.rev&&V.rev[q.id])?'ব্যাখ্যা লুকান':'ব্যাখ্যা দেখান')+'</button>';
       if(ADMIN)h+='<button class="btn alt sm" data-act="edit" data-qid="'+q.id+'">✎ এডিট</button>';
       h+='<button class="btn alt sm" data-act="reqedit" data-qid="'+q.id+'">✎ সংশোধন প্রস্তাব</button></div>';
       h+='</div>';
@@ -1790,12 +1791,13 @@ function usrWrongView(){
     h+='<h3>'+esc(tlabel(p[1]))+' ('+bn(cnt[k])+'টি)</h3>';
     wr.filter(function(q){return (q.s+"||"+q.t)===k;}).forEach(function(q){
       var last=latestAnswer(st.exams,q.id);
-      h+='<div class="card"><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p><button class="btn alt sm" data-act="revq" data-qid="'+q.id+'" style="margin:0 0 8px">'+((V.rev&&V.rev[q.id])?'উত্তর লুকান':'উত্তর দেখান')+'</button>';
+      h+='<div class="card"><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
       q.o.forEach(function(o,i){
-        var c=(V.rev&&V.rev[q.id])?(i===q.a?"opt ok":(i===last?"opt bad":"opt")):"opt";
-        h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+((V.rev&&V.rev[q.id])?(i===q.a?'সঠিক উত্তর':(i===last?'ছাত্রের উত্তর':'')):'')+'</i></div>';
+        var c=i===q.a?"opt ok":(i===last?"opt bad":"opt");
+        h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+(i===q.a?'সঠিক উত্তর':(i===last?'ছাত্রের উত্তর':''))+'</i></div>';
       });
-      if(ADMIN)h+='<div class="btn-row"><button class="btn alt sm" data-act="uedit" data-qid="'+q.id+'">✎ প্রশ্ন এডিট</button></div>';
+      h+=(V.rev&&V.rev[q.id])?expl(q):'';
+      h+='<div class="btn-row"><button class="btn alt sm" data-act="revq" data-qid="'+q.id+'">'+((V.rev&&V.rev[q.id])?'ব্যাখ্যা লুকান':'ব্যাখ্যা দেখান')+'</button>'+(ADMIN?'<button class="btn alt sm" data-act="uedit" data-qid="'+q.id+'">✎ প্রশ্ন এডিট</button>':'')+'</div>';
       h+='</div>';
     });
   });
@@ -1833,7 +1835,7 @@ function usrExamView(){
   return h;
 }
 
-var TR_PAIRS=[["উত্তর দেখান","Show answer"],["উত্তর লুকান","Hide answer"],["বিষয় অনুযায়ী (বাংলা → English → GK → Math)","By subject (Bangla → English → GK → Math)"],["মিশ্র","Mixed"],["প্রশ্নের ক্রম","Question order"],["শুধু নতুন (আগের মডেল টেস্টে আসেনি)","New only (not in earlier model test)"],["শুধু ব্যবহৃত","Used only"],["দেখান","Show"],["উত্তর লুকান","Hide answers"],["উত্তর দেখান","Show answers"],["এই টপিকে নির্বাচিত","Selected in this topic"],["হিসাব:","Summary:"],["টপিক","Topic"],
+var TR_PAIRS=[["ব্যাখ্যা দেখান","Show explanation"],["ব্যাখ্যা লুকান","Hide explanation"],["উত্তর দেখান","Show answer"],["উত্তর লুকান","Hide answer"],["বিষয় অনুযায়ী (বাংলা → English → GK → Math)","By subject (Bangla → English → GK → Math)"],["মিশ্র","Mixed"],["প্রশ্নের ক্রম","Question order"],["শুধু নতুন (আগের মডেল টেস্টে আসেনি)","New only (not in earlier model test)"],["শুধু ব্যবহৃত","Used only"],["দেখান","Show"],["উত্তর লুকান","Hide answers"],["উত্তর দেখান","Show answers"],["এই টপিকে নির্বাচিত","Selected in this topic"],["হিসাব:","Summary:"],["টপিক","Topic"],
   ["পাঠানো প্রস্তাবগুলোর অবস্থা (Approved / Rejected) দেখুন →","View status of your sent requests (Approved / Rejected) →"],
   ["প্রশ্ন, অপশন, প্রতিষ্ঠান, ব্যাখ্যা বা উদাহরণে ভুল থাকলে ঠিক করে অ্যাডমিনের কাছে পাঠান।","Fix mistakes in question, options, institution, explanation, or examples and send to admin."],
   ["আপনি এখনো কোনো সংশোধন প্রস্তাব পাঠাননি।","You haven't sent any edit requests yet."],
