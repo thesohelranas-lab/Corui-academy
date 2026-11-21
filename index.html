@@ -571,6 +571,7 @@ function expl(q){
   var txt=composeExplText(q);
   return '<div class="exp">'+esc(txt)+'</div>';
 }
+function srcTag(q){return q&&q.i?'<span data-notr>উৎস: '+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'';}
 function card(q,sel,mode){
   if(!q)return '';
   var L=optL();
@@ -935,7 +936,7 @@ function wrongView(){
     h+='<h3>'+esc(tlabel(p[1]))+' ('+bn(cnt[k])+'টি)</h3>';
     wr.filter(function(q){return (q.s+"||"+q.t)===k;}).forEach(function(q){
       var last=latestAnswer(S.exams,q.id);
-      h+='<div class="card"><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
+      h+='<div class="card">'+(q.i?'<div class="tags">'+srcTag(q)+'</div>':'')+'<p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
       q.o.forEach(function(o,i){
         var c=i===q.a?"opt ok":(i===last?"opt bad":"opt");
         h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+(i===q.a?'সঠিক উত্তর':(i===last?'আপনার উত্তর':''))+'</i></div>';
@@ -1480,12 +1481,12 @@ function admMTPickListHtml(){
     var used=!!(q.usedMT&&q.usedMT.length);
     var tags='<div class="tags">'+(q.i?'<span data-notr>উৎস: '+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'<span>উৎস নেই</span>')+(used?'<span style="color:var(--bad)">আগের টেস্টে ব্যবহৃত</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'</div>';
     var hasAns=(typeof q.a==="number"&&q.a>=0&&q.a<q.o.length);
-    var opts=q.o.map(function(o,k){var ok=hasAns&&k===q.a;return '<div style="margin:2px 0;'+(ok?'color:var(--ok);font-weight:700':'')+'">'+(ok?'✔ ':'')+L[k]+') '+esc(o)+'</div>';}).join('');
+    var opts=q.o.map(function(o,k){var ok=hasAns&&k===q.a;return '<div style="margin:2px 0;'+(ok?'color:var(--ok);font-weight:700':'')+'">'+L[k]+') '+esc(o)+'</div>';}).join('');
     h+='<div class="card" style="display:flex;gap:10px;align-items:flex-start'+(checked?';border-color:var(--accent);background:rgba(47,91,234,.10)':'')+'">'+
       '<input type="checkbox" data-act="mt-pick-tog" data-qid="'+q.id+'"'+(checked?' checked':'')+' style="margin-top:4px">'+
       '<div style="flex:1">'+tags+'<p class="q" style="font-size:16px;margin:0 0 6px">'+esc(q.q)+'</p>'+
       '<div class="meta" style="margin:0">'+opts+'</div>'+
-      (hasAns?'<div class="meta" style="margin:4px 0 0;color:var(--ok)">সঠিক উত্তর: <b>'+L[q.a]+'</b></div>':'')+'</div></div>';
+      '</div></div>';
   });
   return h;
 }
@@ -1919,7 +1920,7 @@ function usrWrongView(){
     h+='<h3>'+esc(tlabel(p[1]))+' ('+bn(cnt[k])+'টি)</h3>';
     wr.filter(function(q){return (q.s+"||"+q.t)===k;}).forEach(function(q){
       var last=latestAnswer(st.exams,q.id);
-      h+='<div class="card"><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
+      h+='<div class="card">'+(q.i?'<div class="tags">'+srcTag(q)+'</div>':'')+'<p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
       q.o.forEach(function(o,i){
         var c=i===q.a?"opt ok":(i===last?"opt bad":"opt");
         h+='<div class="'+c+'"><b>'+L[i]+'</b><span>'+esc(o)+'</span><i>'+(i===q.a?'সঠিক উত্তর':(i===last?'ছাত্রের উত্তর':''))+'</i></div>';
@@ -1950,7 +1951,7 @@ function usrExamView(){
   if(!shown.length)h+='<div class="panel meta">এই ফিল্টারে কোনো প্রশ্ন নেই।</div>';
   shown.forEach(function(r){
     var q=r.q;
-    h+='<div class="card"><div class="tags"><span>'+esc(q.s)+' – '+esc(tlabel(q.t))+'</span>'+(r.stillWrong?'<span>এখনো ভুল</span>':(r.kind==="wrong"?'<span>সঠিক করেছে</span>':''))+'</div><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
+    h+='<div class="card"><div class="tags"><span>'+esc(q.s)+' – '+esc(tlabel(q.t))+'</span>'+srcTag(q)+(r.stillWrong?'<span>এখনো ভুল</span>':(r.kind==="wrong"?'<span>সঠিক করেছে</span>':''))+'</div><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(q.q)+'</p>';
     q.o.forEach(function(o,k){
       var c=k===q.a?"opt ok":(k===r.a&&r.kind==="wrong"?"opt bad":"opt");
       var tag=k===q.a?'সঠিক':(k===r.a?'ছাত্রের উত্তর':'');
