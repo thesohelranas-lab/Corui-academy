@@ -408,6 +408,13 @@ function weightedPick(list,n){
   keys.forEach(function(k){result=result.concat(shuffle(groups[k]).slice(0,alloc[k]||0));});
   return shuffle(result);
 }
+var SUBJ_ORDER=["বাংলা","English","সাধারণ জ্ঞান","গণিত"];
+function subjRank(s){var i=SUBJ_ORDER.indexOf(s);return i<0?99:i;}
+function orderIds(ids,mode){
+  if(mode!=="subject")return ids;
+  return ids.map(function(id,i){return {id:id,r:subjRank(BY[id]?BY[id].s:""),i:i};})
+    .sort(function(a,b){return (a.r-b.r)||(a.i-b.i);}).map(function(x){return x.id;});
+}
 function begin(ids,title,extraOpt){
   extraOpt=extraOpt||{};
   var dur=extraOpt.dur!=null?extraOpt.dur:(V.cfg.timer?ids.length*SEC_PER_Q:0);
@@ -415,7 +422,7 @@ function begin(ids,title,extraOpt){
   var ex={
     id:"e"+Date.now().toString(36),name:title||"পরীক্ষা",at:Date.now(),ids:ids,a:{},status:"running",
     dur:dur,left:dur,reveal:extraOpt.reveal||V.cfg.reveal||"instant",showTopic:extraOpt.showTopic!==undefined?extraOpt.showTopic:!!V.cfg.showTopic,
-    mtId:extraOpt.mtId||null,neg:neg
+    mtId:extraOpt.mtId||null,neg:neg,mode:extraOpt.mode||"mixed"
   };
   S.exams.unshift(ex);
   save(true);
@@ -553,14 +560,18 @@ function printExamPdf(ex,withAns){
   var L=optL();
   var qs=ex.ids.map(function(id){return BY[id];}).filter(Boolean);
   if(!qs.length){alert(S.lang==="bn"?"কোনো প্রশ্ন পাওয়া যায়নি।":"No questions found.");return;}
+  var subjMode=ex.mode==="subject", pSub=null, pNo=0;
   var rows=qs.map(function(q,idx){
+    var head="";
+    if(subjMode&&q.s!==pSub){pSub=q.s;pNo=0;head='<h2 class="part">'+esc(q.s)+'</h2>';}
+    pNo++; var shownNo=subjMode?pNo:idx+1;
     var cls=optClass(q.o);
     var opts=q.o.map(function(o,k){
       var isOk=withAns&&k===q.a;
       return '<div class="opt-cell'+(isOk?' ok':'')+'"><b>'+L[k]+')</b> '+esc(o)+(isOk?' ✓':'')+'</div>';
     }).join("");
     var expH=withAns?'<div class="exp-box"><b>উত্তর: '+L[q.a]+')</b> '+esc(composeExplText(q))+'</div>':'';
-    return '<div class="q-item"><div class="q-txt"><b>'+bn(idx+1)+'.</b> '+esc(q.q)+'</div><div class="opts-grid '+cls+'">'+opts+'</div>'+expH+'</div>';
+    return head+'<div class="q-item"><div class="q-txt"><span class="qn">'+bn(shownNo)+'.</span> '+esc(q.q)+'</div><div class="opts-grid '+cls+'">'+opts+'</div>'+expH+'</div>';
   }).join("");
   var html='<!DOCTYPE html><html lang="'+(S.lang==="bn"?"bn":"en")+'"><head><meta charset="utf-8"><title>'+esc(ex.name)+'</title>'+
     '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet">'+
@@ -569,7 +580,7 @@ function printExamPdf(ex,withAns){
     '.hdr h1{font-size:18px;margin:0 0 4px} .hdr .meta{color:#555;font-size:11.5px}'+
     '.cols{column-count:2;column-gap:18px;column-rule:1px solid #ddd}'+
     '.q-item{break-inside:avoid;page-break-inside:avoid;margin-bottom:10px;padding-bottom:4px}'+
-    '.q-txt{font-weight:400;margin-bottom:3px}'+
+    '.q-txt{font-weight:400;margin-bottom:3px}.q-txt .qn{font-weight:400}.opt-cell b{font-weight:400}h2.part{font-size:15px;margin:14px 0 6px;border-bottom:1px solid #999;font-weight:600}'+
     '.opts-grid{display:grid;gap:2px 10px;margin-left:4px}'+
     '.opts-4{grid-template-columns:repeat(4,1fr)} .opts-2{grid-template-columns:1fr 1fr} .opts-1{grid-template-columns:1fr}'+
     '.opt-cell b{margin-right:2px} .opt-cell.ok{color:#0e6b40;font-weight:700}'+
@@ -669,7 +680,7 @@ function home(){
   h+='<div class="row"><label>কোন প্রশ্ন আসবে</label><select data-cfg="pool"><option value="new"'+(c.pool==="new"?" selected":"")+'>শুধু নতুন (এখনো দেওয়া হয়নি)</option><option value="all"'+(c.pool==="all"?" selected":"")+'>সব প্রশ্ন</option><option value="wrong"'+(c.pool==="wrong"?" selected":"")+'>আগে ভুল করা</option></select></div>';
   if(insts.length>1)h+='<div class="row"><label>প্রতিষ্ঠান</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+esc(x)+'</option>';}).join("")+'</select></div>';
   h+='<div class="row"><label>প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(p.length)+')</label><input type="number" min="1" data-cfg="n" value="'+c.n+'"></div>';
-  h+='<div class="row"><label>ক্রম</label><select data-cfg="order"><option value="rand"'+(c.order==="rand"?" selected":"")+'>র‍্যান্ডম</option><option value="serial"'+(c.order==="serial"?" selected":"")+'>সিরিয়াল</option></select></div>';
+  h+='<div class="row"><label>প্রশ্নের ক্রম</label><select data-cfg="mode"><option value="subject"'+((V.cfg.mode||"subject")==="subject"?" selected":"")+'>বিষয় অনুযায়ী (বাংলা → English → GK → Math)</option><option value="mixed"'+(V.cfg.mode==="mixed"?" selected":"")+'>মিশ্র</option></select></div><div class="row"><label>ক্রম</label><select data-cfg="order"><option value="rand"'+(c.order==="rand"?" selected":"")+'>র‍্যান্ডম</option><option value="serial"'+(c.order==="serial"?" selected":"")+'>সিরিয়াল</option></select></div>';
   h+='<div class="row"><label>উত্তর কখন দেখাবে</label><select data-cfg="reveal"><option value="instant"'+(c.reveal==="instant"?" selected":"")+'>প্রতিটা প্রশ্নের পরপরই</option><option value="end"'+(c.reveal==="end"?" selected":"")+'>পরীক্ষা শেষ করার পর</option></select></div>';
   h+='<div class="row"><label>টাইমার (প্রতি প্রশ্নে ৩০ সেকেন্ড)</label><input type="checkbox" data-cfg="timer"'+(c.timer?' checked':'')+'></div>';
   h+='<div class="row"><label>পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে</label><input type="checkbox" data-cfg="showTopic"'+(c.showTopic?' checked':'')+'></div>';
@@ -763,8 +774,12 @@ function exam(){
     tBadge+
     '<button class="btn alt sm" id="ex-next-un" data-act="next-un"'+(rem===0?' disabled':'')+'>বাকি প্রশ্ন ↓</button>'+
     '<button class="btn alt sm" data-act="pdf-q" data-exid="'+e.id+'">📄 PDF</button></div>';
+  var partNo=0,lastS=null;
   e.ids.forEach(function(id,idx){
-    h+='<div class="card" id="qc_'+id+'">'+examCardInner(id,idx)+'</div>';
+    var q=BY[id];
+    if(e.mode==="subject"&&q&&q.s!==lastS){lastS=q.s;partNo=0;h+='<h2 style="margin:16px 0 6px">'+esc(q.s)+'</h2>';}
+    partNo++;
+    h+='<div class="card" id="qc_'+id+'">'+examCardInner(id,e.mode==="subject"?partNo-1:idx)+'</div>';
   });
   h+='<button class="btn" id="quit">পরীক্ষা শেষ করুন</button>';
   return h;
@@ -1390,8 +1405,9 @@ function admMTPickView(){
   var h='<button class="btn alt" data-act="mt-pick-done" style="margin:0 0 10px">← নির্বাচন শেষ</button>';
   var hp=Q.filter(function(x){return x.s===s&&x.t===t&&V.mtForm.picked&&V.mtForm.picked[x.id];}).length;
   h+='<h1>প্রশ্ন নির্বাচন: '+esc(tlabel(t))+'</h1><p class="meta">এই টপিকে নির্বাচিত: <b>'+bn(hp)+'</b>টি</p>';
-  h+='<div class="panel"><input type="text" id="mt-pick-srch" placeholder="প্রশ্ন লিখে খুঁজুন…" value="'+esc(V.admPickQ||"")+'"></div>';
-  var list=qs.filter(function(x){return !qTxt||(x.q+" "+x.o.join(" ")).toLowerCase().indexOf(qTxt)>=0;});
+  var mf=V.mtForm.filter||"new";
+  h+='<div class="panel"><div class="row"><label>দেখান</label><select id="mt-pick-filter"><option value="new"'+(mf==="new"?" selected":"")+'>শুধু নতুন (আগের মডেল টেস্টে আসেনি)</option><option value="used"'+(mf==="used"?" selected":"")+'>শুধু ব্যবহৃত</option><option value="all"'+(mf==="all"?" selected":"")+'>সব</option></select></div><input type="text" id="mt-pick-srch" placeholder="প্রশ্ন লিখে খুঁজুন…" value="'+esc(V.admPickQ||"")+'"></div>';
+  var list=qs.filter(function(x){var used=!!(x.usedMT&&x.usedMT.length);if(mf==="new"&&used)return false;if(mf==="used"&&!used)return false;return !qTxt||(x.q+" "+x.o.join(" ")).toLowerCase().indexOf(qTxt)>=0;});
   h+='<p class="meta">'+bn(list.length)+'টি দেখাচ্ছে</p>';
   list.forEach(function(q){
     var checked=!!(V.mtForm.picked&&V.mtForm.picked[q.id]);
@@ -1816,7 +1832,7 @@ function usrExamView(){
   return h;
 }
 
-var TR_PAIRS=[["উত্তর লুকান","Hide answers"],["উত্তর দেখান","Show answers"],["এই টপিকে নির্বাচিত","Selected in this topic"],["হিসাব:","Summary:"],["টপিক","Topic"],
+var TR_PAIRS=[["বিষয় অনুযায়ী (বাংলা → English → GK → Math)","By subject (Bangla → English → GK → Math)"],["মিশ্র","Mixed"],["প্রশ্নের ক্রম","Question order"],["শুধু নতুন (আগের মডেল টেস্টে আসেনি)","New only (not in earlier model test)"],["শুধু ব্যবহৃত","Used only"],["দেখান","Show"],["উত্তর লুকান","Hide answers"],["উত্তর দেখান","Show answers"],["এই টপিকে নির্বাচিত","Selected in this topic"],["হিসাব:","Summary:"],["টপিক","Topic"],
   ["পাঠানো প্রস্তাবগুলোর অবস্থা (Approved / Rejected) দেখুন →","View status of your sent requests (Approved / Rejected) →"],
   ["প্রশ্ন, অপশন, প্রতিষ্ঠান, ব্যাখ্যা বা উদাহরণে ভুল থাকলে ঠিক করে অ্যাডমিনের কাছে পাঠান।","Fix mistakes in question, options, institution, explanation, or examples and send to admin."],
   ["আপনি এখনো কোনো সংশোধন প্রস্তাব পাঠাননি।","You haven't sent any edit requests yet."],
@@ -2209,7 +2225,7 @@ app.addEventListener("click",function(e){
   if(t.id==="logout"){save(true);stopExamTimer();pingPresence(false);stopReqsWatch();stopUsersWatch();firebase.auth().signOut();return;}
   if(t.dataset.fav){var id=t.dataset.fav;if(S.fav[id])delete S.fav[id];else S.fav[id]=1;save(false);t.textContent=S.fav[id]?"★":"☆";return;}
   if(t.dataset.k!==undefined)return answer(t.dataset.id,+t.dataset.k);
-  if(t.id==="start"){var p=pool(),n=Math.max(1,Math.min(+V.cfg.n||1,p.length));var ids=(V.cfg.order==="rand"?weightedPick(p,n):p.slice(0,n)).map(function(x){return x.id;});var nm=((document.getElementById("exname")||{}).value||"").trim();return begin(ids,nm||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")));}
+  if(t.id==="start"){var p=pool(),n=Math.max(1,Math.min(+V.cfg.n||1,p.length));var ids=orderIds((V.cfg.order==="rand"?weightedPick(p,n):p.slice(0,n)).map(function(x){return x.id;}),V.cfg.mode||"subject");var nm=((document.getElementById("exname")||{}).value||"").trim();return begin(ids,nm||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")),{mode:V.cfg.mode||"subject"});}
   if(t.id==="quit")return finish(false);
   if(t.id==="redo")return begin(shuffle(V.ex.bad),"ভুলগুলো আবার");
   if(t.dataset.filter){V.filter=t.dataset.filter;return render();}
@@ -2235,8 +2251,8 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="mt-del"){return deleteModelTest(t.dataset.mtid);}
   if(t.dataset.act==="mt-lb"){return showMTLeaderboard(t.dataset.mtid);}
   if(t.dataset.act==="mt-pick-open"){navPush(function(){V.admPickKey=t.dataset.key;V.admPickQ="";});return;}
-  if(t.dataset.act==="togans"){V.showAns=!V.showAns;return render();}
-  if(t.dataset.act==="togansU"){V.showAnsU=!V.showAnsU;return render();}
+  if(t.dataset.act==="togans"){V.showAns=!V.showAns;var y1=app.scrollTop;render();app.scrollTop=y1;return;}
+  if(t.dataset.act==="togansU"){V.showAnsU=!V.showAnsU;var y2=app.scrollTop;render();app.scrollTop=y2;return;}
   if(t.dataset.act==="mt-pick-done"){
     var pk=V.admPickKey;
     if(pk){
@@ -2277,6 +2293,7 @@ app.addEventListener("change",function(e){
     V.mtForm.custom[t.dataset.mtcust]=t.value;
     var yc=app.scrollTop;render();app.scrollTop=yc;return;
   }
+  if(t.id==="mt-pick-filter"){V.mtForm.filter=t.value;var yf=app.scrollTop;render();app.scrollTop=yf;return;}
   if(t.id&&/^mt_/.test(t.id)){
     var mf=V.mtForm;
     if(t.id==="mt_ex_used"){mf.exUsed=t.checked;}
