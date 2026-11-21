@@ -1263,8 +1263,8 @@ function impView(){
       x.diffs.forEach(function(d,j){
         var show=function(v){return esc(typeof v==="object"?JSON.stringify(v).slice(0,160):String(v===undefined||v===null?"":v)).slice(0,200);};
         h+='<tr><td>'+esc(d.f)+'</td><td>'+show(d.old)+'</td><td>'+show(d.nw)+'</td><td>'+
-          '<button class="btn alt sm" data-act="impf" data-i="'+k+'" data-j="'+j+'" data-v="keep" style="'+(d.choice==="keep"?'font-weight:700':'')+'">রাখুন</button> '+
-          '<button class="btn alt sm" data-act="impf" data-i="'+k+'" data-j="'+j+'" data-v="take" style="'+(d.choice==="take"?'font-weight:700':'')+'">নিন</button></td></tr>';
+          '<label style="margin-right:10px"><input type="radio" name="imp_'+k+'_'+j+'" data-impf="1" data-i="'+k+'" data-j="'+j+'" value="keep"'+(d.choice==="keep"?' checked':'')+'> রাখুন</label>'+
+          '<label><input type="radio" name="imp_'+k+'_'+j+'" data-impf="1" data-i="'+k+'" data-j="'+j+'" value="take"'+(d.choice==="take"?' checked':'')+'> নিন</label></td></tr>';
       });
       h+='</table>';
     }
@@ -2585,6 +2585,7 @@ app.addEventListener("click",function(e){
 
 app.addEventListener("change",function(e){
   var t=e.target,c=V.cfg;
+  if(t.dataset.impf!==undefined){var ii2=+t.dataset.i,jj2=+t.dataset.j;V.imp.items[ii2].diffs[jj2].choice=t.value;var yi=app.scrollTop;render();app.scrollTop=yi;return;}
   if(t.dataset.lsel!==undefined){V.lockSel=V.lockSel||{};V.lockSel[t.dataset.lsel]=t.checked;return;}
   if(t.dataset.act==="mt-pick-tog"){
     V.mtForm.picked=V.mtForm.picked||{};
