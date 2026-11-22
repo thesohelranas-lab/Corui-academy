@@ -1283,22 +1283,34 @@ function admImportText(){
   render();
 }
 function impView(){
-  var items=V.imp.items, c={new:0,changed:0,same:0,locked:0,dup:0};
+  var items=V.imp.items, f=V.impF||"all";
+  var c={new:0,changed:0,same:0,locked:0,dup:0};
   items.forEach(function(x){c[x.status]++;});
+  var labels=[["all","সব",items.length],["new","নতুন",c.new],["changed","বদলাবে",c.changed],["same","অপরিবর্তিত",c.same],["locked","তালা",c.locked],["dup","ডুপ্লিকেট",c.dup]];
   var h='<h1>ইমপোর্টের আগে দেখুন</h1>';
-  h+='<div class="panel"><b>নতুন:</b> '+bn(c.new)+' · <b>বদলাবে:</b> '+bn(c.changed)+' · <b>অপরিবর্তিত:</b> '+bn(c.same)+' · <b>তালা (বাদ):</b> '+bn(c.locked)+' · <b>ডুপ্লিকেট (বাদ):</b> '+bn(c.dup)+'</div>';
+  h+='<div class="chips" style="flex-wrap:wrap">'+labels.map(function(l){
+    return '<button class="chip" data-act="impfilter" data-f="'+l[0]+'" aria-pressed="'+(f===l[0])+'" style="display:flex;flex-direction:column;align-items:center;min-width:72px"><span>'+l[1]+'</span><small>'+bn(l[2])+'</small></button>';
+  }).join('')+'</div>';
   h+='<div class="row"><button class="btn" data-act="impapply">নির্বাচন অনুযায়ী ইমপোর্ট করুন</button><button class="btn alt" data-act="impcancel">বাতিল</button></div>';
-  items.forEach(function(x,k){
-    if(x.status==="same")return;
-    var tag={"new":"নতুন","changed":"বদলাবে","locked":"তালা লাগানো (বদলাবে না)","dup":"সম্ভাব্য ডুপ্লিকেট (বাদ)"}[x.status];
+  var shown=items.filter(function(x){return f==="all"||x.status===f;});
+  if(!shown.length)h+='<div class="panel meta">এই ফিল্টারে কোনো প্রশ্ন নেই।</div>';
+  shown.forEach(function(x){
+    var k=x.i;
+    var tag={"new":"নতুন","changed":"বদলাবে","same":"অপরিবর্তিত","locked":"তালা লাগানো (বদলাবে না)","dup":"সম্ভাব্য ডুপ্লিকেট (বাদ)"}[x.status];
     h+='<div class="card"><div class="tags"><span>'+tag+'</span><span>'+esc(x.id)+'</span></div><p class="q" style="font-size:16px">'+esc(x.json.q||"")+'</p>';
-    if(x.status==="dup")h+='<div class="meta">এর লেখা ও অপশন প্রায় একই: '+esc(x.dupId)+'। আপনার সিদ্ধান্তে বাদ থাকবে।</div>';
+    if(x.status==="new"){
+      h+='<div class="row"><label><input type="radio" name="impnew_'+k+'" data-impnew="1" data-i="'+k+'" value="take"'+(!x.skipNew?' checked':'')+'> নিন</label><label style="margin-left:12px"><input type="radio" name="impnew_'+k+'" data-impnew="1" data-i="'+k+'" value="skip"'+(x.skipNew?' checked':'')+'> বাতিল</label></div>';
+    }
+    if(x.status==="same"){
+      h+='<div class="row"><label><input type="radio" name="impsame_'+k+'" data-impsame="1" data-i="'+k+'" value="keep"'+(x.choiceSame!=="take"?' checked':'')+'> রাখুন</label><label style="margin-left:12px"><input type="radio" name="impsame_'+k+'" data-impsame="1" data-i="'+k+'" value="take"'+(x.choiceSame==="take"?' checked':'')+'> নিন</label></div>';
+    }
+    if(x.status==="dup")h+='<div class="meta">এর লেখা ও অপশন প্রায় একই: '+esc(x.dupId||"")+'। আপনার সিদ্ধান্তে বাদ থাকবে।</div>';
     if(x.status==="changed"){
       h+='<table><tr><th>ঘর</th><th>আগে</th><th>এখন (JSON)</th><th>বাছাই</th></tr>';
       x.diffs.forEach(function(d,j){
         var show=function(v){return esc(typeof v==="object"?JSON.stringify(v).slice(0,160):String(v===undefined||v===null?"":v)).slice(0,200);};
         h+='<tr><td>'+esc(d.f)+'</td><td>'+show(d.old)+'</td><td>'+show(d.nw)+'</td><td>'+
-          '<label style="margin-right:10px"><input type="radio" name="imp_'+k+'_'+j+'" data-impf="1" data-i="'+k+'" data-j="'+j+'" value="keep"'+(d.choice==="keep"?' checked':'')+'> রাখুন</label>'+
+          '<label><input type="radio" name="imp_'+k+'_'+j+'" data-impf="1" data-i="'+k+'" data-j="'+j+'" value="keep"'+(d.choice==="keep"?' checked':'')+'> রাখুন</label><br>'+
           '<label><input type="radio" name="imp_'+k+'_'+j+'" data-impf="1" data-i="'+k+'" data-j="'+j+'" value="take"'+(d.choice==="take"?' checked':'')+'> নিন</label></td></tr>';
       });
       h+='</table>';
@@ -1310,7 +1322,8 @@ function impView(){
 function impApply(){
   var out=[];
   V.imp.items.forEach(function(x){
-    if(x.status==="new"){out.push(x.json);return;}
+    if(x.status==="new"){if(!x.skipNew)out.push(x.json);return;}
+    if(x.status==="same"){if(x.choiceSame==="take")out.push(Object.assign({},x.cur,x.json,{id:x.id}));return;}
     if(x.status!=="changed")return;
     if(!x.diffs.some(function(d){return d.choice==="take";}))return;
     var obj=Object.assign({},x.cur);
@@ -2533,6 +2546,7 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="fullbk"){return fullBackup();}
   if(t.dataset.act==="fullimp"){return fullRestore();}
   if(t.dataset.act==="impf"){var ii=+t.dataset.i,jj=+t.dataset.j;V.imp.items[ii].diffs[jj].choice=t.dataset.v;return render();}
+  if(t.dataset.act==="impfilter"){V.impF=t.dataset.f;return render();}
   if(t.dataset.act==="impapply"){return impApply();}
   if(t.dataset.act==="impcancel"){V.imp=null;return render();}
   if(t.dataset.act==="lock"){return admLock(t.dataset.qid);}
@@ -2625,6 +2639,8 @@ app.addEventListener("click",function(e){
 app.addEventListener("change",function(e){
   var t=e.target,c=V.cfg;
   if(t.id==="hsearch"){V.hq=t.value;return render();}
+  if(t.dataset.impnew!==undefined){V.imp.items[+t.dataset.i].skipNew=(t.value==="skip");var yn=app.scrollTop;render();app.scrollTop=yn;return;}
+  if(t.dataset.impsame!==undefined){V.imp.items[+t.dataset.i].choiceSame=t.value;var ys=app.scrollTop;render();app.scrollTop=ys;return;}
   if(t.dataset.impf!==undefined){var ii2=+t.dataset.i,jj2=+t.dataset.j;V.imp.items[ii2].diffs[jj2].choice=t.value;var yi=app.scrollTop;render();app.scrollTop=yi;return;}
   if(t.dataset.lsel!==undefined){V.lockSel=V.lockSel||{};V.lockSel[t.dataset.lsel]=t.checked;return;}
   if(t.dataset.act==="mt-pick-tog"){
