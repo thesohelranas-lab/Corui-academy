@@ -1233,13 +1233,11 @@ function admUndo(){
 var IMP_FIELDS=["s","t","q","o","a","i","y","bn","e","ex","rule"];
 function canon(v){if(v===undefined||v===null)return null;if(Array.isArray(v))return v.map(canon);if(typeof v==="object"){var o={};Object.keys(v).sort().forEach(function(k){if(v[k]!==undefined)o[k]=canon(v[k]);});return o;}return v;} function impSame(a,b){return JSON.stringify(canon(a))===JSON.stringify(canon(b));}
 var QSEQ=0;
-var NSEQ={};
-function subjLetter(s){return {"English":"E","বাংলা":"B","গণিত":"M","সাধারণ জ্ঞান":"G"}[s]||"X";}
-function newQId(s){
-  var L=subjLetter(s),max=0;
-  Q.forEach(function(x){var m=new RegExp("^"+L+"(\\d+)$").exec(x.id||"");if(m&&+m[1]>max)max=+m[1];});
-  NSEQ[L]=Math.max(NSEQ[L]||0,max)+1;
-  return L+NSEQ[L];
+function newQId(){
+  var max=0;
+  Q.forEach(function(x){var m=/^Q(\d+)$/.exec(x.id||"");if(m&&+m[1]>max)max=+m[1];});
+  QSEQ=Math.max(QSEQ,max)+1;
+  return "Q"+("0000"+QSEQ).slice(-4);
 }
 function planImport(arr){
   var byId={}, byKey={}, bySim={}, maxOrd=0;
@@ -1256,7 +1254,7 @@ function planImport(arr){
     if(seenBatch[key]||seenSim[sk]){items.push({i:idx,id:x.id||"",json:x,cur:null,status:"dup",diffs:[],dupId:"এই তালিকার মধ্যেই আরেকবার আছে"});return;}
     seenBatch[key]=1; seenSim[sk]=1;
     var cur=(x.id&&byId[x.id])||byKey[key]||bySim[sk]||null;
-    var id=cur?cur.id:(x.id||newQId(x.s));
+    var id=cur?cur.id:(x.id||newQId());
     var j=Object.assign({},x,{id:id});
     if(cur){
       if(!j.ord&&cur.ord)j.ord=cur.ord;
@@ -1370,7 +1368,7 @@ function checkAdminDup(){
   trDom(box);
 }
 function admSave(){
-  var isNew=V.edit==="new", id=isNew?newQId(g("a_s")):V.edit, old=isNew?{}:(BY[id]||{});
+  var isNew=V.edit==="new", id=isNew?newQId():V.edit, old=isNew?{}:(BY[id]||{});
   var sVal=gv("a_s"), tVal=gv("a_t"), q=gv("a_q");
   if(!sVal||!tVal){alert("বিষয় ও টপিক লিখুন।");return;}
   if(!q){alert("প্রশ্ন ফাঁকা রাখা যাবে না।");return;}
@@ -1848,7 +1846,7 @@ function topicTree(){
   var h='<h1>ড্যাশবোর্ড</h1><p class="meta">মোট '+bn(Q.length)+'টি প্রশ্ন (ডেটাবেসে '+bn(dbCount())+'টি)।</p>';
   h+='<div class="panel"><button class="btn" data-act="adm-mt" style="margin-top:0">🏆 লাইভ মডেল টেস্ট ম্যানেজমেন্ট</button>'+
     '<button class="btn alt" data-act="adm-reqs">সংশোধন অনুরোধ (<span id="adm-notif-cnt">'+bn(V.pendingCnt||0)+'</span>)</button>'+
-    '<button class="btn alt" data-act="mig-open">🆔 আইডি নতুন করুন</button><button class="btn alt" data-act="delall" style="color:var(--bad)">⚠ সব প্রশ্ন মুছুন</button><button class="btn alt" data-act="resetall" style="color:var(--bad)">⚠ সব অগ্রগতি ও মডেল টেস্ট মুছুন</button><button class="btn alt" data-act="hist-open">📁 ইমপোর্ট ইতিহাস</button><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn alt" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
+    '<button class="btn alt" data-act="hist-open">📁 ইমপোর্ট ইতিহাস</button><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn alt" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
   h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label><b>সব টপিক থেকে প্রশ্ন খুঁজুন</b></label></div><input type="text" id="adm-all-q" placeholder="প্রশ্ন, অপশন, প্রতিষ্ঠান বা টপিক লিখুন…" value="'+esc(V.admAllQ||"")+'"></div><div id="adm-all-res"></div>';
   var T=groupTree(Q);
   Object.keys(T).forEach(function(s){
@@ -1932,100 +1930,7 @@ function histView(){
   });
   return h;
 }
-function admDeleteAll(){
-  if(!confirm("ডেটাবেসের সব প্রশ্ন মুছে যাবে। আগে ব্যাকআপ নামবে। চালিয়ে যাবেন?"))return;
-  var typed=prompt("নিশ্চিত করতে ইংরেজিতে লিখুন: DELETE");
-  if(typed!=="DELETE"){alert("বাতিল হয়েছে");return;}
-  try{admExport();}catch(e){}
-  DB.collection("questions").get().then(function(snap){
-    var docs=[];snap.forEach(function(d){docs.push(d.ref);});
-    var chunks=[];for(var i=0;i<docs.length;i+=400)chunks.push(docs.slice(i,i+400));
-    return chunks.reduce(function(p,ch){return p.then(function(){var b=DB.batch();ch.forEach(function(r){b.delete(r);});return b.commit();});},Promise.resolve()).then(function(){return docs.length;});
-  }).then(function(n){
-    return cacheClear().then(function(){setQuestions([]);NSEQ={};RAW={};V.imp=null;V.mig=null;render();alert(n+"টি প্রশ্ন মুছে গেছে। এখন নতুন JSON ইমপোর্ট করতে পারেন।");});
-  }).catch(function(err){alert("মোছা থেমেছে: "+err.message);});
-}
-function admResetAll(){
-  if(!confirm("সব শিক্ষার্থীর অগ্রগতি, সব মডেল টেস্ট ও স্কোর, আর ইমপোর্ট/আইডি লগ মুছে যাবে। আগে সম্পূর্ণ ব্যাকআপ নামবে। চালিয়ে যাবেন?"))return;
-  var typed=prompt("নিশ্চিত করতে ইংরেজিতে লিখুন: RESET");
-  if(typed!=="RESET"){alert("বাতিল হয়েছে");return;}
-  var backupP=fullBackup();
-  var refs=[];
-  var pBackup=Promise.resolve(backupP);
-  pBackup.then(function(){
-    return Promise.all([
-      DB.collection("users").get(),
-      DB.collection("modelTests").get(),
-      DB.collection("adminLog").get(),
-      DB.collection("adminRedo").get(),
-      DB.collection("editRequests").get()
-    ]);
-  }).then(function(res){
-    res[0].forEach(function(d){refs.push(d.ref);});
-    res[2].forEach(function(d){refs.push(d.ref);});
-    res[3].forEach(function(d){refs.push(d.ref);});
-    res[4].forEach(function(d){refs.push(d.ref);});
-    var testScores=[];
-    res[1].forEach(function(d){
-      refs.push(d.ref);
-      testScores.push(d.ref.collection("scores").get().then(function(ss){ss.forEach(function(s){refs.push(s.ref);});}));
-    });
-    return Promise.all(testScores);
-  }).then(function(){
-    var chunks=[];for(var i=0;i<refs.length;i+=400)chunks.push(refs.slice(i,i+400));
-    return chunks.reduce(function(p,ch){return p.then(function(){var b=DB.batch();ch.forEach(function(r){b.delete(r);});return b.commit();});},Promise.resolve());
-  }).then(function(){
-    try{Object.keys(localStorage).forEach(function(k){if(k.indexOf("mtdraft_")===0)localStorage.removeItem(k);});}catch(e){}
-    V.usrList=null;V.histList=null;V.imp=null;V.mig=null;V.ex=null;
-    S=normalize(null);
-    return cacheClear().then(function(){render();alert("সব অগ্রগতি, মডেল টেস্ট ও লগ মুছে গেছে। প্রশ্নগুলো আছে।");});
-  }).catch(function(err){alert("মোছা থেমেছে: "+err.message);});
-}
-function migMap(){
-  var list=Q.slice().sort(function(a,b){return (subjLetter(a.s)<subjLetter(b.s)?-1:subjLetter(a.s)>subjLetter(b.s)?1:0)||((a.ord||0)-(b.ord||0))||(a.id<b.id?-1:1);});
-  var map={},cnt={};
-  list.forEach(function(x){var L=subjLetter(x.s);cnt[L]=(cnt[L]||0)+1;map[x.id]=L+cnt[L];});
-  return map;
-}
-function remapStr(v,map){return (typeof v==="string"&&map[v])?map[v]:v;}
-function remapDeep(v,map){
-  if(Array.isArray(v))return v.map(function(x){return remapDeep(x,map);});
-  if(v&&typeof v==="object"){var o={};Object.keys(v).forEach(function(k){o[k]=remapDeep(v[k],map);});return o;}
-  return remapStr(v,map);
-}
-function remapState(st,map){
-  var o=Object.assign({},st);
-  ["seen","wrong","fav","st"].forEach(function(k){var src=o[k]||{},n={};Object.keys(src).forEach(function(id){n[map[id]||id]=src[id];});o[k]=n;});
-  o.exams=(o.exams||[]).map(function(x){var y=Object.assign({},x);y.ids=(x.ids||[]).map(function(id){return map[id]||id;});var a={};Object.keys(x.a||{}).forEach(function(id){a[map[id]||id]=x.a[id];});y.a=a;return y;});
-  return o;
-}
-function migView(){
-  var m=V.mig.map, ks=Object.keys(m);
-  var h='<button class="btn alt sm" data-act="mig-cancel" style="margin:0 0 10px">← ফিরে যান</button><h1>আইডি নতুন করা</h1>';
-  h+='<div class="panel"><b>মোট প্রশ্ন:</b> '+bn(ks.length)+' · নতুন ধরন: E (English), B (বাংলা), M (গণিত), G (সাধারণ জ্ঞান)</div>';
-  h+='<div class="panel"><div class="meta">নমুনা (প্রথম ১৫টি):</div>'+ks.slice(0,15).map(function(k){return '<div>'+esc(k)+' → <b>'+esc(m[k])+'</b></div>';}).join('')+'</div>';
-  h+='<div class="panel meta">যা হবে: (১) পুরো ব্যাকআপ নামবে, (২) প্রশ্নের আইডি বদলাবে, (৩) শিক্ষার্থীর অগ্রগতি ও মডেল টেস্টের আইডি একই মানচিত্রে বদলাবে, (৪) মানচিত্র Firebase-এ সংরক্ষিত থাকবে।</div>';
-  h+='<div class="row"><button class="btn" data-act="mig-apply">নিশ্চিত করুন ও আইডি বদলান</button><button class="btn alt" data-act="mig-cancel">বাতিল</button></div>';
-  return h;
-}
-function runMigration(map){
-  if(!confirm("আইডি বদলানো শুরু হবে। আগে ব্যাকআপ নামবে। চালিয়ে যাবেন?"))return;
-  try{admExport();}catch(e){}
-  fullBackup();
-  var qlist=Q.filter(function(x){return map[x.id]&&map[x.id]!==x.id;});
-  var qchunks=[];for(var i=0;i<qlist.length;i+=200)qchunks.push(qlist.slice(i,i+200));
-  var steps=[];
-  qchunks.forEach(function(ch){steps.push(function(){var b=DB.batch();ch.forEach(function(x){var d=clean(x);d.oldId=x.id;b.set(DB.collection("questions").doc(map[x.id]),d);b.delete(DB.collection("questions").doc(x.id));});return b.commit();});});
-  steps.push(function(){return DB.collection("users").get().then(function(us){var jobs=[];us.forEach(function(d){var st=remapState(d.data().state||{},map);jobs.push(d.ref.update({state:st}));});return Promise.all(jobs);});});
-  steps.push(function(){return DB.collection("modelTests").get().then(function(ms){var jobs=[];ms.forEach(function(d){jobs.push(d.ref.set(remapDeep(d.data(),map)));});return Promise.all(jobs);});});
-  steps.push(function(){return DB.collection("idmigration").doc("latest").set({map:map,at:Date.now()});});
-  steps.reduce(function(p,fn){return p.then(fn);},Promise.resolve())
-    .then(function(){V.mig=null;return loadQuestions();})
-    .then(function(){alert("আইডি বদলানো হয়েছে: "+qlist.length+"টি প্রশ্ন"); render();})
-    .catch(function(err){alert("বদলানো থেমেছে: "+err.message+"\nব্যাকআপ থেকে ফেরানো যাবে।");});
-}
 function adminView(){
-  if(V.mig)return migView();
   if(V.imp)return impView();
   if(V.admHist)return histView();
   if(V.admPickKey)return admMTPickView();
@@ -2684,11 +2589,6 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="impcancel"){V.imp=null;return render();}
   if(t.dataset.act==="lock"){return admLock(t.dataset.qid);}
   if(t.dataset.act==="topic"){navPush(function(){V.adm={key:t.dataset.key,sort:"new",text:""};});return;}
-  if(t.dataset.act==="delall"){return admDeleteAll();}
-  if(t.dataset.act==="resetall"){return admResetAll();}
-  if(t.dataset.act==="mig-open"){V.mig={map:migMap()};return render();}
-  if(t.dataset.act==="mig-cancel"){V.mig=null;return render();}
-  if(t.dataset.act==="mig-apply"){var mm=V.mig.map;return runMigration(mm);}
   if(t.dataset.act==="hist-open"){navPush(function(){V.admHist=true;V.histFolder=null;V.histList=null;});return;}
   if(t.dataset.act==="hist-back"){if(V.histFolder){V.histFolder=null;return render();}V.admHist=false;V.histFolder=null;return render();}
   if(t.dataset.act==="hist-folder"){V.histFolder=t.dataset.fid;V.histQ="";return render();}
