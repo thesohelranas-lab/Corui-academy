@@ -1229,7 +1229,7 @@ function admUndo(){
   }).catch(function(err){alert("আনডু হয়নি: "+err.message);});
 }
 var IMP_FIELDS=["s","t","q","o","a","i","y","bn","e","ex","rule"];
-function impSame(a,b){return JSON.stringify(a===undefined?null:a)===JSON.stringify(b===undefined?null:b);}
+function canon(v){if(v===undefined||v===null)return null;if(Array.isArray(v))return v.map(canon);if(typeof v==="object"){var o={};Object.keys(v).sort().forEach(function(k){if(v[k]!==undefined)o[k]=canon(v[k]);});return o;}return v;} function impSame(a,b){return JSON.stringify(canon(a))===JSON.stringify(canon(b));}
 var QSEQ=0;
 function newQId(){
   var max=0;
@@ -1308,7 +1308,7 @@ function impView(){
     if(x.status==="changed"){
       h+='<table><tr><th>ঘর</th><th>আগে</th><th>এখন (JSON)</th><th>বাছাই</th></tr>';
       x.diffs.forEach(function(d,j){
-        var show=function(v){return esc(typeof v==="object"?JSON.stringify(v).slice(0,160):String(v===undefined||v===null?"":v)).slice(0,200);};
+        var show=function(v){var s=typeof v==="object"?JSON.stringify(v):String(v===undefined||v===null?"":v);return esc(s.slice(0,160));};
         h+='<tr><td>'+esc(d.f)+'</td><td>'+show(d.old)+'</td><td>'+show(d.nw)+'</td><td>'+
           '<label><input type="radio" name="imp_'+k+'_'+j+'" data-impf="1" data-i="'+k+'" data-j="'+j+'" value="keep"'+(d.choice==="keep"?' checked':'')+'> রাখুন</label><br>'+
           '<label><input type="radio" name="imp_'+k+'_'+j+'" data-impf="1" data-i="'+k+'" data-j="'+j+'" value="take"'+(d.choice==="take"?' checked':'')+'> নিন</label></td></tr>';
