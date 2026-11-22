@@ -1232,12 +1232,52 @@ function admUndo(){
 }
 var IMP_FIELDS=["s","t","q","o","a","i","y","bn","e","ex","rule"];
 function canon(v){if(v===undefined||v===null)return null;if(Array.isArray(v))return v.map(canon);if(typeof v==="object"){var o={};Object.keys(v).sort().forEach(function(k){if(v[k]!==undefined)o[k]=canon(v[k]);});return o;}return v;} function impSame(a,b){return JSON.stringify(canon(a))===JSON.stringify(canon(b));}
-var QSEQ=0;
-function newQId(){
-  var max=0;
-  Q.forEach(function(x){var m=/^Q(\d+)$/.exec(x.id||"");if(m&&+m[1]>max)max=+m[1];});
-  QSEQ=Math.max(QSEQ,max)+1;
-  return "Q"+("0000"+QSEQ).slice(-4);
+/* ===== প্রশ্নের স্থায়ী id: বিষয়ের অক্ষর + নম্বর (B1, E1, G1, M1, নতুন বিষয়ে নিজের অক্ষর) ===== */
+var SUBJ_PFX={"বাংলা":"B","English":"E","সাধারণ জ্ঞান":"G","গণিত":"M","ইংরেজি":"E","Bangla":"B","Math":"M","Mathematics":"M","GK":"G","General Knowledge":"G"};
+var FIXED_PFX=["B","E","G","M"];
+var BN_LATIN={"অ":"A","আ":"A","ই":"I","ঈ":"I","উ":"U","ঊ":"U","ঋ":"R","এ":"E","ঐ":"O","ও":"O","ঔ":"O",
+"ক":"K","খ":"K","গ":"G","ঘ":"G","ঙ":"N","চ":"C","ছ":"C","জ":"J","ঝ":"J","ঞ":"N","ট":"T","ঠ":"T","ড":"D","ঢ":"D","ণ":"N",
+"ত":"T","থ":"T","দ":"D","ধ":"D","ন":"N","প":"P","ফ":"F","ব":"B","ভ":"B","ম":"M","য":"Y","র":"R","ল":"L","শ":"S","ষ":"S","স":"S","হ":"H",
+"ড়":"R","ঢ়":"R","য়":"Y","ৎ":"T","ং":"N","ঃ":"H"};
+function subjLetters(name){
+  var out=[],i,ch;
+  for(i=0;i<name.length;i++){
+    ch=name.charAt(i);
+    if(/[A-Za-z]/.test(ch))out.push(ch.toUpperCase());
+    else if(BN_LATIN[ch])out.push(BN_LATIN[ch]);
+  }
+  return out;
+}
+/* বিষয়ের অক্ষর: ১) স্থির চার বিষয় ২) ওই বিষয়ের প্রশ্নে আগে থেকে থাকা অক্ষর ৩) নামের অক্ষর থেকে ফাঁকা একটা */
+function subjPrefix(subj,used){
+  var s=String(subj||"").trim();
+  if(SUBJ_PFX[s])return SUBJ_PFX[s];
+  used=used||{}; used.pfx=used.pfx||{};
+  if(used.pfx[s])return used.pfx[s];
+  var i,m,found=null,taken={};
+  FIXED_PFX.forEach(function(c){taken[c]=1;});
+  Q.forEach(function(x){
+    m=/^([A-Z])\d+$/.exec(x.id||"");
+    if(!m)return;
+    if(!found&&x.s===s)found=m[1]; else taken[m[1]]=1;
+  });
+  if(found){used.pfx[s]=found;return found;}
+  Object.keys(used.pfx).forEach(function(k){taken[used.pfx[k]]=1;});
+  var cand=subjLetters(s).concat("ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""));
+  var pick=null;
+  for(i=0;i<cand.length;i++){if(!taken[cand[i]]){pick=cand[i];break;}}
+  if(!pick)pick="Z";
+  used.pfx[s]=pick;
+  return pick;
+}
+function newQId(subj,used,taken){
+  used=used||{}; used.no=used.no||{}; taken=taken||{};
+  var p=subjPrefix(subj,used), re=new RegExp("^"+p+"(\\d+)$"), max=0, id;
+  Q.forEach(function(x){var m=re.exec(x.id||"");if(m&&+m[1]>max)max=+m[1];});
+  max=Math.max(max,used.no[p]||0);
+  do{max++;id=p+max;}while(BY[id]||taken[id]);
+  used.no[p]=max;
+  return id;
 }
 function planImport(arr){
   var byId={}, byKey={}, bySim={}, maxOrd=0;
@@ -1247,14 +1287,15 @@ function planImport(arr){
     bySim[fullSimKey(x.q,x.o)]=x;
     if((x.ord||0)>maxOrd)maxOrd=x.ord||0;
   });
-  var items=[], seenBatch={}, seenSim={};
+  var items=[], seenBatch={}, seenSim={}, usedNo={}, seenId={};
   arr.forEach(function(x,idx){
     var key=normKey((x.q||"")+"|"+((x.o||[]).join("|")));
     var sk=fullSimKey(x.q,x.o);
     if(seenBatch[key]||seenSim[sk]){items.push({i:idx,id:x.id||"",json:x,cur:null,status:"dup",diffs:[],dupId:"এই তালিকার মধ্যেই আরেকবার আছে"});return;}
     seenBatch[key]=1; seenSim[sk]=1;
     var cur=(x.id&&byId[x.id])||byKey[key]||bySim[sk]||null;
-    var id=cur?cur.id:(x.id||newQId());
+    var id=cur?cur.id:newQId(x.s,usedNo,seenId);
+    seenId[id]=1;
     var j=Object.assign({},x,{id:id});
     if(cur){
       if(!j.ord&&cur.ord)j.ord=cur.ord;
@@ -1368,10 +1409,11 @@ function checkAdminDup(){
   trDom(box);
 }
 function admSave(){
-  var isNew=V.edit==="new", id=isNew?newQId():V.edit, old=isNew?{}:(BY[id]||{});
+  var isNew=V.edit==="new", id=isNew?"":V.edit, old=isNew?{}:(BY[id]||{});
   var sVal=gv("a_s"), tVal=gv("a_t"), q=gv("a_q");
   if(!sVal||!tVal){alert("বিষয় ও টপিক লিখুন।");return;}
   if(!q){alert("প্রশ্ন ফাঁকা রাখা যাবে না।");return;}
+  if(isNew)id=newQId(sVal);
   var o4=[0,1,2,3].map(function(k){return gv("a_o"+k);});
   var radEl=document.querySelector("input[name='a_ans_rad']:checked");
   var ansIdx=radEl?+radEl.value:0;
