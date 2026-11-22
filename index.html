@@ -1021,6 +1021,7 @@ function reqEditForm(){
   h+='<div style="margin-top:4px">'+fld("সোর্স ও সাল (Source & Year, যেমন: DU 19-20 / BCS 35th)","r_src",srcMerged)+'</div>';
   h+=optEditGrid("r",q.o,q.a);
   h+=area("সম্পূর্ণ ব্যাখ্যা ও উদাহরণ (Topic, Meaning, Examples, Rules)","r_exp",composeExplText(q),7);
+  h+='<div class="row" style="margin-top:6px"><label>উত্তর যাচাই হয়েছে (আমি মিলিয়ে দেখেছি)</label><input type="checkbox" id="r_ver"></div>';
   h+=area("আপনার মন্তব্য (ঐচ্ছিক)","r_note","",2);
   h+='<button class="btn" id="req-submit">প্রস্তাব পাঠান</button><button class="btn alt" id="req-cancel">বাতিল</button></div>';
   return h;
@@ -1037,7 +1038,7 @@ function submitEditReq(){
   var rawExp=gv("r_exp"), pExt=parseExplText(rawExp,q);
   var src=gv("r_src"), pI="", pY="";
   if(src){var sp=src.split(" ");pI=sp[0];pY=sp.slice(1).join(" ");}
-  var proposed={q:nq,o:po.opts,a:ansIdx,s:gv("r_s")||q.s,t:gv("r_t")||q.t,i:pI,y:pY,bn:pExt.bn,e:pExt.e,ex:pExt.ex,rule:pExt.rule,explText:rawExp};
+  var proposed={q:nq,o:po.opts,a:ansIdx,s:gv("r_s")||q.s,t:gv("r_t")||q.t,i:pI,y:pY,bn:pExt.bn,e:pExt.e,ex:pExt.ex,rule:pExt.rule,explText:rawExp,verified:!!(document.getElementById("r_ver")||{}).checked};
   var note=gv("r_note");
   var em=((firebase.auth().currentUser)||{}).email||"";
   DB.collection("editRequests").add({
@@ -1093,6 +1094,7 @@ function admReqsView(){
     h+='<div class="grid2"><div>'+fld("বিষয়","rr_s_"+id,p.s||cur.s||"")+'</div><div>'+fld("টপিক","rr_t_"+id,p.t||cur.t||"")+'</div></div>';
     h+=area("প্রশ্ন","rr_q_"+id,p.q||"",2);
     h+=fld("সোর্স ও সাল","rr_src_"+id,srcP);
+    h+='<div class="row" style="margin-top:6px"><label>উত্তর যাচাই হয়েছে (অ্যাডমিন নিশ্চিত করুন)</label><input type="checkbox" id="rr_ver_"+id'+((p.verified||(r.proposed&&r.proposed.verified))?' checked':'')+'></div>';
     h+=optEditGrid("rr_"+id,p.o||cur.o,p.a!=null?p.a:cur.a);
     h+=area("সম্পূর্ণ ব্যাখ্যা","rr_exp_"+id,p.explText||composeExplText(p),6);
     h+='</div>';
@@ -1117,7 +1119,7 @@ function approveReq(rid){
   var now=Date.now();
   var updated=Object.assign({},cur,{
     s:gv("rr_s_"+rid)||cur.s, t:gv("rr_t_"+rid)||cur.t, q:nq, o:po.opts, a:na,
-    i:ni, y:ny, bn:pExt.bn, e:pExt.e, ex:pExt.ex, rule:pExt.rule, explText:rawExp, v:0, upd:now
+    i:ni, y:ny, bn:pExt.bn, e:pExt.e, ex:pExt.ex, rule:pExt.rule, explText:rawExp, v:(function(){var vc=document.getElementById("rr_ver_"+rid);return (vc?vc.checked:!!(r.proposed&&r.proposed.verified))?0:1;})(), upd:now
   });
   var before=snapOf(cur.id), after=clean(updated);
   DB.collection("questions").doc(cur.id).set(after)
@@ -1844,7 +1846,7 @@ function topicTree(){
   var h='<h1>ড্যাশবোর্ড</h1><p class="meta">মোট '+bn(Q.length)+'টি প্রশ্ন (ডেটাবেসে '+bn(dbCount())+'টি)।</p>';
   h+='<div class="panel"><button class="btn" data-act="adm-mt" style="margin-top:0">🏆 লাইভ মডেল টেস্ট ম্যানেজমেন্ট</button>'+
     '<button class="btn alt" data-act="adm-reqs">সংশোধন অনুরোধ (<span id="adm-notif-cnt">'+bn(V.pendingCnt||0)+'</span>)</button>'+
-    '<button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn alt" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
+    '<button class="btn alt" data-act="hist-open">📁 ইমপোর্ট ইতিহাস</button><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn alt" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
   h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label><b>সব টপিক থেকে প্রশ্ন খুঁজুন</b></label></div><input type="text" id="adm-all-q" placeholder="প্রশ্ন, অপশন, প্রতিষ্ঠান বা টপিক লিখুন…" value="'+esc(V.admAllQ||"")+'"></div><div id="adm-all-res"></div>';
   var T=groupTree(Q);
   Object.keys(T).forEach(function(s){
@@ -1893,8 +1895,44 @@ function topicView(){
   });
   return h;
 }
+function loadHist(){
+  V.histLoading=true;
+  DB.collection("adminLog").orderBy("at","desc").limit(80).get().then(function(snap){
+    V.histList=[];
+    snap.forEach(function(d){
+      var x=d.data();
+      if(/ইমপোর্ট|কপি/.test(x.label||""))V.histList.push({fid:d.id,at:x.at||0,label:x.label||"",changes:x.changes||[]});
+    });
+    V.histLoading=false; render();
+  }).catch(function(err){V.histLoading=false;V.histErr=err.message;render();});
+}
+function histView(){
+  var h='<button class="btn alt sm" data-act="hist-back" style="margin:0 0 10px">← অ্যাডমিন ড্যাশবোর্ড</button>';
+  if(!V.histList){if(!V.histLoading)loadHist();return h+'<p class="meta">লোড হচ্ছে…</p>';}
+  if(V.histErr)h+='<div class="panel" style="color:var(--bad)">'+esc(V.histErr)+'</div>';
+  var f=V.histList.filter(function(x){return x.fid===V.histFolder;})[0];
+  if(!f){
+    h+='<h1>ইমপোর্ট ইতিহাস</h1><p class="meta">প্রতিটা ইমপোর্টের জন্য একটা ফোল্ডার। ফোল্ডার খুললে ওই সময়ের প্রশ্নগুলো দেখাবে।</p>';
+    if(!V.histList.length)h+='<div class="panel meta">এখনো কোনো ইমপোর্ট নেই।</div>';
+    V.histList.forEach(function(x){
+      h+='<button class="card" data-act="hist-folder" data-fid="'+esc(x.fid)+'" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer;margin-bottom:8px"><b>📁 '+fmt(x.at)+'</b><div class="meta">'+esc(x.label)+' · '+bn(x.changes.length)+'টি প্রশ্ন</div></button>';
+    });
+    return h;
+  }
+  var q=(V.histQ||"").trim().toLowerCase();
+  var items=f.changes.map(function(c){return {id:c.id,q:(c.after&&c.after.q)||(BY[c.id]&&BY[c.id].q)||"",x:BY[c.id]||c.after||{}};});
+  items=items.filter(function(it){return !q||(it.q+" "+((it.x.o)||[]).join(" ")).toLowerCase().indexOf(q)>=0;});
+  h+='<h1>📁 '+fmt(f.at)+'</h1><p class="meta">'+esc(f.label)+' · মোট '+bn(f.changes.length)+'টি · দেখাচ্ছে '+bn(items.length)+'টি</p>';
+  h+='<div class="panel"><div class="row"><label>খুঁজুন</label><input type="text" data-histq="1" value="'+esc(V.histQ||"")+'"></div></div>';
+  items.slice(0,100).forEach(function(it){
+    h+='<div class="card"><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(it.q)+'</p>';
+    h+='<button class="btn alt sm" data-act="edit" data-qid="'+esc(it.id)+'" style="margin:0">এডিট</button></div>';
+  });
+  return h;
+}
 function adminView(){
   if(V.imp)return impView();
+  if(V.admHist)return histView();
   if(V.admPickKey)return admMTPickView();
   if(V.admMTCreate)return admMTFormView();
   if(V.admMTView)return admMTDetailView();
@@ -2551,6 +2589,9 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="impcancel"){V.imp=null;return render();}
   if(t.dataset.act==="lock"){return admLock(t.dataset.qid);}
   if(t.dataset.act==="topic"){navPush(function(){V.adm={key:t.dataset.key,sort:"new",text:""};});return;}
+  if(t.dataset.act==="hist-open"){navPush(function(){V.admHist=true;V.histFolder=null;V.histList=null;});return;}
+  if(t.dataset.act==="hist-back"){if(V.histFolder){V.histFolder=null;return render();}return stepBack();}
+  if(t.dataset.act==="hist-folder"){V.histFolder=t.dataset.fid;V.histQ="";return render();}
   if(t.dataset.act==="back"){return stepBack();}
   if(t.id==="adm-clearcache"){
     if(!confirm("ফোনের জমানো প্রশ্ন মুছে ডেটাবেস থেকে সব প্রশ্ন আবার আনা হবে। এতে প্রশ্ন সংখ্যার সমান রিড খরচ হবে। চালিয়ে যাবেন?"))return;
@@ -2638,6 +2679,7 @@ app.addEventListener("click",function(e){
 
 app.addEventListener("change",function(e){
   var t=e.target,c=V.cfg;
+  if(t.dataset.histq!==undefined){V.histQ=t.value;return render();}
   if(t.id==="hsearch"){V.hq=t.value;return render();}
   if(t.dataset.impnew!==undefined){V.imp.items[+t.dataset.i].skipNew=(t.value==="skip");var yn=app.scrollTop;render();app.scrollTop=yn;return;}
   if(t.dataset.impsame!==undefined){V.imp.items[+t.dataset.i].choiceSame=t.value;var ys=app.scrollTop;render();app.scrollTop=ys;return;}
