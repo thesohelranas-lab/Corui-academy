@@ -94,6 +94,9 @@ input[type=text]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 textarea{font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;width:100%}
 button,input,select,textarea{font-family:inherit;font-variant-ligatures:common-ligatures}
 .q,.opt span,.exp{overflow-wrap:anywhere;word-break:normal}
+.opts-4{grid-template-columns:repeat(4,1fr)}.opts-2{grid-template-columns:1fr 1fr}.opts-1{grid-template-columns:1fr}
+@media (max-width:520px){.opts-4{grid-template-columns:1fr 1fr}.opts-2{grid-template-columns:1fr}}
+.opts-grid{gap:0 10px}
 </style>
 </head>
 <body>
@@ -588,7 +591,7 @@ function card(q,sel,mode){
   var h='<div class="card"><div class="tags"><span>'+esc(q.s)+' – '+esc(q.t)+'</span>'+(q.i?'<span>'+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'<button class="star" data-fav="'+q.id+'" aria-label="পছন্দের তালিকায় রাখুন">'+(S.fav[q.id]?'★':'☆')+'</button></div><p class="q">'+esc(q.q)+'</p>';
   q.o.forEach(function(t,k){
     var c="opt",m="";
-    if(k===q.a){c+=" ok";m="✔️";}else if(k===sel){c+=" bad";m="❌";}
+    if(k===q.a){c+=(sel===undefined?" skipok":" ok");m="✔️";}else if(k===sel){c+=" bad";m="❌";}
     h+='<div class="'+c+'"><b>'+L[k]+'</b><span>'+esc(t)+'</span><i>'+m+'</i></div>';
   });
   h+=expl(q);
@@ -740,7 +743,7 @@ function searchBox(){
   return h;
 }
 function home(){
-  return searchBox()+homeBase();
+  return homeBase();
 }
 function homeBase(){
   var c=V.cfg,T=groupTree(),p=pool();
@@ -830,12 +833,14 @@ function examCardInner(id,idx){
   var h='<div class="meta">প্রশ্ন '+bn(idx+1)+'</div>';
   h+='<div class="tags">'+(showTop?'<span>'+esc(q.s)+' – '+esc(q.t)+'</span>':'')+(q.i?'<span>'+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'<button class="star" data-fav="'+id+'" aria-label="পছন্দের তালিকায় রাখুন">'+(S.fav[id]?'★':'☆')+'</button></div>';
   h+='<p class="q">'+esc(q.q)+'</p>';
+  h+='<div class="opts-grid '+optClass(q.o)+'">';
   q.o.forEach(function(t,k){
     var c="opt",m=a===k?'✓ নির্বাচিত':'';
     if(a===k)c+=" sel";
     if(show){if(k===q.a){c+=" ok";m="✔️";}else if(k===a){c+=" bad";m="❌";}}
     h+='<button class="'+c+'" data-id="'+id+'" data-k="'+k+'"><b>'+L[k]+'</b><span>'+esc(t)+'</span><i>'+m+'</i></button>';
   });
+  h+='</div>';
   if(answered&&!show)h+='<div class="meta">উত্তর সেভ হয়েছে। ফলাফল শেষে দেখতে পারবেন।</div>';
   if(show)h+=expl(q);
   return h;
@@ -847,17 +852,18 @@ function exam(){
   var tLeft=(e.left!=null)?e.left:(e.dur||0);
   var tBadge=(e.dur>0)?'<span id="ex-timer" class="timer-pill" style="color:'+(tLeft<=30?'var(--bad)':'var(--accent)')+'">⏱ '+fmtSec(tLeft)+'</span>':'';
   var h='<div class="panel" style="position:sticky;top:0;z-index:2;margin-bottom:12px">'+
-    '<div class="row" style="margin:0;flex-wrap:wrap;gap:8px"><b>'+bn(n)+'/'+bn(e.ids.length)+'</b>'+tBadge+'<span>অমীমাংসিত '+bn(rem)+'</span>'+
+    '<div class="row" style="margin:0;flex-wrap:wrap;gap:8px"><b>'+bn(n)+'/'+bn(e.ids.length)+'</b>'+tBadge+'<button class="chip" data-act="exunans" aria-pressed="'+(V.exUnans?'true':'false')+'">অমীমাংসিত '+bn(rem)+'</button>'+
     '<button class="btn alt sm" data-act="exmore" style="margin:0">'+(V.exMore?'কম দেখুন':'আরও দেখুন')+'</button></div>'+
-    (V.exMore?'<div class="meta" style="margin-top:6px">মোট প্রশ্ন '+bn(e.ids.length)+' · উত্তর দেওয়া '+bn(n)+' · বাকি '+bn(rem)+(e.lock?' · একবার উত্তর দিলে বদলানো যাবে না':'')+'</div>':'')+'</div>';
+    (V.exMore?'<div class="meta" style="margin-top:6px">মোট প্রশ্ন '+bn(e.ids.length)+' · উত্তর দেওয়া '+bn(n)+' · বাকি '+bn(rem)+(e.lock?' · একবার উত্তর দিলে বদলানো যাবে না':'')+'</div><div class="row" style="margin-top:6px"><button class="btn alt sm" data-act="expdf" style="margin:0">PDF ডাউনলোড</button></div>':'')+'</div>';
   var subs=[];e.ids.forEach(function(id){var q0=BY[id];if(q0&&subs.indexOf(q0.s)<0)subs.push(q0.s);});
   var cur=(V.exSubj&&subs.indexOf(V.exSubj)>=0)?V.exSubj:"";
-  if(subs.length>1){h+='<div class="chips"><button class="chip" data-act="exsubj" data-subj="" aria-pressed="'+(!cur)+'">সব</button>'+subs.map(function(s){return '<button class="chip" data-act="exsubj" data-subj="'+esc(s)+'" aria-pressed="'+(cur===s)+'">'+esc(s)+'</button>';}).join('')+'</div>';}
+  if(subs.length>1&&V.exMore){h+='<div class="chips"><button class="chip" data-act="exsubj" data-subj="" aria-pressed="'+(!cur)+'">সব</button>'+subs.map(function(s){return '<button class="chip" data-act="exsubj" data-subj="'+esc(s)+'" aria-pressed="'+(cur===s)+'">'+esc(s)+'</button>';}).join('')+'</div>';}
   var partNo=0,lastS=null,subCnt={};
   e.ids.forEach(function(id){var q1=BY[id];if(q1)subCnt[q1.s]=(subCnt[q1.s]||0)+1;});
   e.ids.forEach(function(id,idx){
     var q=BY[id];
     if(cur&&(!q||q.s!==cur))return;
+    if(V.exUnans&&e.a[id]!==undefined)return;
     if(e.mode==="subject"&&q&&q.s!==lastS){lastS=q.s;partNo=0;h+='<h2 style="margin:16px 0 6px">'+esc(q.s)+' <small style="color:var(--muted);font-weight:500">('+bn(subCnt[q.s]||0)+'টি)</small></h2>';}
     partNo++;
     h+='<div class="card" id="qc_'+id+'">'+examCardInner(id,e.mode==="subject"?partNo-1:idx)+'</div>';
@@ -2578,6 +2584,8 @@ app.addEventListener("click",function(e){
     admMTPickFiltered().forEach(function(x){V.mtForm.picked[x.id]=on;});
     var ya=app.scrollTop;render();app.scrollTop=ya;return;
   }
+  if(t.dataset.act==="exunans"){V.exUnans=!V.exUnans;var yu=app.scrollTop;render();app.scrollTop=yu;return;}
+  if(t.dataset.act==="expdf"){printExamPdf(V.ex,false);return;}
   if(t.dataset.act==="exsubj"){V.exSubj=t.dataset.subj||"";var ysu=app.scrollTop;render();app.scrollTop=ysu;return;}
   if(t.dataset.act==="revq"){V.rev=V.rev||{};V.rev[t.dataset.qid]=!V.rev[t.dataset.qid];var yr=app.scrollTop;render();app.scrollTop=yr;return;}
   if(t.dataset.act==="togans"){V.showAns=!V.showAns;var y1=app.scrollTop;render();app.scrollTop=y1;return;}
