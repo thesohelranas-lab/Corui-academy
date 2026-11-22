@@ -1848,7 +1848,7 @@ function topicTree(){
   var h='<h1>ড্যাশবোর্ড</h1><p class="meta">মোট '+bn(Q.length)+'টি প্রশ্ন (ডেটাবেসে '+bn(dbCount())+'টি)।</p>';
   h+='<div class="panel"><button class="btn" data-act="adm-mt" style="margin-top:0">🏆 লাইভ মডেল টেস্ট ম্যানেজমেন্ট</button>'+
     '<button class="btn alt" data-act="adm-reqs">সংশোধন অনুরোধ (<span id="adm-notif-cnt">'+bn(V.pendingCnt||0)+'</span>)</button>'+
-    '<button class="btn alt" data-act="mig-open">🆔 আইডি নতুন করুন</button><button class="btn alt" data-act="hist-open">📁 ইমপোর্ট ইতিহাস</button><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn alt" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
+    '<button class="btn alt" data-act="mig-open">🆔 আইডি নতুন করুন</button><button class="btn alt" data-act="delall" style="color:var(--bad)">⚠ সব প্রশ্ন মুছুন</button><button class="btn alt" data-act="resetall" style="color:var(--bad)">⚠ সব অগ্রগতি ও মডেল টেস্ট মুছুন</button><button class="btn alt" data-act="hist-open">📁 ইমপোর্ট ইতিহাস</button><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn alt" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
   h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label><b>সব টপিক থেকে প্রশ্ন খুঁজুন</b></label></div><input type="text" id="adm-all-q" placeholder="প্রশ্ন, অপশন, প্রতিষ্ঠান বা টপিক লিখুন…" value="'+esc(V.admAllQ||"")+'"></div><div id="adm-all-res"></div>';
   var T=groupTree(Q);
   Object.keys(T).forEach(function(s){
@@ -1931,6 +1931,55 @@ function histView(){
     h+='<button class="btn alt sm" data-act="edit" data-qid="'+esc(it.id)+'" style="margin:0">এডিট</button></div>';
   });
   return h;
+}
+function admDeleteAll(){
+  if(!confirm("ডেটাবেসের সব প্রশ্ন মুছে যাবে। আগে ব্যাকআপ নামবে। চালিয়ে যাবেন?"))return;
+  var typed=prompt("নিশ্চিত করতে ইংরেজিতে লিখুন: DELETE");
+  if(typed!=="DELETE"){alert("বাতিল হয়েছে");return;}
+  try{admExport();}catch(e){}
+  DB.collection("questions").get().then(function(snap){
+    var docs=[];snap.forEach(function(d){docs.push(d.ref);});
+    var chunks=[];for(var i=0;i<docs.length;i+=400)chunks.push(docs.slice(i,i+400));
+    return chunks.reduce(function(p,ch){return p.then(function(){var b=DB.batch();ch.forEach(function(r){b.delete(r);});return b.commit();});},Promise.resolve()).then(function(){return docs.length;});
+  }).then(function(n){
+    return cacheClear().then(function(){setQuestions([]);NSEQ={};RAW={};V.imp=null;V.mig=null;render();alert(n+"টি প্রশ্ন মুছে গেছে। এখন নতুন JSON ইমপোর্ট করতে পারেন।");});
+  }).catch(function(err){alert("মোছা থেমেছে: "+err.message);});
+}
+function admResetAll(){
+  if(!confirm("সব শিক্ষার্থীর অগ্রগতি, সব মডেল টেস্ট ও স্কোর, আর ইমপোর্ট/আইডি লগ মুছে যাবে। আগে সম্পূর্ণ ব্যাকআপ নামবে। চালিয়ে যাবেন?"))return;
+  var typed=prompt("নিশ্চিত করতে ইংরেজিতে লিখুন: RESET");
+  if(typed!=="RESET"){alert("বাতিল হয়েছে");return;}
+  var backupP=fullBackup();
+  var refs=[];
+  var pBackup=Promise.resolve(backupP);
+  pBackup.then(function(){
+    return Promise.all([
+      DB.collection("users").get(),
+      DB.collection("modelTests").get(),
+      DB.collection("adminLog").get(),
+      DB.collection("adminRedo").get(),
+      DB.collection("idmigration").get()
+    ]);
+  }).then(function(res){
+    res[0].forEach(function(d){refs.push(d.ref);});
+    res[2].forEach(function(d){refs.push(d.ref);});
+    res[3].forEach(function(d){refs.push(d.ref);});
+    res[4].forEach(function(d){refs.push(d.ref);});
+    var testScores=[];
+    res[1].forEach(function(d){
+      refs.push(d.ref);
+      testScores.push(d.ref.collection("scores").get().then(function(ss){ss.forEach(function(s){refs.push(s.ref);});}));
+    });
+    return Promise.all(testScores);
+  }).then(function(){
+    var chunks=[];for(var i=0;i<refs.length;i+=400)chunks.push(refs.slice(i,i+400));
+    return chunks.reduce(function(p,ch){return p.then(function(){var b=DB.batch();ch.forEach(function(r){b.delete(r);});return b.commit();});},Promise.resolve());
+  }).then(function(){
+    try{Object.keys(localStorage).forEach(function(k){if(k.indexOf("mtdraft_")===0)localStorage.removeItem(k);});}catch(e){}
+    V.usrList=null;V.histList=null;V.imp=null;V.mig=null;V.ex=null;
+    S=normalize(null);
+    return cacheClear().then(function(){render();alert("সব অগ্রগতি, মডেল টেস্ট ও লগ মুছে গেছে। প্রশ্নগুলো আছে।");});
+  }).catch(function(err){alert("মোছা থেমেছে: "+err.message);});
 }
 function migMap(){
   var list=Q.slice().sort(function(a,b){return (subjLetter(a.s)<subjLetter(b.s)?-1:subjLetter(a.s)>subjLetter(b.s)?1:0)||((a.ord||0)-(b.ord||0))||(a.id<b.id?-1:1);});
@@ -2635,6 +2684,8 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="impcancel"){V.imp=null;return render();}
   if(t.dataset.act==="lock"){return admLock(t.dataset.qid);}
   if(t.dataset.act==="topic"){navPush(function(){V.adm={key:t.dataset.key,sort:"new",text:""};});return;}
+  if(t.dataset.act==="delall"){return admDeleteAll();}
+  if(t.dataset.act==="resetall"){return admResetAll();}
   if(t.dataset.act==="mig-open"){V.mig={map:migMap()};return render();}
   if(t.dataset.act==="mig-cancel"){V.mig=null;return render();}
   if(t.dataset.act==="mig-apply"){var mm=V.mig.map;return runMigration(mm);}
