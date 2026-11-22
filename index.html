@@ -2590,7 +2590,7 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="lock"){return admLock(t.dataset.qid);}
   if(t.dataset.act==="topic"){navPush(function(){V.adm={key:t.dataset.key,sort:"new",text:""};});return;}
   if(t.dataset.act==="hist-open"){navPush(function(){V.admHist=true;V.histFolder=null;V.histList=null;});return;}
-  if(t.dataset.act==="hist-back"){if(V.histFolder){V.histFolder=null;return render();}return stepBack();}
+  if(t.dataset.act==="hist-back"){if(V.histFolder){V.histFolder=null;return render();}V.admHist=false;V.histFolder=null;return render();}
   if(t.dataset.act==="hist-folder"){V.histFolder=t.dataset.fid;V.histQ="";return render();}
   if(t.dataset.act==="back"){return stepBack();}
   if(t.id==="adm-clearcache"){
