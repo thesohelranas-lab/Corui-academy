@@ -97,6 +97,8 @@ button,input,select,textarea{font-family:inherit;font-variant-ligatures:common-l
 .opts-4{grid-template-columns:repeat(4,1fr)}.opts-2{grid-template-columns:1fr 1fr}.opts-1{grid-template-columns:1fr}
 @media (max-width:520px){.opts-4{grid-template-columns:1fr 1fr}.opts-2{grid-template-columns:1fr}}
 .opts-grid{gap:0 10px}
+.opt.skipok{background:#fff3b0;border-color:#e0b000;color:#222}
+.opt.skipok b{background:#e0b000;border-color:#e0b000;color:#222}
 </style>
 </head>
 <body>
@@ -2584,6 +2586,7 @@ app.addEventListener("click",function(e){
     admMTPickFiltered().forEach(function(x){V.mtForm.picked[x.id]=on;});
     var ya=app.scrollTop;render();app.scrollTop=ya;return;
   }
+  if(t.dataset.act==="exmore"){V.exMore=!V.exMore;var ym2=app.scrollTop;render();app.scrollTop=ym2;return;}
   if(t.dataset.act==="exunans"){V.exUnans=!V.exUnans;var yu=app.scrollTop;render();app.scrollTop=yu;return;}
   if(t.dataset.act==="expdf"){printExamPdf(V.ex,false);return;}
   if(t.dataset.act==="exsubj"){V.exSubj=t.dataset.subj||"";var ysu=app.scrollTop;render();app.scrollTop=ysu;return;}
