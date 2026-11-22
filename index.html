@@ -1957,14 +1957,12 @@ function admResetAll(){
       DB.collection("users").get(),
       DB.collection("modelTests").get(),
       DB.collection("adminLog").get(),
-      DB.collection("adminRedo").get(),
-      DB.collection("idmigration").get()
+      DB.collection("adminRedo").get()
     ]);
   }).then(function(res){
     res[0].forEach(function(d){refs.push(d.ref);});
     res[2].forEach(function(d){refs.push(d.ref);});
     res[3].forEach(function(d){refs.push(d.ref);});
-    res[4].forEach(function(d){refs.push(d.ref);});
     var testScores=[];
     res[1].forEach(function(d){
       refs.push(d.ref);
