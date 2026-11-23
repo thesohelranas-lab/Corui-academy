@@ -457,7 +457,7 @@ function pool(){
   var c=V.cfg;
   return Q.filter(function(x){
     if(!c.topics[x.s+"||"+x.t])return false;
-    if(c.inst&&x.i!==c.inst)return false;
+    if(c.inst&&insts.indexOf(c.inst)>=0&&x.i!==c.inst)return false;
     if(c.pool==="new")return !S.seen[x.id];
     if(c.pool==="wrong")return !!S.wrong[x.id];
     return true;
@@ -807,14 +807,14 @@ function homeBase(){
   h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label><b>সব প্রশ্ন থেকে খুঁজুন</b></label></div><input type="text" id="home-q" placeholder="প্রশ্ন, অপশন, প্রতিষ্ঠান বা টপিক লিখে খুঁজুন…" value="'+esc(V.homeQ||"")+'"></div><div id="home-search-res"></div>';
   h+='<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="exname" placeholder="যেমন: Verb Test 1" value="'+esc(V.draft.exname||"")+'"></div>';
   h+='<div class="row"><label>কোন প্রশ্ন আসবে</label><select data-cfg="pool"><option value="new"'+(c.pool==="new"?" selected":"")+'>শুধু নতুন (এখনো দেওয়া হয়নি)</option><option value="all"'+(c.pool==="all"?" selected":"")+'>সব প্রশ্ন</option><option value="wrong"'+(c.pool==="wrong"?" selected":"")+'>আগে ভুল করা</option></select></div>';
-  if(insts.length>1)h+='<div class="row"><label>প্রতিষ্ঠান</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+esc(x)+'</option>';}).join("")+'</select></div>';
+  if(insts.length>=1)h+='<div class="row"><label>প্রতিষ্ঠান</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+esc(x)+'</option>';}).join("")+'</select></div>';
   h+='<div class="row"><label>প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(p.length)+')</label><input type="number" min="1" data-cfg="n" value="'+c.n+'"></div>';
   h+='<div class="row"><label>প্রশ্নের ক্রম</label><select data-cfg="mode"><option value="subject"'+((V.cfg.mode||"subject")==="subject"?" selected":"")+'>বিষয় অনুযায়ী (বাংলা → English → GK → Math)</option><option value="mixed"'+(V.cfg.mode==="mixed"?" selected":"")+'>মিশ্র</option></select></div><div class="row"><label>ক্রম</label><select data-cfg="order"><option value="rand"'+(c.order==="rand"?" selected":"")+'>র‍্যান্ডম</option><option value="serial"'+(c.order==="serial"?" selected":"")+'>সিরিয়াল</option></select></div>';
   h+='<div class="row"><label>উত্তর কখন দেখাবে</label><select data-cfg="reveal"><option value="instant"'+(c.reveal==="instant"?" selected":"")+'>প্রতিটা প্রশ্নের পরপরই</option><option value="end"'+(c.reveal==="end"?" selected":"")+'>পরীক্ষা শেষ করার পর</option></select></div>';
   h+='<div class="row"><label>টাইমার (প্রতি প্রশ্নে ৩০ সেকেন্ড)</label><input type="checkbox" data-cfg="timer"'+(c.timer?' checked':'')+'></div>';
   h+='<div class="row"><label>পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে</label><input type="checkbox" data-cfg="showTopic"'+(c.showTopic?' checked':'')+'></div>';
   var estN=p.length?Math.max(1,Math.min(+c.n||1,p.length)):0;
-  h+='<button class="btn" id="start"'+(p.length?'':' disabled')+'>'+(p.length?'পরীক্ষা শুরু করুন'+(c.timer?' ('+fmtSec(estN*SEC_PER_Q)+')':''):'টপিক বেছে নিন')+'</button></div>';
+  h+='<button class="btn" id="start"'+(p.length?'':' disabled')+'>'+(p.length?'পরীক্ষা শুরু করুন'+(c.timer?' ('+fmtSec(estN*SEC_PER_Q)+')':''):(Object.keys(c.topics).some(function(k){return c.topics[k];})?'এই ফিল্টারে কোনো প্রশ্ন নেই':'টপিক বেছে নিন'))+'</button></div>';
   h+='<div class="meta">এক বা একাধিক টপিক বেছে নিন। প্রতি ভুল উত্তরে '+bn(NEG)+' নম্বর কাটা যায়।</div>';
   if(!Q.length)return h+'<div class="panel meta">ডেটাবেস থেকে প্রশ্ন লোড হয়নি বা কোনো প্রশ্ন নেই।</div>';
   h+=topicSortSelect("topicSort",c.topicSort||"default",STU_SORT_OPTS);
