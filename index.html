@@ -823,7 +823,7 @@ function home(){
   return homeBase();
 }
 function homeBase(){
-  var c=V.cfg,T=groupTree(),p=pool(),mfH=parseMcqFilter(c.mcq);
+  var c=V.cfg,T=groupTree(),p=pool(),mfH=parseMcqFilter(c.mcq),fOn=!!(mfH||(c.inst&&insts.indexOf(c.inst)>=0));
   var thLabel=(S.theme==="dark")?"☀️ লাইট":(S.theme==="light"?"🌙 ডার্ক":"🌓 অটো");
   var notifBtn=ADMIN?'<button class="btn alt sm notif-btn" data-act="go-reqs" aria-label="সংশোধন অনুরোধ">🔔<span id="home-notif-cnt" class="notif-cnt" style="'+(V.pendingCnt?'':'display:none')+'">'+bn(V.pendingCnt||0)+'</span></button>':'';
   var h='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h1 style="margin:0">Corui Academy</h1><div style="display:flex;gap:6px;align-items:center">'+notifBtn+'<button class="btn alt sm" data-act="theme">'+thLabel+'</button><button class="btn alt sm" data-act="lang">'+((S.lang||"en")==="bn"?"English":"বাংলা")+'</button></div></div>';
@@ -852,9 +852,9 @@ function homeBase(){
     gs.forEach(function(g){
       if(g!==s)h+=groupHead(s,g,T,null);
       sortTopics(Object.keys(T[s][g]),function(t){return T[s][g][t];},c.topicSort||"default").forEach(function(t){
-        var qs=T[s][g][t].filter(function(x){return matchF(x,mfH);}),nw=qs.filter(function(x){return !S.seen[x.id];}).length;
+        var qsAll=T[s][g][t],qs=qsAll.filter(function(x){return matchF(x,mfH);}),nw=qs.filter(function(x){return !S.seen[x.id];}).length;
         var accTxt="";if((c.topicSort||"")==="weak"){var ts=topicStat(qs);if(ts.pct!==null)accTxt=' · নির্ভুলতা '+bn(ts.pct)+'%';}
-        var dis=(qs.length===0)||(c.pool==="new"&&nw===0);h+='<label class="top"'+(dis?' style="opacity:.45"':'')+'><input type="checkbox" data-top="'+esc(s+"||"+t)+'"'+(c.topics[s+"||"+t]?" checked":"")+(dis?' disabled':'')+'><span>'+esc(tlabel(t))+'</span><small>'+((c.inst||c.mcq)?'মিলেছে ':'')+bn(qs.length)+'টি, নতুন '+bn(nw)+accTxt+'</small></label>';
+        var dis=(qs.length===0)||(c.pool==="new"&&nw===0);h+='<label class="top"'+(dis?' style="opacity:.45"':'')+'><input type="checkbox" data-top="'+esc(s+"||"+t)+'"'+(c.topics[s+"||"+t]?" checked":"")+(dis?' disabled':'')+'><span>'+esc(tlabel(t))+'</span><small>'+(fOn?'মোট '+bn(qsAll.length)+'টি · মিলেছে '+bn(qs.length)+'টি · নতুন '+bn(nw):bn(qs.length)+'টি, নতুন '+bn(nw))+accTxt+'</small></label>';
       });
     });
     h+='</div>';
