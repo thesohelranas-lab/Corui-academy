@@ -187,16 +187,72 @@ function saveLocal(){
 function readLocal(uid){
   return null;
 }
+var STATE_OK=false, saveFailing=false, retryT=null, pendingTx=[], APPLIED=[];
+function saveBar(msg){
+  var el=document.getElementById("savebar");
+  if(!msg){if(el)el.remove();return;}
+  if(!el){el=document.createElement("div");el.id="savebar";el.style.cssText="position:fixed;top:0;left:0;right:0;z-index:99;background:#b3261e;color:#fff;padding:8px 12px;text-align:center;font-size:14px";document.body.appendChild(el);}
+  el.textContent=msg;
+}
+function saveFail(on){
+  saveFailing=on;
+  if(on){saveBar("⚠ সেভ হয়নি। নেট চেক করুন, আবার চেষ্টা চলছে…");clearTimeout(retryT);retryT=setTimeout(retryAll,8000);}
+  else if(!pendingTx.length)saveBar("");
+}
+function retryAll(){
+  save(true);
+  var list=pendingTx.slice();pendingTx=[];
+  list.forEach(function(p){txProgress(p.mut,p.key);});
+}
+window.addEventListener("online",function(){if(saveFailing||pendingTx.length)retryAll();});
 function save(immediate){
-  if(!UID)return;
-  saveLocal();
-  if(!DB)return;
-  var u=UID,d=DB,snapshot=JSON.parse(JSON.stringify(S));
+  if(!UID||!DB||!STATE_OK)return;
+  var u=UID,d=DB;
   var flush=function(){
-    d.collection("users").doc(u).set({state:snapshot,updated:Date.now(),lastActive:Date.now(),online:true,email:((firebase.auth().currentUser)||{}).email||""},{mergeFields:["state","updated","lastActive","online","email"]}).catch(function(err){console.warn(err);});
+    saveLocal();
+    var s2=JSON.parse(JSON.stringify(S));
+    d.collection("users").doc(u).set({state:{fav:s2.fav,exams:s2.exams,lang:s2.lang,theme:s2.theme,cfg:s2.cfg},updated:Date.now(),lastActive:Date.now(),online:true,email:((firebase.auth().currentUser)||{}).email||""},{mergeFields:["state.fav","state.exams","state.lang","state.theme","state.cfg","updated","lastActive","online","email"]})
+      .then(function(){saveFail(false);}).catch(function(err){console.warn(err);saveFail(true);});
   };
   clearTimeout(saveTimer);
   if(immediate){flush();}else{saveTimer=setTimeout(flush,400);}
+}
+/* ===== অগ্রগতি (seen/wrong/st/hist) শুধু ট্রান্সজাকশনে: সার্ভারের সর্বশেষ অবস্থার সঙ্গে মিলিয়ে ===== */
+function applyFinish(st,ex){
+  (ex.ids||[]).forEach(function(id){
+    var a=ex.a[id]; if(a===undefined||!BY[id])return;
+    st.seen[id]=1; var s3=st.st[id]=st.st[id]||[0,0];
+    if(a===BY[id].a){s3[0]++;delete st.wrong[id];}else{s3[1]++;st.wrong[id]=1;}
+  });
+  var r=ex.r||{};
+  st.hist.unshift({d:ex.finishedAt,t:ex.name,n:r.n,c:r.c,w:r.w,sc:r.sc}); st.hist=st.hist.slice(0,30);
+}
+function txProgress(mut,key){
+  if(!UID||!DB)return Promise.resolve();
+  var ref=DB.collection("users").doc(UID);
+  return DB.runTransaction(function(tx){
+    return tx.get(ref).then(function(sn){
+      var d=sn.data()||{}, srv=normalize(d.state), ap=(d.applied||[]).slice();
+      if(key&&ap.indexOf(key)>=0)return srv;
+      srv.exams=S.exams.slice();
+      mut(srv);
+      if(key)ap.push(key);
+      tx.set(ref,{state:{seen:srv.seen,wrong:srv.wrong,st:srv.st,hist:srv.hist},applied:ap.slice(-300),updated:Date.now()},{mergeFields:["state.seen","state.wrong","state.st","state.hist","applied","updated"]});
+      return srv;
+    });
+  }).then(function(srv){
+    S.seen=srv.seen;S.wrong=srv.wrong;S.st=srv.st;S.hist=srv.hist;saveFail(false);
+    if(V.tab==="home"&&!V.screen)render();
+  }).catch(function(err){console.warn(err);pendingTx.push({mut:mut,key:key});saveFail(true);});
+}
+function reservedIds(){var r={};S.exams.forEach(function(x){if(x.status!=="done")(x.ids||[]).forEach(function(id){r[id]=1;});});return r;}
+function loadAttempts(uid,set){
+  set("loading");render();
+  DB.collection("users").doc(uid).collection("attempts").get().then(function(snap){
+    var a=[];snap.forEach(function(d){a.push(d.data());});
+    a.sort(function(x,y){return (y.finishedAt||y.at||0)-(x.finishedAt||x.at||0);});
+    set(a);render();
+  }).catch(function(err){set(null);alert("লোড হয়নি: "+err.message);render();});
 }
 function restoreDrafts(){
   /* ড্রাফট এখন শুধু Firebase থেকে লোড হয় (loadDrafts) */
@@ -260,13 +316,13 @@ function boot(){
   try{firebase.initializeApp(FIREBASE_CONFIG);}
   catch(err){booted=true;V_AUTH={mode:"login",msg:"Firebase কনফিগারেশন বসানো হয়নি"};render();return;}
   firebase.auth().onAuthStateChanged(function(user){
-    stopUsersWatch(); stopPresence(); stopReqsWatch(); stopMTWatch(); stopExamTimer();
+    stopUsersWatch(); stopPresence(); stopReqsWatch(); stopMTWatch(); stopExamTimer(); STATE_OK=false; saveBar("");
     if(!user){UID=null;DB=null;ADMIN=false;S=normalize(null);applyCfgFromState();applyTheme();booted=true;render();return;}
     UID=user.uid;DB=firebase.firestore();ADMIN=(user.email||"").toLowerCase()===ADMIN_EMAIL.toLowerCase();booted=false;render();
     DB.collection("users").doc(UID).get()
       .then(function(snapData){
-        var d=snapData.data()||{}, loc=readLocal(UID), useLoc=loc&&loc.state&&(loc.updated||0)>(d.updated||0);
-        S=normalize(useLoc?loc.state:d.state);
+        var d=snapData.data()||{}, useLoc=false;
+        S=normalize(d.state); STATE_OK=true; APPLIED=d.applied||[];
         var del=d.adminDeleted||[];
         if(del.length)S.exams=S.exams.filter(function(x){return del.indexOf(x.id)<0;});
         applyCfgFromState(); applyTheme();
@@ -274,13 +330,14 @@ function boot(){
       })
       .catch(function(err){
         console.warn(err);
-        var loc=readLocal(UID);
-        if(loc&&loc.state){S=normalize(loc.state);applyCfgFromState();applyTheme();}
+        STATE_OK=false; saveBar("⚠ আপনার ডেটা লোড হয়নি। নেট চেক করে পেজ রিলোড করুন।");
       })
       .then(function(){startPresence();watchModelTests();if(ADMIN)watchPendingReqs();logUsage("session_start");return loadQuestions();})
       .catch(function(err){console.warn(err);})
       .then(function(){return loadDrafts();}).catch(function(){})
-      .then(function(){restoreDrafts();booted=true;render();history.replaceState(snap(),"","#"+V.tab);});
+      .then(function(){restoreDrafts();
+        if(STATE_OK)S.exams.filter(function(x){return x.status==="done"&&x.v2&&APPLIED.indexOf("f:"+x.id)<0;}).forEach(function(x){txProgress(function(srv){applyFinish(srv,x);},"f:"+x.id);});
+        booted=true;render();history.replaceState(snap(),"","#"+V.tab);});
   });
 }
 function authScreen(){
@@ -460,8 +517,8 @@ function parseMcqFilter(str){
   t.split(/[,\s]+/).forEach(function(tok){
     if(!tok)return; any=true;
     tok=tok.toLowerCase(); ids[tok]=1;
-    var m=tok.match(/^(.*?)(\d+)[-–](.*?)(\d+)$/);
-    if(m&&m[1]===m[3]){var lo=+m[2],hi=+m[4];ranges.push({p:m[1],lo:Math.min(lo,hi),hi:Math.max(lo,hi)});}
+    var m=tok.match(/^([a-z]*)(\d+)[-–]([a-z]*)(\d+)$/);
+    if(m&&(m[3]===""||m[1]===m[3])){var lo=+m[2],hi=+m[4];ranges.push({p:m[1],lo:Math.min(lo,hi),hi:Math.max(lo,hi)});}
   });
   return any?{ids:ids,ranges:ranges}:null;
 }
@@ -479,12 +536,12 @@ function matchF(x,mf){
   return true;
 }
 function pool(){
-  var c=V.cfg, mf=parseMcqFilter(c.mcq);
+  var c=V.cfg, mf=parseMcqFilter(c.mcq), rsv=reservedIds();
   return Q.filter(function(x){
     if(!c.topics[x.s+"||"+x.t])return false;
     if(mf&&!mcqMatch(mf,x))return false;
     if(c.inst&&insts.indexOf(c.inst)>=0&&x.i!==c.inst)return false;
-    if(c.pool==="new")return !S.seen[x.id];
+    if(c.pool==="new")return !S.seen[x.id]&&!rsv[x.id];
     if(c.pool==="wrong")return !!S.wrong[x.id];
     return true;
   });
@@ -605,12 +662,11 @@ function finish(auto){
   stopExamTimer();
   if(V.ex.status==="done"){navReplace(function(){V.screen="result";});return;}
   var ids=V.ex.ids.filter(function(id){return !!BY[id];}),c=0,w=0,exNeg=V.ex.neg!=null?V.ex.neg:NEG;
-  ids.forEach(function(id){var a=V.ex.a[id];if(a===undefined)return;S.seen[id]=1;var st=S.st[id]=S.st[id]||[0,0];if(a===BY[id].a){st[0]++;delete S.wrong[id];}else{st[1]++;S.wrong[id]=1;}});
   ids.forEach(function(id){var a=V.ex.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
   V.ex.r={n:ids.length,c:c,w:w,sk:ids.length-c-w,sc:c-w*exNeg};
   V.ex.status="done"; V.ex.finishedAt=Date.now();
   if(V.ex&&V.ex.lock){clearTimeout(draftTimer);if(DB&&UID)DB.collection("users").doc(UID).collection("drafts").doc(V.ex.id).delete().catch(function(){});}
-  S.hist.unshift({d:V.ex.finishedAt,t:V.ex.name,n:ids.length,c:c,w:w,sc:V.ex.r.sc}); S.hist=S.hist.slice(0,30);
+  V.ex.v2=1; applyFinish(S,V.ex); var fx=V.ex; txProgress(function(srv){applyFinish(srv,fx);},"f:"+fx.id);
   var done=S.exams.filter(function(x){return x.status==="done";});
   if(done.length>20){
     var old=done.sort(function(a,b){return a.finishedAt-b.finishedAt;}).slice(0,done.length-20).map(function(x){return x.id;});
@@ -824,7 +880,7 @@ function home(){
   return homeBase();
 }
 function homeBase(){
-  var c=V.cfg,T=groupTree(),p=pool(),mfH=parseMcqFilter(c.mcq),fOn=!!(mfH||(c.inst&&insts.indexOf(c.inst)>=0));
+  var c=V.cfg,T=groupTree(),p=pool(),mfH=parseMcqFilter(c.mcq),fOn=!!(mfH||(c.inst&&insts.indexOf(c.inst)>=0)),rsvH=reservedIds();
   var thLabel=(S.theme==="dark")?"☀️ লাইট":(S.theme==="light"?"🌙 ডার্ক":"🌓 অটো");
   var notifBtn=ADMIN?'<button class="btn alt sm notif-btn" data-act="go-reqs" aria-label="সংশোধন অনুরোধ">🔔<span id="home-notif-cnt" class="notif-cnt" style="'+(V.pendingCnt?'':'display:none')+'">'+bn(V.pendingCnt||0)+'</span></button>':'';
   var h='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h1 style="margin:0">Corui Academy</h1><div style="display:flex;gap:6px;align-items:center">'+notifBtn+'<button class="btn alt sm" data-act="theme">'+thLabel+'</button><button class="btn alt sm" data-act="lang">'+((S.lang||"en")==="bn"?"English":"বাংলা")+'</button></div></div>';
@@ -853,7 +909,7 @@ function homeBase(){
     gs.forEach(function(g){
       if(g!==s)h+=groupHead(s,g,T,null);
       sortTopics(Object.keys(T[s][g]),function(t){return T[s][g][t];},c.topicSort||"default").forEach(function(t){
-        var qsAll=T[s][g][t],qs=qsAll.filter(function(x){return matchF(x,mfH)&&(c.pool==="new"?!S.seen[x.id]:(c.pool==="wrong"?!!S.wrong[x.id]:true));}),nw=qs.length;
+        var qsAll=T[s][g][t],qs=qsAll.filter(function(x){return matchF(x,mfH)&&(c.pool==="new"?(!S.seen[x.id]&&!rsvH[x.id]):(c.pool==="wrong"?!!S.wrong[x.id]:true));}),nw=qs.length;
         var accTxt="";if((c.topicSort||"")==="weak"){var ts=topicStat(qs);if(ts.pct!==null)accTxt=' · নির্ভুলতা '+bn(ts.pct)+'%';}
         var dis=(qs.length===0)||(c.pool==="new"&&nw===0);h+='<label class="top"'+(dis?' style="opacity:.45"':'')+'><input type="checkbox" data-top="'+esc(s+"||"+t)+'"'+(c.topics[s+"||"+t]?" checked":"")+(dis?' disabled':'')+'><span>'+esc(tlabel(t))+'</span><small>'+'মোট '+bn(qsAll.length)+'টি · মিলেছে '+bn(qs.length)+'টি'+accTxt+'</small></label>';
       });
@@ -1309,12 +1365,18 @@ function admUndo(){
 }
 var IMP_FIELDS=["s","t","q","o","a","i","y","bn","e","ex","rule"];
 function canon(v){if(v===undefined||v===null)return null;if(Array.isArray(v))return v.map(canon);if(typeof v==="object"){var o={};Object.keys(v).sort().forEach(function(k){if(v[k]!==undefined)o[k]=canon(v[k]);});return o;}return v;} function impSame(a,b){return JSON.stringify(canon(a))===JSON.stringify(canon(b));}
-var QSEQ=0;
-function newQId(){
-  var max=0;
-  Q.forEach(function(x){var m=/^Q(\d+)$/.exec(x.id||"");if(m&&+m[1]>max)max=+m[1];});
-  QSEQ=Math.max(QSEQ,max)+1;
-  return "Q"+("0000"+QSEQ).slice(-4);
+var ID_PFX=[["বাংলা","B"],["bangla","B"],["english","E"],["ইংরেজি","E"],["গণিত","M"],["math","M"],["সাধারণ জ্ঞান","G"],["general","G"],["gk","G"]];
+function idPrefix(sub){var s4=String(sub||"").toLowerCase();for(var i=0;i<ID_PFX.length;i++){if(s4.indexOf(ID_PFX[i][0])>=0)return ID_PFX[i][1];}return "Q";}
+function newQId(sub,seqs){
+  var p=idPrefix(sub); seqs=seqs||{};
+  if(seqs[p]===undefined){
+    var max=0,re=new RegExp("^"+p+"(\\d+)$","i"),seenIds={};
+    Q.forEach(function(x){seenIds[x.id]=1;});
+    if(typeof RAW!=="undefined"&&RAW)Object.keys(RAW).forEach(function(k){seenIds[k]=1;});
+    Object.keys(seenIds).forEach(function(k){var m=re.exec(k||"");if(m&&+m[1]>max)max=+m[1];});
+    seqs[p]=max;
+  }
+  seqs[p]++; return p+seqs[p];
 }
 function planImport(arr){
   var byId={}, byKey={}, bySim={}, maxOrd=0;
@@ -1324,14 +1386,14 @@ function planImport(arr){
     bySim[fullSimKey(x.q,x.o)]=x;
     if((x.ord||0)>maxOrd)maxOrd=x.ord||0;
   });
-  var items=[], seenBatch={}, seenSim={};
+  var items=[], seenBatch={}, seenSim={}, seqsI={};
   arr.forEach(function(x,idx){
     var key=normKey((x.q||"")+"|"+((x.o||[]).join("|")));
     var sk=fullSimKey(x.q,x.o);
     if(seenBatch[key]||seenSim[sk]){items.push({i:idx,id:x.id||"",json:x,cur:null,status:"dup",diffs:[],dupId:"এই তালিকার মধ্যেই আরেকবার আছে"});return;}
     seenBatch[key]=1; seenSim[sk]=1;
     var cur=(x.id&&byId[x.id])||byKey[key]||bySim[sk]||null;
-    var id=cur?cur.id:(x.id||newQId());
+    var id=cur?cur.id:(x.id||newQId(x.s,seqsI));
     var j=Object.assign({},x,{id:id});
     if(cur){
       if(!j.ord&&cur.ord)j.ord=cur.ord;
@@ -1445,8 +1507,9 @@ function checkAdminDup(){
   trDom(box);
 }
 function admSave(){
-  var isNew=V.edit==="new", id=isNew?newQId():V.edit, old=isNew?{}:(BY[id]||{});
+  var isNew=V.edit==="new", id=isNew?"":V.edit, old=isNew?{}:(BY[V.edit]||{});
   var sVal=gv("a_s"), tVal=gv("a_t"), q=gv("a_q");
+  if(isNew)id=newQId(sVal);
   if(!sVal||!tVal){alert("বিষয় ও টপিক লিখুন।");return;}
   if(!q){alert("প্রশ্ন ফাঁকা রাখা যাবে না।");return;}
   var o4=[0,1,2,3].map(function(k){return gv("a_o"+k);});
@@ -2048,6 +2111,11 @@ function examsView(){
     if(x.mtId)h+='<button class="btn alt sm" data-act="mt-lb" data-mtid="'+x.mtId+'">🏆 মেরিট লিস্ট</button>';
     h+='</div>'+delPart(x)+'</div>';
   });
+  h+='<h2>সব পুরনো পরীক্ষা</h2>';
+  if(Array.isArray(V.att)){
+    if(!V.att.length)h+='<div class="panel meta">কোনো রেকর্ড নেই।</div>';
+    V.att.forEach(function(x){var r=x.r||{};h+='<div class="card"><b>'+esc(x.name)+'</b><div class="meta">'+fmt(x.finishedAt||x.at)+' · সঠিক '+bn(r.c||0)+', ভুল '+bn(r.w||0)+', নম্বর '+bn((r.sc||0).toFixed(2))+'</div><button class="btn alt" data-act="attres" data-attid="'+x.id+'" style="margin:0">ফলাফল দেখুন</button></div>';});
+  } else h+='<button class="btn alt" data-act="attload">'+(V.att==="loading"?'লোড হচ্ছে…':'সব পরীক্ষার তালিকা লোড করুন')+'</button>';
   return h;
 }
 
@@ -2183,6 +2251,12 @@ function usrDetail(){
     h+='<button class="btn alt" data-act="uexam" data-exid="'+x.id+'" style="margin:0 0 6px">প্রশ্নগুলো দেখুন (ভুল ফিল্টার)</button><button class="btn alt" data-act="uexdel" data-exid="'+x.id+'" style="margin:0;color:var(--bad)">এই পরীক্ষা মুছুন</button></div>';
   });
   if(ex.length>3)h+='<button class="btn alt" data-act="usrmore" style="margin:0 0 12px">'+(V.usrMore?'কম দেখুন':'আরও দেখুন')+' ('+bn(ex.length)+'টি)</button>';
+  h+='<h2>সব পরীক্ষা (পূর্ণ রেকর্ড)</h2>';
+  var UA=(V.uattUid===(V.selfView?UID:V.usrSel)&&Array.isArray(V.uatt))?V.uatt:null;
+  if(UA){
+    if(!UA.length)h+='<div class="panel meta">কোনো রেকর্ড নেই।</div>';
+    UA.forEach(function(x){var r=x.r||{};h+='<div class="card"><b>'+esc(x.name)+'</b><div class="meta">'+fmt(x.finishedAt||x.at)+' · সঠিক '+bn(r.c||0)+', ভুল '+bn(r.w||0)+', নম্বর '+bn((r.sc||0).toFixed(2))+'</div><button class="btn alt" data-act="uexam" data-exid="'+x.id+'" style="margin:0">প্রশ্নগুলো দেখুন</button></div>';});
+  } else h+='<button class="btn alt" data-act="uattload">'+(V.uatt==="loading"?'লোড হচ্ছে…':'সব পরীক্ষা লোড করুন')+'</button>';
   return h;
 }
 function usrWrongView(){
@@ -2213,7 +2287,7 @@ function usrWrongView(){
 }
 function usrExamView(){
   var ctx=userCtx(), L=optL();
-  var x=ctx?ctx.st.exams.filter(function(e){return e.id===V.usrExam;})[0]:null;
+  var x=ctx?(ctx.st.exams.filter(function(e){return e.id===V.usrExam;})[0]||(Array.isArray(V.uatt)?V.uatt.filter(function(e){return e.id===V.usrExam;})[0]:null)):null;
   if(!x)return '<button class="btn alt" data-act="ubackexam">← ফিরে যান</button><p class="meta">পরীক্ষা পাওয়া যায়নি।</p>';
   var f=V.usrFilter||"wrong", rows=[], cnt={all:0,wrong:0,right:0,skip:0};
   x.ids.forEach(function(id){
@@ -2606,6 +2680,9 @@ app.addEventListener("click",function(e){
     var qid=t.dataset.qid; V.homeShowAns[qid]=!V.homeShowAns[qid];
     return renderHomeSearch();
   }
+  if(t.dataset.act==="attload"){loadAttempts(UID,function(a){V.att=a;});return;}
+  if(t.dataset.act==="attres"){var ax=(Array.isArray(V.att)?V.att:[]).filter(function(x){return x.id===t.dataset.attid;})[0];if(!ax)return;navPush(function(){V.ex=ax;V.title=ax.name;V.filter="all";V.screen="result";});return;}
+  if(t.dataset.act==="uattload"){var uu=V.selfView?UID:V.usrSel;V.uattUid=uu;loadAttempts(uu,function(a){V.uatt=a;});return;}
   if(t.dataset.act==="resume"||t.dataset.act==="exres"){
     var ex=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0];
     if(!ex)return;
@@ -2619,7 +2696,7 @@ app.addEventListener("click",function(e){
     var tgt=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0];
     if(tgt&&tgt.status==="done"&&(Date.now()-(tgt.finishedAt||tgt.at))<7*864e5){alert(S.lang==="bn"?"জমা দেওয়া পরীক্ষা ৭ দিনের মধ্যে মোছা যায় না।":"A submitted exam cannot be deleted within 7 days.");return;}
     if(!confirm("এই পরীক্ষাটি মুছে ফেলবেন?"))return;
-    if(tgt){undoExamEffects(S,tgt);deleteExamCloud(UID,tgt);logUsage("exam_delete",{id:tgt.id,name:tgt.name});}
+    if(tgt){var tg0=tgt;undoExamEffects(S,tg0);txProgress(function(srv){undoExamEffects(srv,tg0);},"u:"+tg0.id);deleteExamCloud(UID,tg0);logUsage("exam_delete",{id:tgt.id,name:tgt.name});}
     S.exams=S.exams.filter(function(x){return x.id!==t.dataset.exid;});
     if(V.ex&&V.ex.id===t.dataset.exid){V.ex=null;V.screen=null;}
     save(true); render(); return;
