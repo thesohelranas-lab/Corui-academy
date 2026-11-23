@@ -852,9 +852,9 @@ function homeBase(){
     gs.forEach(function(g){
       if(g!==s)h+=groupHead(s,g,T,null);
       sortTopics(Object.keys(T[s][g]),function(t){return T[s][g][t];},c.topicSort||"default").forEach(function(t){
-        var qsAll=T[s][g][t],qs=qsAll.filter(function(x){return matchF(x,mfH);}),nw=qs.filter(function(x){return !S.seen[x.id];}).length;
+        var qsAll=T[s][g][t],qs=qsAll.filter(function(x){return matchF(x,mfH)&&(c.pool==="new"?!S.seen[x.id]:(c.pool==="wrong"?!!S.wrong[x.id]:true));}),nw=qs.length;
         var accTxt="";if((c.topicSort||"")==="weak"){var ts=topicStat(qs);if(ts.pct!==null)accTxt=' · নির্ভুলতা '+bn(ts.pct)+'%';}
-        var dis=(qs.length===0)||(c.pool==="new"&&nw===0);h+='<label class="top"'+(dis?' style="opacity:.45"':'')+'><input type="checkbox" data-top="'+esc(s+"||"+t)+'"'+(c.topics[s+"||"+t]?" checked":"")+(dis?' disabled':'')+'><span>'+esc(tlabel(t))+'</span><small>'+(fOn?'মোট '+bn(qsAll.length)+'টি · মিলেছে '+bn(qs.length)+'টি · নতুন '+bn(nw):bn(qs.length)+'টি, নতুন '+bn(nw))+accTxt+'</small></label>';
+        var dis=(qs.length===0)||(c.pool==="new"&&nw===0);h+='<label class="top"'+(dis?' style="opacity:.45"':'')+'><input type="checkbox" data-top="'+esc(s+"||"+t)+'"'+(c.topics[s+"||"+t]?" checked":"")+(dis?' disabled':'')+'><span>'+esc(tlabel(t))+'</span><small>'+'মোট '+bn(qsAll.length)+'টি · মিলেছে '+bn(qs.length)+'টি'+accTxt+'</small></label>';
       });
     });
     h+='</div>';
