@@ -567,11 +567,11 @@ function idMatch(rules,id){
   return rules.some(function(r){return r.pf===m[1]&&n>=r.a&&n<=r.b;});
 }
 function pool(){
-  var c=V.cfg, idr=parseIdFilter(c.ids);
+  var c=V.cfg;
   return Q.filter(function(x){
-    if(idr.length){if(!idMatch(idr,x.id))return false;}
-    else if(!c.topics[x.s+"||"+x.t])return false;
+    if(!c.topics[x.s+"||"+x.t])return false;
     if(c.inst&&x.i!==c.inst)return false;
+    if(c.src&&srcOf(x)!==c.src)return false;
     if(c.pool==="new")return !S.seen[x.id];
     if(c.pool==="wrong")return !!S.wrong[x.id];
     return true;
@@ -911,7 +911,9 @@ function home(){
   return homeBase();
 }
 function homeBase(){
-  var c=V.cfg,T=groupTree(),p=pool();
+  var c=V.cfg,T=groupTree();
+  if(c.src&&srcList().every(function(x){return x[0]!==c.src;}))c.src="";
+  var p=pool();
   var thLabel=(S.theme==="dark")?"☀️ লাইট":(S.theme==="light"?"🌙 ডার্ক":"🌓 অটো");
   var notifBtn=ADMIN?'<button class="btn alt sm notif-btn" data-act="go-reqs" aria-label="সংশোধন অনুরোধ">🔔<span id="home-notif-cnt" class="notif-cnt" style="'+(V.pendingCnt?'':'display:none')+'">'+bn(V.pendingCnt||0)+'</span></button>':'';
   var h='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h1 style="margin:0">Corui Academy</h1><div style="display:flex;gap:6px;align-items:center">'+notifBtn+'<button class="btn alt sm" data-act="theme">'+thLabel+'</button><button class="btn alt sm" data-act="lang">'+((S.lang||"en")==="bn"?"English":"বাংলা")+'</button></div></div>';
@@ -920,8 +922,9 @@ function homeBase(){
   h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label><b>সব প্রশ্ন থেকে খুঁজুন</b></label></div><input type="text" id="home-q" placeholder="প্রশ্ন, অপশন, প্রতিষ্ঠান বা টপিক লিখে খুঁজুন…" value="'+esc(V.homeQ||"")+'"></div><div id="home-search-res"></div>';
   h+='<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="exname" placeholder="যেমন: Verb Test 1" value="'+esc(V.draft.exname||"")+'"></div>';
   h+='<div class="row"><label>কোন প্রশ্ন আসবে</label><select data-cfg="pool"><option value="new"'+(c.pool==="new"?" selected":"")+'>শুধু নতুন (এখনো দেওয়া হয়নি)</option><option value="all"'+(c.pool==="all"?" selected":"")+'>সব প্রশ্ন</option><option value="wrong"'+(c.pool==="wrong"?" selected":"")+'>আগে ভুল করা</option></select></div>';
-  h+='<div class="row"><label>MCQ id / পরিসর (দিলে টপিক বাছাই লাগবে না)</label><input type="text" data-cfg="ids" placeholder="যেমন E1-E5, B3" value="'+esc(c.ids||"")+'"></div>';
   if(insts.length>1)h+='<div class="row"><label>প্রতিষ্ঠান</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+esc(x)+'</option>';}).join("")+'</select></div>';
+  var srcs=srcList();
+  if(srcs.length)h+='<div class="row"><label>উৎস</label><select data-cfg="src"><option value="">সব</option>'+srcs.map(function(x){return '<option value="'+esc(x[0])+'"'+(c.src===x[0]?" selected":"")+'>'+esc(x[0])+' ('+bn(x[1])+')</option>';}).join("")+'</select></div>';
   h+='<div class="row"><label id="n-label">প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(p.length)+')</label><input type="number" min="1" data-cfg="n" value="'+c.n+'"></div>';
   h+='<div class="row"><label>প্রশ্নের ক্রম</label><select data-cfg="mode"><option value="subject"'+((V.cfg.mode||"subject")==="subject"?" selected":"")+'>বিষয় অনুযায়ী (বাংলা → English → GK → Math)</option><option value="mixed"'+(V.cfg.mode==="mixed"?" selected":"")+'>মিশ্র</option></select></div><div class="row"><label>ক্রম</label><select data-cfg="order"><option value="rand"'+(c.order==="rand"?" selected":"")+'>র‍্যান্ডম</option><option value="serial"'+(c.order==="serial"?" selected":"")+'>সিরিয়াল</option></select></div>';
   h+='<div class="row"><label>উত্তর কখন দেখাবে</label><select data-cfg="reveal"><option value="instant"'+(c.reveal==="instant"?" selected":"")+'>প্রতিটা প্রশ্নের পরপরই</option><option value="end"'+(c.reveal==="end"?" selected":"")+'>পরীক্ষা শেষ করার পর</option></select></div>';
@@ -951,12 +954,12 @@ function homeBase(){
   return h;
 }
 var AVC=null;
-/* বর্তমান ফিল্টার (প্রশ্নের ধরন + প্রতিষ্ঠান + MCQ id) ধরে প্রতি টপিক/গ্রুপে কয়টি প্রশ্ন পাওয়া যাবে */
+/* বর্তমান ফিল্টার (প্রশ্নের ধরন + প্রতিষ্ঠান + উৎস) ধরে প্রতি টপিক/গ্রুপে কয়টি প্রশ্ন পাওয়া যাবে */
 function availMaps(){
-  var c=V.cfg,idr=parseIdFilter(c.ids),t={},g={};
+  var c=V.cfg,t={},g={};
   Q.forEach(function(x){
-    if(idr.length&&!idMatch(idr,x.id))return;
     if(c.inst&&x.i!==c.inst)return;
+    if(c.src&&srcOf(x)!==c.src)return;
     if(c.pool==="new"&&S.seen[x.id])return;
     if(c.pool==="wrong"&&!S.wrong[x.id])return;
     var k=x.s+"||"+x.t,gk=x.s+"||"+gname(x);
@@ -967,27 +970,20 @@ function availMaps(){
 function homeStartLabel(p){
   var c=V.cfg;
   if(p.length){var estN=Math.max(1,Math.min(+c.n||1,p.length));return 'পরীক্ষা শুরু করুন'+(c.timer?' ('+fmtSec(estN*SEC_PER_Q)+')':'');}
-  if(c.ids){
-    var idr=parseIdFilter(c.ids);
-    if(!idr.length||!Q.some(function(x){return idMatch(idr,x.id);}))return 'এই id-তে কোনো প্রশ্ন নেই';
-    return 'এই ফিল্টারে কোনো প্রশ্ন নেই (“কোন প্রশ্ন আসবে” বদলে দেখুন)';
-  }
+  if(Q.some(function(x){return c.topics[x.s+"||"+x.t];}))return 'নির্বাচিত টপিকে এই ফিল্টারে কোনো প্রশ্ন নেই (“কোন প্রশ্ন আসবে”, প্রতিষ্ঠান বা উৎস বদলে দেখুন)';
   return 'টপিক বেছে নিন';
 }
-/* id লিখতে লিখতেই সংখ্যা ও বাটন হালনাগাদ (পুরো পেজ রেন্ডার না করে, যাতে কীবোর্ড/ফোকাস না যায়) */
-function refreshHomeAvail(){
-  if(V.tab!=="home"||V.screen||V.edit)return;
-  var p=pool(),AV=availMaps();AVC=AV;
-  var st=document.getElementById("start");
-  if(st){st.disabled=!p.length;st.textContent=homeStartLabel(p);trDom(st);}
-  var nl=document.getElementById("n-label");
-  if(nl){nl.textContent='প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(p.length)+')';trDom(nl);}
-  app.querySelectorAll("[data-av]").forEach(function(b){
-    var n=AV.t[b.dataset.av]||0;b.textContent=bn(n);trDom(b);
-    var lb=b.closest("label.top");
-    if(lb){lb.style.opacity=n===0?".45":"";var cb=lb.querySelector("input");if(cb)cb.disabled=(n===0);}
+/* বর্তমান pool/প্রতিষ্ঠান ধরে কোন উৎসে কয়টি প্রশ্ন: [[উৎস, সংখ্যা], ...] */
+function srcList(){
+  var c=V.cfg,m={};
+  Q.forEach(function(x){
+    var s=srcOf(x);if(!s)return;
+    if(c.inst&&x.i!==c.inst)return;
+    if(c.pool==="new"&&S.seen[x.id])return;
+    if(c.pool==="wrong"&&!S.wrong[x.id])return;
+    m[s]=(m[s]||0)+1;
   });
-  app.querySelectorAll("[data-gav]").forEach(function(b){b.textContent=bn(AV.g[b.dataset.gav]||0);trDom(b);});
+  return Object.keys(m).sort(function(a,b){return COLL.compare(a,b);}).map(function(k){return [k,m[k]];});
 }
 function isOn(kind,key){return kind?lsOn(kind,key):!!V.cfg.topics[key];}
 function groupHead(s,g,T,kind){
@@ -2932,7 +2928,6 @@ app.addEventListener("click",function(e){
 
 app.addEventListener("change",function(e){
   var t=e.target,c=V.cfg;
-  if(t.dataset.cfg==="ids"){c.ids=t.value;save(false);refreshHomeAvail();return;}
   if(t.dataset.histq!==undefined){V.histQ=t.value;return render();}
   if(t.id==="hsearch"){V.hq=t.value;return render();}
   if(t.dataset.impnew!==undefined){V.imp.items[+t.dataset.i].skipNew=(t.value==="skip");var yn=app.scrollTop;render();app.scrollTop=yn;return;}
@@ -2975,7 +2970,7 @@ app.addEventListener("change",function(e){
     else if(t.dataset.lgrp){var gq=t.dataset.lgrp.split("||");Q.forEach(function(x){if(x.s===gq[0]&&gname(x)===gq[1]&&S[k][x.id])m[x.s+"||"+x.t]=t.checked;});}
     var y0=app.scrollTop;render();app.scrollTop=y0;return;
   }
-  if(t.dataset.cfg){c[t.dataset.cfg]=t.type==="checkbox"?t.checked:t.value;save(false);}
+  if(t.dataset.cfg){c[t.dataset.cfg]=t.type==="checkbox"?t.checked:t.value;if(t.dataset.cfg==="inst")c.src="";save(false);}
   else if(t.dataset.top){c.topics[t.dataset.top]=t.checked;save(false);}
   else if(t.dataset.sub){Q.forEach(function(x){if(x.s===t.dataset.sub)c.topics[x.s+"||"+x.t]=t.checked;});save(false);}
   var y=app.scrollTop;render();app.scrollTop=y;
@@ -2985,7 +2980,6 @@ app.addEventListener("input",function(e){
   var t=e.target;
   if(t.id==="exname"||t.id==="lname")V.draft[t.id]=t.value;
   else if(t.id==="em")V.authEmail=t.value;
-  else if(t.dataset.cfg==="ids"){V.cfg.ids=t.value;refreshHomeAvail();}
   else if(t.id==="home-q"){V.homeQ=t.value;renderHomeSearch();}
   else if(t.id==="adm-all-q"){V.admAllQ=t.value;renderAdmSearch();}
   else if(t.id==="usr-q"){V.usrQ=t.value;renderUserList();}
