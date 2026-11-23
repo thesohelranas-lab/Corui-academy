@@ -208,6 +208,32 @@ function restoreDrafts(){
       if(d)Object.keys(d).forEach(function(k){if(x.a[k]===undefined)x.a[k]=d[k];});}catch(err){}
   });
 }
+/* ===== Firebase-এ পূর্ণ ডেটা: ইউজেজ লগ, ড্রাফট, অ্যাটেম্পট আর্কাইভ ===== */
+function logUsage(type,data){
+  if(!UID||!DB)return;
+  DB.collection("usageLog").add({uid:UID,email:((firebase.auth().currentUser)||{}).email||"",admin:!!ADMIN,type:type,at:Date.now(),data:data||null}).catch(function(){});
+}
+var draftTimer=null;
+function saveDraft(e){
+  if(!UID||!DB)return;
+  clearTimeout(draftTimer);
+  var u=UID,d=DB,id=e.id,a=JSON.parse(JSON.stringify(e.a));
+  draftTimer=setTimeout(function(){d.collection("users").doc(u).collection("drafts").doc(id).set({a:a,updated:Date.now()}).catch(function(){});},300);
+}
+function loadDrafts(){
+  var run=S.exams.filter(function(x){return x.lock&&x.status!=="done";});
+  return Promise.all(run.map(function(x){
+    return DB.collection("users").doc(UID).collection("drafts").doc(x.id).get().then(function(sn){
+      var d=sn.exists?(sn.data().a||{}):{};
+      Object.keys(d).forEach(function(k){if(x.a[k]===undefined)x.a[k]=d[k];});
+    }).catch(function(){});
+  }));
+}
+function archiveAttempt(ex){
+  if(!UID||!DB)return;
+  var c=JSON.parse(JSON.stringify(ex));
+  DB.collection("users").doc(UID).collection("attempts").doc(ex.id).set(c).catch(function(err){console.warn(err);});
+}
 function boot(){
   history.replaceState(snap(),"","#home");
   try{firebase.initializeApp(FIREBASE_CONFIG);}
@@ -230,8 +256,9 @@ function boot(){
         var loc=readLocal(UID);
         if(loc&&loc.state){S=normalize(loc.state);applyCfgFromState();applyTheme();}
       })
-      .then(function(){startPresence();watchModelTests();if(ADMIN)watchPendingReqs();return loadQuestions();})
+      .then(function(){startPresence();watchModelTests();if(ADMIN)watchPendingReqs();logUsage("session_start");return loadQuestions();})
       .catch(function(err){console.warn(err);})
+      .then(function(){return loadDrafts();}).catch(function(){})
       .then(function(){restoreDrafts();booted=true;render();history.replaceState(snap(),"","#"+V.tab);});
   });
 }
@@ -483,6 +510,7 @@ function begin(ids,title,extraOpt){
   };
   S.exams.unshift(ex);V.exSubj="";
   save(true);
+  logUsage("exam_start",{id:ex.id,name:ex.name,n:ids.length,mtId:ex.mtId||null});
   navPush(function(){
     V.ex=ex; V.filter="all"; V.title=ex.name; V.screen="exam";
   });
@@ -492,7 +520,7 @@ function answer(id,k){
   if(!e)return;
   if(e.lock&&e.a[id]!==undefined)return;
   e.a[id]=k;S.seen[id]=1;
-  if(e.lock){try{localStorage.setItem("mtdraft_"+e.id,JSON.stringify(e.a));}catch(err){}}else{save(false);}
+  if(e.lock){try{localStorage.setItem("mtdraft_"+e.id,JSON.stringify(e.a));}catch(err){}saveDraft(e);}else{save(false);}
   var cardEl=document.getElementById("qc_"+id);
   if(cardEl){
     var idx=e.ids.indexOf(id);
@@ -535,7 +563,7 @@ function finish(auto){
   ids.forEach(function(id){var a=V.ex.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
   V.ex.r={n:ids.length,c:c,w:w,sk:ids.length-c-w,sc:c-w*exNeg};
   V.ex.status="done"; V.ex.finishedAt=Date.now();
-  if(V.ex&&V.ex.lock){try{localStorage.removeItem("mtdraft_"+V.ex.id);}catch(err){}}
+  if(V.ex&&V.ex.lock){try{localStorage.removeItem("mtdraft_"+V.ex.id);}catch(err){}clearTimeout(draftTimer);if(DB&&UID)DB.collection("users").doc(UID).collection("drafts").doc(V.ex.id).delete().catch(function(){});}
   S.hist.unshift({d:V.ex.finishedAt,t:V.ex.name,n:ids.length,c:c,w:w,sc:V.ex.r.sc}); S.hist=S.hist.slice(0,30);
   var done=S.exams.filter(function(x){return x.status==="done";});
   if(done.length>20){
@@ -543,6 +571,8 @@ function finish(auto){
     S.exams=S.exams.filter(function(x){return old.indexOf(x.id)<0;});
   }
   save(true);
+  archiveAttempt(V.ex);
+  logUsage("exam_finish",{id:V.ex.id,name:V.ex.name,mtId:V.ex.mtId||null,c:c,w:w,sc:V.ex.r.sc});
   if(V.ex.mtId && DB && UID){
     var em=((firebase.auth().currentUser)||{}).email||"";
     DB.collection("modelTests").doc(V.ex.mtId).collection("scores").doc(UID).set({
@@ -1189,7 +1219,7 @@ function logChanges(changes,label){
   return DB.collection("adminRedo").get().then(function(snap){
     var b=DB.batch(); snap.forEach(function(d){b.delete(d.ref);}); return b.commit();
   }).then(function(){
-    return DB.collection("adminLog").add({at:Date.now(),label:label,changes:changes});
+    return DB.collection("adminLog").add({at:Date.now(),by:((firebase.auth().currentUser)||{}).email||"",label:label,changes:changes});
   });
 }
 function snapOf(id){return RAW[id]?JSON.parse(JSON.stringify(RAW[id])):null;}
@@ -2601,7 +2631,7 @@ app.addEventListener("click",function(e){
   if(t.id==="adm-seedcopy"){return admSeedCopy();}
   if(t.id==="adm-undo"){return admUndo();}
   if(t.id==="adm-redo"){return admRedo();}
-  if(t.id==="logout"){save(true);stopExamTimer();pingPresence(false);stopReqsWatch();stopUsersWatch();firebase.auth().signOut();return;}
+  if(t.id==="logout"){logUsage("logout");save(true);stopExamTimer();pingPresence(false);stopReqsWatch();stopUsersWatch();firebase.auth().signOut();return;}
   if(t.dataset.fav){var id=t.dataset.fav;if(S.fav[id])delete S.fav[id];else S.fav[id]=1;save(false);t.textContent=S.fav[id]?"★":"☆";return;}
   if(t.dataset.k!==undefined)return answer(t.dataset.id,+t.dataset.k);
   if(t.id==="start"){var p=pool(),n=Math.max(1,Math.min(+V.cfg.n||1,p.length));var ids=orderIds((V.cfg.order==="rand"?weightedPick(p,n):p.slice(0,n)).map(function(x){return x.id;}),V.cfg.mode||"subject");var nm=((document.getElementById("exname")||{}).value||"").trim();return begin(ids,nm||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")),{mode:V.cfg.mode||"subject"});}
