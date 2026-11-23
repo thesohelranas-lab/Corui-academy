@@ -455,26 +455,33 @@ function groupTree(list){
 
 /* ===== MCQ নম্বর/আইডি ফিল্টার (যেমন: 1-50, 72, q1abc) ===== */
 function parseMcqFilter(str){
-  var t=String(str||"").replace(/[০-৯]/g,function(d){return "০১২৩৪৫৬৭৮৯".indexOf(d);}),nums=[],ids={},any=false;
+  var t=String(str||"").replace(/[০-৯]/g,function(d){return "০১২৩৪৫৬৭৮৯".indexOf(d);}),ids={},ranges=[],any=false;
   t.split(/[,\s]+/).forEach(function(tok){
     if(!tok)return; any=true;
-    var m=tok.match(/^(\d+)[-–](\d+)$/);
-    if(m){nums.push([+m[1],+m[2]]);return;}
-    if(/^\d+$/.test(tok)){nums.push([+tok,+tok]);return;}
-    ids[tok.toLowerCase()]=1;
+    tok=tok.toLowerCase(); ids[tok]=1;
+    var m=tok.match(/^(.*?)(\d+)[-–](.*?)(\d+)$/);
+    if(m&&m[1]===m[3]){var lo=+m[2],hi=+m[4];ranges.push({p:m[1],lo:Math.min(lo,hi),hi:Math.max(lo,hi)});}
   });
-  return any?{nums:nums,ids:ids}:null;
+  return any?{ids:ids,ranges:ranges}:null;
 }
 function mcqMatch(f,x){
-  if(f.ids[String(x.id).toLowerCase()])return true;
-  var o=x.ord||0;
-  return f.nums.some(function(r){return o>=Math.min(r[0],r[1])&&o<=Math.max(r[0],r[1]);});
+  var id=String(x.id).toLowerCase();
+  if(f.ids[id])return true;
+  var m=id.match(/^(.*?)(\d+)$/); if(!m)return false;
+  var n=+m[2];
+  return f.ranges.some(function(r){return r.p===m[1]&&n>=r.lo&&n<=r.hi;});
+}
+function matchF(x,mf){
+  var c=V.cfg; if(mf===undefined)mf=parseMcqFilter(c.mcq);
+  if(c.inst&&insts.indexOf(c.inst)>=0&&x.i!==c.inst)return false;
+  if(mf&&!mcqMatch(mf,x))return false;
+  return true;
 }
 function pool(){
   var c=V.cfg, mf=parseMcqFilter(c.mcq);
   return Q.filter(function(x){
-    if(mf){if(!mcqMatch(mf,x))return false;}
-    else if(!c.topics[x.s+"||"+x.t])return false;
+    if(!c.topics[x.s+"||"+x.t])return false;
+    if(mf&&!mcqMatch(mf,x))return false;
     if(c.inst&&insts.indexOf(c.inst)>=0&&x.i!==c.inst)return false;
     if(c.pool==="new")return !S.seen[x.id];
     if(c.pool==="wrong")return !!S.wrong[x.id];
@@ -658,7 +665,7 @@ function srcTag(q){return q&&q.i?'<span data-notr>উৎস: '+esc(q.i)+(q.y?' '
 function card(q,sel,mode){
   if(!q)return '';
   var L=optL();
-  var h='<div class="card"><div class="tags"><span>'+esc(q.s)+' – '+esc(q.t)+'</span>'+(q.ord?'<span data-notr>MCQ #'+bn(q.ord)+'</span>':'')+(q.i?'<span>'+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'<button class="star" data-fav="'+q.id+'" aria-label="পছন্দের তালিকায় রাখুন">'+(S.fav[q.id]?'★':'☆')+'</button></div><p class="q">'+esc(q.q)+'</p>';
+  var h='<div class="card"><div class="tags"><span>'+esc(q.s)+' – '+esc(q.t)+'</span>'+(q.id?'<span data-notr>ID: '+esc(q.id)+'</span>':'')+(q.i?'<span>'+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'<button class="star" data-fav="'+q.id+'" aria-label="পছন্দের তালিকায় রাখুন">'+(S.fav[q.id]?'★':'☆')+'</button></div><p class="q">'+esc(q.q)+'</p>';
   q.o.forEach(function(t,k){
     var c="opt",m="";
     if(k===q.a){c+=(sel===undefined?" skipok":" ok");m="✔️";}else if(k===sel){c+=" bad";m="❌";}
@@ -816,7 +823,7 @@ function home(){
   return homeBase();
 }
 function homeBase(){
-  var c=V.cfg,T=groupTree(),p=pool();
+  var c=V.cfg,T=groupTree(),p=pool(),mfH=parseMcqFilter(c.mcq);
   var thLabel=(S.theme==="dark")?"☀️ লাইট":(S.theme==="light"?"🌙 ডার্ক":"🌓 অটো");
   var notifBtn=ADMIN?'<button class="btn alt sm notif-btn" data-act="go-reqs" aria-label="সংশোধন অনুরোধ">🔔<span id="home-notif-cnt" class="notif-cnt" style="'+(V.pendingCnt?'':'display:none')+'">'+bn(V.pendingCnt||0)+'</span></button>':'';
   var h='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h1 style="margin:0">Corui Academy</h1><div style="display:flex;gap:6px;align-items:center">'+notifBtn+'<button class="btn alt sm" data-act="theme">'+thLabel+'</button><button class="btn alt sm" data-act="lang">'+((S.lang||"en")==="bn"?"English":"বাংলা")+'</button></div></div>';
@@ -825,16 +832,16 @@ function homeBase(){
   h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label><b>সব প্রশ্ন থেকে খুঁজুন</b></label></div><input type="text" id="home-q" placeholder="প্রশ্ন, অপশন, প্রতিষ্ঠান বা টপিক লিখে খুঁজুন…" value="'+esc(V.homeQ||"")+'"></div><div id="home-search-res"></div>';
   h+='<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="exname" placeholder="যেমন: Verb Test 1" value="'+esc(V.draft.exname||"")+'"></div>';
   h+='<div class="row"><label>কোন প্রশ্ন আসবে</label><select data-cfg="pool"><option value="new"'+(c.pool==="new"?" selected":"")+'>শুধু নতুন (এখনো দেওয়া হয়নি)</option><option value="all"'+(c.pool==="all"?" selected":"")+'>সব প্রশ্ন</option><option value="wrong"'+(c.pool==="wrong"?" selected":"")+'>আগে ভুল করা</option></select></div>';
-  if(insts.length>=1)h+='<div class="row"><label>প্রতিষ্ঠান</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+esc(x)+'</option>';}).join("")+'</select></div>';
-  h+='<div class="row"><label>MCQ নম্বর/আইডি (যেমন: 1-50, 72)</label><input type="text" data-cfg="mcq" placeholder="ফাঁকা = সব" value="'+esc(c.mcq||"")+'"></div>';
+  h+='<div class="row"><label>প্রতিষ্ঠান / সোর্স</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+esc(x)+'</option>';}).join("")+'</select></div>';
+  h+='<div class="row"><label>MCQ id/range</label><input type="text" data-cfg="mcq" placeholder="যেমন: q12, q20-q40 (ফাঁকা = সব)" value="'+esc(c.mcq||"")+'"></div>';
   h+='<div class="row"><label>প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(p.length)+')</label><input type="number" min="1" data-cfg="n" value="'+c.n+'"></div>';
   h+='<div class="row"><label>প্রশ্নের ক্রম</label><select data-cfg="mode"><option value="subject"'+((V.cfg.mode||"subject")==="subject"?" selected":"")+'>বিষয় অনুযায়ী (বাংলা → English → GK → Math)</option><option value="mixed"'+(V.cfg.mode==="mixed"?" selected":"")+'>মিশ্র</option></select></div><div class="row"><label>ক্রম</label><select data-cfg="order"><option value="rand"'+(c.order==="rand"?" selected":"")+'>র‍্যান্ডম</option><option value="serial"'+(c.order==="serial"?" selected":"")+'>সিরিয়াল</option></select></div>';
   h+='<div class="row"><label>উত্তর কখন দেখাবে</label><select data-cfg="reveal"><option value="instant"'+(c.reveal==="instant"?" selected":"")+'>প্রতিটা প্রশ্নের পরপরই</option><option value="end"'+(c.reveal==="end"?" selected":"")+'>পরীক্ষা শেষ করার পর</option></select></div>';
   h+='<div class="row"><label>টাইমার (প্রতি প্রশ্নে ৩০ সেকেন্ড)</label><input type="checkbox" data-cfg="timer"'+(c.timer?' checked':'')+'></div>';
   h+='<div class="row"><label>পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে</label><input type="checkbox" data-cfg="showTopic"'+(c.showTopic?' checked':'')+'></div>';
   var estN=p.length?Math.max(1,Math.min(+c.n||1,p.length)):0;
-  h+='<button class="btn" id="start"'+(p.length?'':' disabled')+'>'+(p.length?'পরীক্ষা শুরু করুন'+(c.timer?' ('+fmtSec(estN*SEC_PER_Q)+')':''):(c.mcq||Object.keys(c.topics).some(function(k){return c.topics[k];})?'এই ফিল্টারে কোনো প্রশ্ন নেই':'টপিক বেছে নিন'))+'</button></div>';
-  h+='<div class="meta">এক বা একাধিক টপিক বেছে নিন। প্রতি ভুল উত্তরে '+bn(NEG)+' নম্বর কাটা যায়।</div>';
+  h+='<button class="btn" id="start"'+(p.length?'':' disabled')+'>'+(p.length?'পরীক্ষা শুরু করুন'+(c.timer?' ('+fmtSec(estN*SEC_PER_Q)+')':''):(Object.keys(c.topics).some(function(k){return c.topics[k];})?'এই ফিল্টারে কোনো প্রশ্ন নেই':'টপিক বেছে নিন'))+'</button></div>';
+  h+='<div class="meta">'+'টপিক বেছে নিন। ফিল্টার দিলে প্রতিটা টপিকের পাশে দেখাবে কয়টা প্রশ্ন মিলেছে। '+' প্রতি ভুল উত্তরে '+bn(NEG)+' নম্বর কাটা যায়।</div>';
   if(!Q.length)return h+'<div class="panel meta">ডেটাবেস থেকে প্রশ্ন লোড হয়নি বা কোনো প্রশ্ন নেই।</div>';
   h+=topicSortSelect("topicSort",c.topicSort||"default",STU_SORT_OPTS);
   Object.keys(T).forEach(function(s){
@@ -845,9 +852,9 @@ function homeBase(){
     gs.forEach(function(g){
       if(g!==s)h+=groupHead(s,g,T,null);
       sortTopics(Object.keys(T[s][g]),function(t){return T[s][g][t];},c.topicSort||"default").forEach(function(t){
-        var qs=T[s][g][t],nw=qs.filter(function(x){return !S.seen[x.id];}).length;
+        var qs=T[s][g][t].filter(function(x){return matchF(x,mfH);}),nw=qs.filter(function(x){return !S.seen[x.id];}).length;
         var accTxt="";if((c.topicSort||"")==="weak"){var ts=topicStat(qs);if(ts.pct!==null)accTxt=' · নির্ভুলতা '+bn(ts.pct)+'%';}
-        var dis=(c.pool==="new"&&nw===0);h+='<label class="top"'+(dis?' style="opacity:.45"':'')+'><input type="checkbox" data-top="'+esc(s+"||"+t)+'"'+(c.topics[s+"||"+t]?" checked":"")+(dis?' disabled':'')+'><span>'+esc(tlabel(t))+'</span><small>'+bn(qs.length)+'টি, নতুন '+bn(nw)+accTxt+'</small></label>';
+        var dis=(qs.length===0)||(c.pool==="new"&&nw===0);h+='<label class="top"'+(dis?' style="opacity:.45"':'')+'><input type="checkbox" data-top="'+esc(s+"||"+t)+'"'+(c.topics[s+"||"+t]?" checked":"")+(dis?' disabled':'')+'><span>'+esc(tlabel(t))+'</span><small>'+((c.inst||c.mcq)?'মিলেছে ':'')+bn(qs.length)+'টি, নতুন '+bn(nw)+accTxt+'</small></label>';
       });
     });
     h+='</div>';
@@ -1990,11 +1997,11 @@ function histView(){
   }
   var q=(V.histQ||"").trim().toLowerCase();
   var items=f.changes.map(function(c){return {id:c.id,q:(c.after&&c.after.q)||(BY[c.id]&&BY[c.id].q)||"",x:BY[c.id]||c.after||{}};});
-  items=items.filter(function(it){return !q||(it.q+" "+((it.x.o)||[]).join(" ")).toLowerCase().indexOf(q)>=0;});
+  items=items.filter(function(it){return !q||(it.q+" "+((it.x.o)||[]).join(" ")+" "+it.id+" "+(it.x.i||"")+" "+(it.x.y||"")).toLowerCase().indexOf(q)>=0;});
   h+='<h1>📁 '+fmt(f.at)+'</h1><p class="meta">'+esc(f.label)+' · মোট '+bn(f.changes.length)+'টি · দেখাচ্ছে '+bn(items.length)+'টি</p>';
   h+='<div class="panel"><div class="row"><label>খুঁজুন</label><input type="text" data-histq="1" value="'+esc(V.histQ||"")+'"></div></div>';
   items.slice(0,100).forEach(function(it){
-    h+='<div class="card"><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(it.q)+'</p>';
+    h+='<div class="card"><div class="meta" style="margin-bottom:4px">আইডি: '+esc(it.id)+' · সোর্স: '+(it.x.i?esc(it.x.i)+(it.x.y?' '+esc(it.x.y):''):'নেই')+'</div><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(it.q)+'</p>';
     h+='<button class="btn alt sm" data-act="edit" data-qid="'+esc(it.id)+'" style="margin:0">এডিট</button></div>';
   });
   return h;
