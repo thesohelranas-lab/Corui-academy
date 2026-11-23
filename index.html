@@ -229,6 +229,7 @@ function archiveAttempt(ex){
 }
 /* ===== পরীক্ষা মুছলে তার প্রভাবও মোছা ===== */
 function undoExamEffects(st,ex){
+  if(ex.status!=="done")return;
   var others=st.exams.filter(function(x){return x.id!==ex.id;});
   (ex.ids||[]).forEach(function(id){
     var a=(ex.a||{})[id]; if(a===undefined)return;
@@ -564,7 +565,7 @@ function answer(id,k){
   var e=V.ex;
   if(!e)return;
   if(e.lock&&e.a[id]!==undefined)return;
-  e.a[id]=k;S.seen[id]=1;
+  e.a[id]=k;
   if(e.lock){saveDraft(e);}else{save(false);}
   var cardEl=document.getElementById("qc_"+id);
   if(cardEl){
@@ -604,7 +605,7 @@ function finish(auto){
   stopExamTimer();
   if(V.ex.status==="done"){navReplace(function(){V.screen="result";});return;}
   var ids=V.ex.ids.filter(function(id){return !!BY[id];}),c=0,w=0,exNeg=V.ex.neg!=null?V.ex.neg:NEG;
-  ids.forEach(function(id){var a=V.ex.a[id];if(a===undefined)return;var st=S.st[id]=S.st[id]||[0,0];if(a===BY[id].a){st[0]++;delete S.wrong[id];}else{st[1]++;S.wrong[id]=1;}});
+  ids.forEach(function(id){var a=V.ex.a[id];if(a===undefined)return;S.seen[id]=1;var st=S.st[id]=S.st[id]||[0,0];if(a===BY[id].a){st[0]++;delete S.wrong[id];}else{st[1]++;S.wrong[id]=1;}});
   ids.forEach(function(id){var a=V.ex.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
   V.ex.r={n:ids.length,c:c,w:w,sk:ids.length-c-w,sc:c-w*exNeg};
   V.ex.status="done"; V.ex.finishedAt=Date.now();
@@ -2053,7 +2054,7 @@ function examsView(){
 /* ===== ব্যবহারকারী ও লাইভ মনিটরিং ===== */
 function latestAnswer(exams,id){
   var list=exams.slice().sort(function(a,b){return (b.at||0)-(a.at||0);});
-  for(var i=0;i<list.length;i++){if(list[i].a&&list[i].a[id]!==undefined)return list[i].a[id];}
+  for(var i=0;i<list.length;i++){if(list[i].status==="done"&&list[i].a&&list[i].a[id]!==undefined)return list[i].a[id];}
   return undefined;
 }
 function isLive(u){
