@@ -145,7 +145,7 @@ function setQuestions(arr){
 }
 
 /* ===== সংরক্ষণ ও ইউজার স্টেট ===== */
-var DEFAULT_CFG={topics:{},pool:"new",inst:"",n:10,order:"rand",showTopic:false,reveal:"instant",timer:true};
+var DEFAULT_CFG={topics:{},pool:"new",inst:"",mcq:"",n:10,order:"rand",showTopic:false,reveal:"instant",timer:true};
 var S={seen:{},wrong:{},fav:{},st:{},hist:[],exams:[],lang:"en",theme:"auto",cfg:null};
 var UID=null,DB=null,booted=false,saveTimer=null,hbTimer=null,usrUnsub=null,reqUnsub=null,mtUnsub=null,exTimer=null;
 var V_AUTH={mode:"login",msg:"",ok:false};
@@ -453,10 +453,28 @@ function groupTree(list){
   return T;
 }
 
+/* ===== MCQ নম্বর/আইডি ফিল্টার (যেমন: 1-50, 72, q1abc) ===== */
+function parseMcqFilter(str){
+  var t=String(str||"").replace(/[০-৯]/g,function(d){return "০১২৩৪৫৬৭৮৯".indexOf(d);}),nums=[],ids={},any=false;
+  t.split(/[,\s]+/).forEach(function(tok){
+    if(!tok)return; any=true;
+    var m=tok.match(/^(\d+)[-–](\d+)$/);
+    if(m){nums.push([+m[1],+m[2]]);return;}
+    if(/^\d+$/.test(tok)){nums.push([+tok,+tok]);return;}
+    ids[tok.toLowerCase()]=1;
+  });
+  return any?{nums:nums,ids:ids}:null;
+}
+function mcqMatch(f,x){
+  if(f.ids[String(x.id).toLowerCase()])return true;
+  var o=x.ord||0;
+  return f.nums.some(function(r){return o>=Math.min(r[0],r[1])&&o<=Math.max(r[0],r[1]);});
+}
 function pool(){
-  var c=V.cfg;
+  var c=V.cfg, mf=parseMcqFilter(c.mcq);
   return Q.filter(function(x){
-    if(!c.topics[x.s+"||"+x.t])return false;
+    if(mf){if(!mcqMatch(mf,x))return false;}
+    else if(!c.topics[x.s+"||"+x.t])return false;
     if(c.inst&&insts.indexOf(c.inst)>=0&&x.i!==c.inst)return false;
     if(c.pool==="new")return !S.seen[x.id];
     if(c.pool==="wrong")return !!S.wrong[x.id];
@@ -640,7 +658,7 @@ function srcTag(q){return q&&q.i?'<span data-notr>উৎস: '+esc(q.i)+(q.y?' '
 function card(q,sel,mode){
   if(!q)return '';
   var L=optL();
-  var h='<div class="card"><div class="tags"><span>'+esc(q.s)+' – '+esc(q.t)+'</span>'+(q.i?'<span>'+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'<button class="star" data-fav="'+q.id+'" aria-label="পছন্দের তালিকায় রাখুন">'+(S.fav[q.id]?'★':'☆')+'</button></div><p class="q">'+esc(q.q)+'</p>';
+  var h='<div class="card"><div class="tags"><span>'+esc(q.s)+' – '+esc(q.t)+'</span>'+(q.ord?'<span data-notr>MCQ #'+bn(q.ord)+'</span>':'')+(q.i?'<span>'+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'<button class="star" data-fav="'+q.id+'" aria-label="পছন্দের তালিকায় রাখুন">'+(S.fav[q.id]?'★':'☆')+'</button></div><p class="q">'+esc(q.q)+'</p>';
   q.o.forEach(function(t,k){
     var c="opt",m="";
     if(k===q.a){c+=(sel===undefined?" skipok":" ok");m="✔️";}else if(k===sel){c+=" bad";m="❌";}
@@ -808,13 +826,14 @@ function homeBase(){
   h+='<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="exname" placeholder="যেমন: Verb Test 1" value="'+esc(V.draft.exname||"")+'"></div>';
   h+='<div class="row"><label>কোন প্রশ্ন আসবে</label><select data-cfg="pool"><option value="new"'+(c.pool==="new"?" selected":"")+'>শুধু নতুন (এখনো দেওয়া হয়নি)</option><option value="all"'+(c.pool==="all"?" selected":"")+'>সব প্রশ্ন</option><option value="wrong"'+(c.pool==="wrong"?" selected":"")+'>আগে ভুল করা</option></select></div>';
   if(insts.length>=1)h+='<div class="row"><label>প্রতিষ্ঠান</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+esc(x)+'</option>';}).join("")+'</select></div>';
+  h+='<div class="row"><label>MCQ নম্বর/আইডি (যেমন: 1-50, 72)</label><input type="text" data-cfg="mcq" placeholder="ফাঁকা = সব" value="'+esc(c.mcq||"")+'"></div>';
   h+='<div class="row"><label>প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(p.length)+')</label><input type="number" min="1" data-cfg="n" value="'+c.n+'"></div>';
   h+='<div class="row"><label>প্রশ্নের ক্রম</label><select data-cfg="mode"><option value="subject"'+((V.cfg.mode||"subject")==="subject"?" selected":"")+'>বিষয় অনুযায়ী (বাংলা → English → GK → Math)</option><option value="mixed"'+(V.cfg.mode==="mixed"?" selected":"")+'>মিশ্র</option></select></div><div class="row"><label>ক্রম</label><select data-cfg="order"><option value="rand"'+(c.order==="rand"?" selected":"")+'>র‍্যান্ডম</option><option value="serial"'+(c.order==="serial"?" selected":"")+'>সিরিয়াল</option></select></div>';
   h+='<div class="row"><label>উত্তর কখন দেখাবে</label><select data-cfg="reveal"><option value="instant"'+(c.reveal==="instant"?" selected":"")+'>প্রতিটা প্রশ্নের পরপরই</option><option value="end"'+(c.reveal==="end"?" selected":"")+'>পরীক্ষা শেষ করার পর</option></select></div>';
   h+='<div class="row"><label>টাইমার (প্রতি প্রশ্নে ৩০ সেকেন্ড)</label><input type="checkbox" data-cfg="timer"'+(c.timer?' checked':'')+'></div>';
   h+='<div class="row"><label>পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে</label><input type="checkbox" data-cfg="showTopic"'+(c.showTopic?' checked':'')+'></div>';
   var estN=p.length?Math.max(1,Math.min(+c.n||1,p.length)):0;
-  h+='<button class="btn" id="start"'+(p.length?'':' disabled')+'>'+(p.length?'পরীক্ষা শুরু করুন'+(c.timer?' ('+fmtSec(estN*SEC_PER_Q)+')':''):(Object.keys(c.topics).some(function(k){return c.topics[k];})?'এই ফিল্টারে কোনো প্রশ্ন নেই':'টপিক বেছে নিন'))+'</button></div>';
+  h+='<button class="btn" id="start"'+(p.length?'':' disabled')+'>'+(p.length?'পরীক্ষা শুরু করুন'+(c.timer?' ('+fmtSec(estN*SEC_PER_Q)+')':''):(c.mcq||Object.keys(c.topics).some(function(k){return c.topics[k];})?'এই ফিল্টারে কোনো প্রশ্ন নেই':'টপিক বেছে নিন'))+'</button></div>';
   h+='<div class="meta">এক বা একাধিক টপিক বেছে নিন। প্রতি ভুল উত্তরে '+bn(NEG)+' নম্বর কাটা যায়।</div>';
   if(!Q.length)return h+'<div class="panel meta">ডেটাবেস থেকে প্রশ্ন লোড হয়নি বা কোনো প্রশ্ন নেই।</div>';
   h+=topicSortSelect("topicSort",c.topicSort||"default",STU_SORT_OPTS);
