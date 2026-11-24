@@ -142,8 +142,8 @@ var UID=null,DB=null,booted=false;
 var prefsTimer=null,runSaveTimer=null,draftTimer=null,hbTimer=null,retryT=null,exTimer=null;
 var usrUnsub=null,reqUnsub=null,mtUnsub=null;
 var STATE_OK=false,saveFailing=false,finishingCount=0,pendingTx=[],APPLIED=[],prefsDirty=false,runDirty=false;
-var DEFAULT_CFG={topics:{},subN:{},pool:"new",inst:"",mcq:"",n:10,order:"rand",showTopic:false,reveal:"instant",timer:true};
-var S={seen:{},wrong:{},fav:{},st:{},hist:[],exams:[],lang:"en",theme:"auto",cfg:null};
+var DEFAULT_CFG={topics:{},subN:{},pool:"new",inst:"",mcq:"",n:10,order:"rand",mode:"subject",showTopic:false,reveal:"instant",timer:true,favPool:"round",favN:20,favOrder:"rand",favMode:"subject",favSubN:{}};
+var S={seen:{},wrong:{},fav:{},favRound:{},st:{},hist:[],exams:[],lang:"en",theme:"auto",cfg:null};
 var V_AUTH={mode:"login",msg:"",ok:false};
 var app=document.getElementById("app");
 
@@ -152,7 +152,7 @@ function freshUserAtt(){return {uid:"",items:[],lastDoc:null,hasMore:false,loadi
 function freshMtAtt(){return {items:[],loading:false,loaded:false,err:"",showN:MT_PAGE};}
 function freshV(){
   return {
-    tab:"home",screen:null,cfg:Object.assign({},DEFAULT_CFG,{topics:{}}),
+    tab:"home",screen:null,cfg:Object.assign({},DEFAULT_CFG,{topics:{},subN:{},favSubN:{}}),
     ex:null,list:null,title:"",filter:"all",favDiffFilter:"fav",lsel:{},draft:{},rev:{},
     homeQ:"",homeShowAns:{},admAllQ:"",edit:null,adm:null,admReqs:false,reqRev:null,reqTab:"pending",reqF:"all",reqSel:{},reqShowAll:false,reqEditOpen:false,reqBusy:false,reqHistF:"all",reqHist:{items:[],lastDoc:null,hasMore:false,loading:false,loaded:false,err:""},
     admMT:false,admMTCreate:false,admMTView:null,admPickKey:null,admPickQ:"",admPickId:"",admPickDiff:"",
@@ -181,8 +181,8 @@ function fmtSec(sec){sec=Math.max(0,Math.floor(sec||0));var m=Math.floor(sec/60)
 function toLocalInput(ms){var d=new Date(ms),p=function(n){return (n<10?"0":"")+n;};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes());}
 function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t;}return a;}
 function clean(x){var c=JSON.parse(JSON.stringify(x));delete c.id;delete c._finishing;delete c.dirtyCount;delete c.pendingFinish;Object.keys(c).forEach(function(k){if(c[k]===""||c[k]===null||(Array.isArray(c[k])&&!c[k].length))delete c[k];});return c;}
-function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[],lang:d.lang||"en",theme:d.theme||"auto",cfg:d.cfg||null};}
-function applyCfgFromState(){var src=S.cfg||{};V.cfg=Object.assign({},DEFAULT_CFG,src,{topics:Object.assign({},src.topics||{})});}
+function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},favRound:d.favRound||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[],lang:d.lang||"en",theme:d.theme||"auto",cfg:d.cfg||null};}
+function applyCfgFromState(){var src=S.cfg||{};V.cfg=Object.assign({},DEFAULT_CFG,src,{topics:Object.assign({},src.topics||{}),subN:Object.assign({},src.subN||{}),favSubN:Object.assign({},src.favSubN||{})});}
 function applyTheme(){var t=S.theme||"auto";if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);else document.documentElement.removeAttribute("data-theme");}
 function gv(id){var el=document.getElementById(id);return el?el.value.trim():"";}
 
@@ -238,9 +238,9 @@ function savePrefs(immediate){
     prefsTimer=null;S.cfg=Object.assign({},V.cfg);
     var s2=JSON.parse(JSON.stringify(S));
     return d.collection("users").doc(u).set({
-      state:{fav:s2.fav,lang:s2.lang,theme:s2.theme,cfg:s2.cfg},
+      state:{fav:s2.fav,favRound:s2.favRound,lang:s2.lang,theme:s2.theme,cfg:s2.cfg},
       updated:Date.now(),lastActive:Date.now(),online:true,email:((firebase.auth().currentUser)||{}).email||""
-    },{mergeFields:["state.fav","state.lang","state.theme","state.cfg","updated","lastActive","online","email"]})
+    },{mergeFields:["state.fav","state.favRound","state.lang","state.theme","state.cfg","updated","lastActive","online","email"]})
       .then(function(){prefsDirty=false;if(!runDirty)saveFail(false);}).catch(function(err){console.warn(err);prefsDirty=true;saveFail(true);});
   };
   clearTimeout(prefsTimer);prefsTimer=null;
@@ -592,8 +592,7 @@ function authScreen(){
     (isLogin?'<button class="btn alt" id="forgotPw">পাসওয়ার্ড ভুলে গেছেন?</button>':'')+
     '<button class="btn alt" id="'+(isLogin?'toSignup':'toLogin')+'">'+(isLogin?'নতুন অ্যাকাউন্ট খুলুন':'আগে থেকে অ্যাকাউন্ট আছে, লগইন করুন')+'</button></div>';
 }
-
-/* ===== ৭. টপিক ট্রি (TOPIC_LIST ক্রমসহ), ফিল্টার ও বাছাই ===== */
+  /* ===== ৭. টপিক ট্রি (TOPIC_LIST ক্রমসহ), ফিল্টার ও বাছাই ===== */
 var COLL=(function(){try{return new Intl.Collator(["bn","en"],{numeric:true,sensitivity:"base"});}catch(e){return {compare:function(a,b){return a<b?-1:(a>b?1:0);}};}})();
 var SUBJ_ORDER=["বাংলা","English","সাধারণ জ্ঞান","গণিত"];
 var STU_SORT_OPTS=[["default","ডিফল্ট"],["az","নাম অনুযায়ী (A→Z)"],["new","নতুন MCQ বেশি থেকে কম"],["weak","দুর্বল টপিক আগে"]];
@@ -661,6 +660,73 @@ function weightedPick(list,n){
 }
 function subjRank(s){var i=SUBJ_ORDER.indexOf(s);return i<0?99:i;}
 function orderIds(ids,mode){if(mode!=="subject")return ids;return ids.map(function(id,i){return {id:id,r:subjRank(BY[id]?BY[id].s:""),i:i};}).sort(function(a,b){return (a.r-b.r)||(a.i-b.i);}).map(function(x){return x.id;});}
+function planSubPick(p,subNMap,reqN){
+  var bySub={},subs=[];
+  p.forEach(function(x){if(!bySub[x.s]){bySub[x.s]=[];subs.push(x.s);}bySub[x.s].push(x);});
+  var custSubs=[],autoSubs=[],custTot=0,autoPool=[];
+  subs.forEach(function(s){
+    var v=+(subNMap&&subNMap[s]||0);
+    if(v>0){var tk=Math.min(v,bySub[s].length);custSubs.push({s:s,qs:bySub[s],take:tk});custTot+=tk;}
+    else{autoSubs.push(s);autoPool=autoPool.concat(bySub[s]);}
+  });
+  var reqTot=Math.max(1,+reqN||1),autoTake=autoSubs.length?Math.min(Math.max(0,reqTot-custTot),autoPool.length):0;
+  return {custSubs:custSubs,autoPool:autoPool,autoTake:autoTake,total:custTot+autoTake};
+}
+function pickFromPool(qs,take,rand,useRound){
+  if(take<=0||!qs.length)return [];
+  if(!useRound)return rand?weightedPick(qs,take):qs.slice(0,take);
+  S.favRound=S.favRound||{};
+  var unseen=qs.filter(function(x){return !S.favRound[x.id];});
+  if(unseen.length>=take){
+    var p1=rand?weightedPick(unseen,take):unseen.slice(0,take);
+    p1.forEach(function(x){S.favRound[x.id]=1;});
+    return p1;
+  }
+  var unseenIds={};unseen.forEach(function(x){unseenIds[x.id]=1;});
+  var rest=qs.filter(function(x){return !unseenIds[x.id];});
+  qs.forEach(function(x){delete S.favRound[x.id];});
+  unseen.forEach(function(x){S.favRound[x.id]=1;});
+  var need=Math.min(take-unseen.length,rest.length);
+  var p2=need>0?(rand?weightedPick(rest,need):rest.slice(0,need)):[];
+  p2.forEach(function(x){S.favRound[x.id]=1;});
+  return unseen.concat(p2);
+}
+function homeStartText(p){
+  var c=V.cfg;
+  if(!p.length)return Object.keys(c.topics).some(function(k){return c.topics[k];})?'এই ফিল্টারে কোনো প্রশ্ন নেই':'টপিক বেছে নিন';
+  var estN=planSubPick(p,c.subN,c.n).total;
+  return 'পরীক্ষা শুরু করুন ('+bn(estN)+'টি'+(c.timer?' · '+fmtSec(estN*SEC_PER_Q):'')+')';
+}
+function pickHomeIds(p){
+  var c=V.cfg,pl=planSubPick(p,c.subN,c.n),picked=[],rand=c.order==="rand",mode=c.mode||"subject";
+  pl.custSubs.forEach(function(cs){picked=picked.concat(pickFromPool(cs.qs,cs.take,rand,false));});
+  if(pl.autoTake>0)picked=picked.concat(pickFromPool(pl.autoPool,pl.autoTake,rand,false));
+  if(rand&&mode!=="subject")picked=shuffle(picked);
+  return orderIds(picked.map(function(x){return x.id;}),mode);
+}
+function favMatchedPool(){
+  var fDiff=V.favDiffFilter||"fav",fp=V.cfg.favPool||"round";
+  if(fDiff==="all")fDiff="fav";
+  return Q.filter(function(x){
+    if(!matchFav(x,fDiff))return false;
+    if(fp==="wrong"&&!S.wrong[x.id])return false;
+    return lsOn("fav",x.s+"||"+x.t);
+  });
+}
+function favStartText(pFav){
+  var c=V.cfg;
+  if(!pFav.length)return 'এগুলো দিয়ে পরীক্ষা শুরু করুন';
+  var estN=planSubPick(pFav,c.favSubN,c.favN).total;
+  return 'এগুলো দিয়ে পরীক্ষা শুরু করুন ('+bn(estN)+'টি'+(c.timer?' · '+fmtSec(estN*SEC_PER_Q):'')+')';
+}
+function pickFavIds(pFav){
+  var c=V.cfg,useRound=(c.favPool||"round")==="round",pl=planSubPick(pFav,c.favSubN,c.favN),picked=[],rand=(c.favOrder||"rand")==="rand",mode=c.favMode||"subject";
+  pl.custSubs.forEach(function(cs){picked=picked.concat(pickFromPool(cs.qs,cs.take,rand,useRound));});
+  if(pl.autoTake>0)picked=picked.concat(pickFromPool(pl.autoPool,pl.autoTake,rand,useRound));
+  if(useRound)savePrefs(false);
+  if(rand&&mode!=="subject")picked=shuffle(picked);
+  return orderIds(picked.map(function(x){return x.id;}),mode);
+}
 
 /* ===== ৮. মডেল টেস্ট ওয়াচ, টাইমার ও এক্সাম ইঞ্জিন ===== */
 function stopMTWatch(){if(mtUnsub){mtUnsub();mtUnsub=null;}}
@@ -752,7 +818,7 @@ function finish(auto){
   navReplace(function(){V.screen="result";});
   if(auto)setTimeout(function(){alert(S.lang==="bn"?"সময় শেষ! পরীক্ষা স্বয়ংক্রিয়ভাবে জমা হয়েছে।":"Time is up! Exam submitted automatically.");},50);
 }
-  /* ===== ৯. ব্যাখ্যা, প্রশ্ন কার্ড, PDF ও ব্রাউজার হিস্ট্রি ===== */
+/* ===== ৯. ব্যাখ্যা, প্রশ্ন কার্ড, PDF ও ব্রাউজার হিস্ট্রি ===== */
 function diffLbl(d){return d==="hard"?"কঠিন":(d==="medium"?"মাঝারি":"সহজ");}
 function submitDiffProposal(q,newD,el){
   if(el)el.disabled=true;
@@ -932,15 +998,15 @@ function home(){
   h+='<div class="row"><label>উত্তর কখন দেখাবে</label><select data-cfg="reveal"><option value="instant"'+(c.reveal==="instant"?" selected":"")+'>প্রতিটা প্রশ্নের পরপরই</option><option value="end"'+(c.reveal==="end"?" selected":"")+'>পরীক্ষা শেষ করার পর</option></select></div>';
   h+='<div class="row"><label>টাইমার (প্রতি প্রশ্নে ৩০ সেকেন্ড)</label><input type="checkbox" data-cfg="timer"'+(c.timer?' checked':'')+'></div>';
   h+='<div class="row"><label>পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে</label><input type="checkbox" data-cfg="showTopic"'+(c.showTopic?' checked':'')+'></div>';
-  var estN=p.length?Math.max(1,Math.min(+c.n||1,p.length)):0;
-  h+='<button class="btn" id="start"'+(p.length?'':' disabled')+'>'+(p.length?'পরীক্ষা শুরু করুন'+(c.timer?' ('+fmtSec(estN*SEC_PER_Q)+')':''):(Object.keys(c.topics).some(function(k){return c.topics[k];})?'এই ফিল্টারে কোনো প্রশ্ন নেই':'টপিক বেছে নিন'))+'</button></div>';
-  h+='<div class="meta">টপিক বেছে নিন। ফিল্টার দিলে প্রতিটা টপিকের পাশে দেখাবে কয়টা প্রশ্ন মিলেছে। প্রতি ভুল উত্তরে '+bn(NEG)+' নম্বর কাটা যায়।</div>';
+  h+='<button class="btn" id="start"'+(p.length?'':' disabled')+'>'+homeStartText(p)+'</button></div>';
+  h+='<div class="meta">টপিক বেছে নিন। ফিল্টার দিলে প্রতিটা টপিকের পাশে দেখাবে কয়টা প্রশ্ন মিলেছে। প্রতিটি বিষয়ের পাশে চাইলে আলাদা প্রশ্ন সংখ্যা (অটো/কাস্টম) লিখতে পারেন। প্রতি ভুল উত্তরে '+bn(NEG)+' নম্বর কাটা যায়।</div>';
   if(!Q.length)return h+'<div class="panel meta">ডেটাবেস থেকে প্রশ্ন লোড হয়নি বা কোনো প্রশ্ন নেই।</div>';
   h+=topicSortSelect("topicSort",c.topicSort||"default",STU_SORT_OPTS);
   Object.keys(T).forEach(function(s){
     var gs=Object.keys(T[s]),allT=[];gs.forEach(function(g){Object.keys(T[s][g]).forEach(function(t){allT.push(t);});});
-    var all=allT.every(function(t){return c.topics[s+"||"+t];});
-    h+='<div class="panel"><label class="sub"><input type="checkbox" data-sub="'+esc(s)+'"'+(all?" checked":"")+'>'+esc(s)+'</label>';
+    var all=allT.every(function(t){return c.topics[s+"||"+t];}),anySel=allT.some(function(t){return !!c.topics[s+"||"+t];});
+    var subMatch=p.filter(function(x){return x.s===s;}).length,subVal=(c.subN&&c.subN[s]!==undefined)?c.subN[s]:"",overMax=anySel&&subVal!==""&&(+subVal>subMatch);
+    h+='<div class="panel"><div class="sub" style="flex-wrap:wrap;justify-content:space-between"><label style="display:flex;gap:10px;align-items:center;flex:1;min-width:120px;cursor:pointer"><input type="checkbox" data-sub="'+esc(s)+'"'+(all?" checked":"")+'><span>'+esc(s)+'</span></label><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><small style="color:var(--muted);font-weight:400">মিলেছে '+bn(subMatch)+'টি</small><input type="number" min="1" max="'+subMatch+'" data-subn="'+esc(s)+'" data-max="'+subMatch+'" value="'+esc(subVal)+'" placeholder="অটো" style="width:78px;padding:4px 6px"'+(!anySel?' disabled':'')+'><small data-subwarn="'+esc(s)+'" style="color:var(--bad);font-weight:600;display:'+(overMax?'inline':'none')+'">সর্বোচ্চ '+bn(subMatch)+'টি</small></div></div>';
     gs.forEach(function(g){
       if(g!==s)h+=groupHead(s,g,T,null);
       sortTopics(Object.keys(T[s][g]),function(t){return T[s][g][t];},c.topicSort||"default").forEach(function(t){
@@ -956,46 +1022,50 @@ function home(){
 }
 function lsOn(kind,key){var m=V.lsel[kind];return !m||m[key]===undefined?true:!!m[key];}
 function matchFav(x,f){
-  if(f==="all")return true;
   if(!S.fav[x.id])return false;
-  if(f==="fav")return true;
+  if(!f||f==="fav"||f==="all")return true;
   return (x.diff||"easy")===f;
 }
 function selIds(kind){
-  var f=V.favDiffFilter||"fav";
-  return Q.filter(function(x){
-    if(kind==="fav"){if(!matchFav(x,f))return false;}
-    else{if(!S[kind][x.id])return false;}
-    return lsOn(kind,x.s+"||"+x.t);
-  }).map(function(x){return x.id;});
+  if(kind==="fav")return favMatchedPool().map(function(x){return x.id;});
+  return Q.filter(function(x){return !!S[kind][x.id]&&lsOn(kind,x.s+"||"+x.t);}).map(function(x){return x.id;});
 }
 function listTab(kind){
   if(kind==="fav"){
-    var fDiff=V.favDiffFilter||"fav";
-    var cAll=Q.length,cFav=0,cEasy=0,cMed=0,cHard=0;
-    Q.forEach(function(x){if(S.fav[x.id]){cFav++;var d=x.diff||"easy";if(d==="easy")cEasy++;else if(d==="medium")cMed++;else if(d==="hard")cHard++;}});
-    var sel=selIds("fav"),T=groupTree(Q);
-    var chips=[["all","সব",cAll],["fav","★ পছন্দ",cFav],["easy","🟢 সহজ",cEasy],["medium","🟡 মাঝারি",cMed],["hard","🔴 কঠিন",cHard]];
-    var h='<h1>পছন্দের প্রশ্ন</h1><p class="meta">পছন্দের '+bn(cFav)+'টি · নির্বাচিত '+bn(sel.length)+'টি</p>';
-    h+='<div class="chips">'+chips.map(function(c){return '<button class="chip" data-act="favdiff" data-f="'+c[0]+'" aria-pressed="'+(fDiff===c[0])+'">'+c[1]+' ('+bn(c[2])+')</button>';}).join('')+'</div>';
-    if(!cFav&&fDiff!=="all")h+='<div class="panel meta">প্রশ্নের পাশের ☆ চাপলে এখানে জমা হবে।</div>';
-    h+='<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="lname" placeholder="যেমন: ফেভারিট টেস্ট ১" value="'+esc(V.draft.lname||"")+'"></div><div class="row"><label>উত্তর কখন দেখাবে</label><select data-cfg="reveal"><option value="instant"'+(V.cfg.reveal==="instant"?" selected":"")+'>প্রতিটা প্রশ্নের পরপরই</option><option value="end"'+(V.cfg.reveal==="end"?" selected":"")+'>পরীক্ষা শেষ করার পর</option></select></div><div class="row"><label>টাইমার (প্রতি প্রশ্নে ৩০ সেকেন্ড)</label><input type="checkbox" data-cfg="timer"'+(V.cfg.timer?' checked':'')+'></div><div class="meta">বিষয় ও টপিক বেছে নিন। যে টপিকে মিলবে না তা ধূসর থাকবে।</div></div>';
-    h+=topicSortSelect("topicSort",V.cfg.topicSort||"default",STU_SORT_OPTS);
+    var c=V.cfg,fDiff=V.favDiffFilter||"fav";if(fDiff==="all")fDiff="fav";
+    var favAll=[],cFav=0,cEasy=0,cMed=0,cHard=0;
+    Q.forEach(function(x){if(S.fav[x.id]){favAll.push(x);cFav++;var d=x.diff||"easy";if(d==="easy")cEasy++;else if(d==="medium")cMed++;else if(d==="hard")cHard++;}});
+    var pFav=favMatchedPool(),T=groupTree(favAll),fp=c.favPool||"round";
+    var roundLeft=pFav.filter(function(x){return !(S.favRound&&S.favRound[x.id]);}).length;
+    var chips=[["fav","★ পছন্দ",cFav],["easy","🟢 সহজ",cEasy],["medium","🟡 মাঝারি",cMed],["hard","🔴 কঠিন",cHard]];
+    var h='<h1>পছন্দের প্রশ্ন</h1><p class="meta">পছন্দের '+bn(cFav)+'টি · মিলেছে '+bn(pFav.length)+'টি</p>';
+    h+='<div class="chips">'+chips.map(function(ch){return '<button class="chip" data-act="favdiff" data-f="'+ch[0]+'" aria-pressed="'+(fDiff===ch[0])+'">'+ch[1]+' ('+bn(ch[2])+')</button>';}).join('')+'</div>';
+    if(!cFav)return h+'<div class="panel meta">প্রশ্নের পাশের ☆ চাপলে এখানে জমা হবে।</div>';
+    h+='<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="lname" placeholder="যেমন: ফেভারিট টেস্ট ১" value="'+esc(V.draft.lname||"")+'"></div>';
+    h+='<div class="row"><label>কোন প্রশ্ন আসবে</label><select data-cfg="favPool"><option value="round"'+(fp==="round"?" selected":"")+'>নতুন রাউন্ড (পুনরাবৃত্তি ছাড়া)</option><option value="wrong"'+(fp==="wrong"?" selected":"")+'>পছন্দের মধ্যে ভুলগুলো</option><option value="all"'+(fp==="all"?" selected":"")+'>সব পছন্দের প্রশ্ন</option></select></div>';
+    if(fp==="round"&&pFav.length)h+='<div class="row" style="margin-top:-2px"><span class="meta" style="margin:0;flex:1">এই রাউন্ডে বাকি: <b>'+bn(roundLeft)+' / '+bn(pFav.length)+'টি</b></span>'+(roundLeft<pFav.length?'<button type="button" class="btn alt sm" data-act="fav-reset-round">↻ রাউন্ড রিসেট</button>':'')+'</div>';
+    h+='<div class="row"><label>প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(pFav.length)+')</label><input type="number" min="1" data-cfg="favN" value="'+(c.favN||20)+'"></div>';
+    h+='<div class="row"><label>প্রশ্নের ক্রম</label><select data-cfg="favMode"><option value="subject"'+((c.favMode||"subject")==="subject"?" selected":"")+'>বিষয় অনুযায়ী (বাংলা → English → GK → Math)</option><option value="mixed"'+(c.favMode==="mixed"?" selected":"")+'>মিশ্র</option></select></div>';
+    h+='<div class="row"><label>ক্রম</label><select data-cfg="favOrder"><option value="rand"'+((c.favOrder||"rand")==="rand"?" selected":"")+'>র‍্যান্ডম</option><option value="serial"'+(c.favOrder==="serial"?" selected":"")+'>সিরিয়াল</option></select></div>';
+    h+='<div class="row"><label>উত্তর কখন দেখাবে</label><select data-cfg="reveal"><option value="instant"'+(c.reveal==="instant"?" selected":"")+'>প্রতিটা প্রশ্নের পরপরই</option><option value="end"'+(c.reveal==="end"?" selected":"")+'>পরীক্ষা শেষ করার পর</option></select></div>';
+    h+='<div class="row"><label>টাইমার (প্রতি প্রশ্নে ৩০ সেকেন্ড)</label><input type="checkbox" data-cfg="timer"'+(c.timer?' checked':'')+'></div><div class="meta" style="margin-bottom:0">বিষয় ও টপিক বেছে নিন। প্রতিটি বিষয়ের পাশে চাইলে আলাদা প্রশ্ন সংখ্যা (অটো/কাস্টম) লিখতে পারেন।</div></div>';
+    h+=topicSortSelect("topicSort",c.topicSort||"default",STU_SORT_OPTS);
     Object.keys(T).forEach(function(s){
       var gs=Object.keys(T[s]),keys=[];gs.forEach(function(g){Object.keys(T[s][g]).forEach(function(t){keys.push(s+"||"+t);});});
-      var allOn=keys.every(function(k){return lsOn("fav",k);});
-      h+='<div class="panel"><label class="sub"><input type="checkbox" data-lkind="fav" data-lsub="'+esc(s)+'"'+(allOn?" checked":"")+'>'+esc(s)+'</label>';
+      var allOn=keys.every(function(k){return lsOn("fav",k);}),anyOn=keys.some(function(k){return lsOn("fav",k);});
+      var subMatch=pFav.filter(function(x){return x.s===s;}).length,subVal=(c.favSubN&&c.favSubN[s]!==undefined)?c.favSubN[s]:"",overMax=anyOn&&subVal!==""&&(+subVal>subMatch);
+      h+='<div class="panel"><div class="sub" style="flex-wrap:wrap;justify-content:space-between"><label style="display:flex;gap:10px;align-items:center;flex:1;min-width:120px;cursor:pointer"><input type="checkbox" data-lkind="fav" data-lsub="'+esc(s)+'"'+(allOn?" checked":"")+'><span>'+esc(s)+'</span></label><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><small style="color:var(--muted);font-weight:400">মিলেছে '+bn(subMatch)+'টি</small><input type="number" min="1" max="'+subMatch+'" data-favsubn="'+esc(s)+'" data-max="'+subMatch+'" value="'+esc(subVal)+'" placeholder="অটো" style="width:78px;padding:4px 6px"'+(!anyOn?' disabled':'')+'><small data-favsubwarn="'+esc(s)+'" style="color:var(--bad);font-weight:600;display:'+(overMax?'inline':'none')+'">সর্বোচ্চ '+bn(subMatch)+'টি</small></div></div>';
       gs.forEach(function(g){
         if(g!==s)h+=groupHead(s,g,T,"fav");
-        sortTopics(Object.keys(T[s][g]),function(t){return T[s][g][t];},V.cfg.topicSort||"default").forEach(function(t){
-          var key=s+"||"+t,qsAll=T[s][g][t],qsM=qsAll.filter(function(x){return matchFav(x,fDiff);}),dis=(qsM.length===0);
+        sortTopics(Object.keys(T[s][g]),function(t){return T[s][g][t];},c.topicSort||"default").forEach(function(t){
+          var key=s+"||"+t,qsAll=T[s][g][t],qsM=qsAll.filter(function(x){return matchFav(x,fDiff)&&(fp==="wrong"?!!S.wrong[x.id]:true);}),dis=(qsM.length===0);
           h+='<label class="top"'+(dis?' style="opacity:.45"':'')+'><input type="checkbox" data-lkind="fav" data-ltop="'+esc(key)+'"'+(lsOn("fav",key)&&!dis?" checked":"")+(dis?' disabled':'')+'><span>'+esc(tlabel(t))+'</span><small>মোট '+bn(qsAll.length)+'টি · মিলেছে '+bn(qsM.length)+'টি</small></label>';
         });
       });
       h+='</div>';
     });
-    h+='<button class="btn" data-go="exam" data-kind="fav"'+(sel.length?'':' disabled')+'>এগুলো দিয়ে পরীক্ষা শুরু করুন'+(sel.length?' ('+bn(sel.length)+'টি'+(V.cfg.timer?' · '+fmtSec(sel.length*SEC_PER_Q):'')+')':'')+'</button>';
-    return h+'<button class="btn alt" data-go="browse" data-kind="fav"'+(sel.length?'':' disabled')+'>নির্বাচিতগুলো উত্তরসহ দেখুন'+(sel.length?' ('+bn(sel.length)+'টি)':'')+'</button>';
+    h+='<button class="btn" data-go="exam" data-kind="fav"'+(pFav.length?'':' disabled')+'>'+favStartText(pFav)+'</button>';
+    return h+'<button class="btn alt" data-go="browse" data-kind="fav"'+(pFav.length?'':' disabled')+'>নির্বাচিতগুলো উত্তরসহ দেখুন'+(pFav.length?' ('+bn(pFav.length)+'টি)':'')+'</button>';
   }
   var all=Q.filter(function(x){return S[kind][x.id];});
   var h='<h1>ভুল করা প্রশ্ন</h1><p class="meta">'+bn(all.length)+'টি প্রশ্ন</p>';
@@ -1500,7 +1570,7 @@ function reqBulkApprove(){
     render();
   });
 }
-/* ===== ব্যাকগ্রাউন্ড রেন্ডারে অ্যাডমিনের অসেভড লেখা বাঁচানো ===== */
+  /* ===== ব্যাকগ্রাউন্ড রেন্ডারে অ্যাডমিনের অসেভড লেখা বাঁচানো ===== */
 function formDirty(){
   var els=app.querySelectorAll("input,textarea,select");
   for(var i=0;i<els.length;i++){
@@ -1875,7 +1945,7 @@ function admUsageLogView(){
   if(V.ulog.loading&&!V.ulog.items.length)return h+'<p class="meta">লোড হচ্ছে…</p>';
   return h+'<div id="ulog-list"></div>';
 }
-  /* ===== ১৩. অ্যাডমিন: লাইভ মডেল টেস্ট (শিডিউল, এডিট, ID/Range ও Difficulty পিকার) এবং ড্যাশবোর্ড ===== */
+/* ===== ১৩. অ্যাডমিন: লাইভ মডেল টেস্ট (শিডিউল, এডিট, ID/Range ও Difficulty পিকার) এবং ড্যাশবোর্ড ===== */
 function isLockedByOtherMT(q,editMtId){return !!(q.usedMT&&q.usedMT.some(function(id){return id!==editMtId;}));}
 function mtSortSubjects(list,pref){pref=pref||[];var seen=[];list.forEach(function(s){if(seen.indexOf(s)<0)seen.push(s);});return seen.map(function(s,i){var p=pref.indexOf(s);return {s:s,r:p>=0?p:1000+subjRank(s),i:i};}).sort(function(a,b){return (a.r-b.r)||(a.i-b.i);}).map(function(x){return x.s;});}
 function mtActiveSubjects(f){var out=[];Object.keys(f.selTopics||{}).forEach(function(k){if(f.selTopics[k]){var s=k.split("||")[0];if(out.indexOf(s)<0)out.push(s);}});return mtSortSubjects(out,f.subjOrder);}
@@ -2250,6 +2320,7 @@ var TR_PAIRS=[
   ["পাঠানো প্রস্তাবগুলোর অবস্থা (Approved / Rejected) দেখুন →","View status of your sent requests (Approved / Rejected) →"],
   ["অংশ নেওয়া সব মডেল টেস্টের ইতিহাস, ফলাফল ও মেরিট লিস্ট দেখুন →","View history, results and merit lists of all model tests →"],
   ["প্রশ্ন, অপশন, প্রতিষ্ঠান বা ব্যাখ্যায় ভুল থাকলে ঠিক করে অ্যাডমিনের কাছে পাঠান।","Fix mistakes in question, options, institution, or explanation and send to admin."],
+  ["প্রতিটি বিষয়ের পাশে চাইলে আলাদা প্রশ্ন সংখ্যা (অটো/কাস্টম) লিখতে পারেন।","You can also enter a custom count (Auto/Custom) beside each subject."],
   ["বিষয় ও টপিক বেছে নিন। যে টপিকে মিলবে না তা ধূসর থাকবে।","Choose subjects and topics. Topics with 0 matches are greyed out."],
   ["আপনি এখনো কোনো সংশোধন প্রস্তাব পাঠাননি।","You haven't sent any edit requests yet."],
   ["প্রস্তাবিত (এডিট করে অনুমোদন করুন):","Proposed (Edit & Approve):"],
@@ -2261,6 +2332,7 @@ var TR_PAIRS=[
   ["সঠিক উত্তর দিলে এখান থেকে সরে যাবে।","Answer correctly to remove it from here."],
   ["সঠিক উত্তর খালি অপশনে রাখা যাবে না।","Correct answer cannot point to an empty option."],
   ["মাঝখানের অপশন ফাঁকা রাখা যাবে না।","Middle options cannot be blank."],
+  ["নতুন রাউন্ড (পুনরাবৃত্তি ছাড়া)","New round (no repeats)"],
   ["দুর্বল টপিক (প্র্যাকটিস করুন)","Weak Topics (Practice Now)"],
   ["পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)","Password (min 6 characters)"],
   ["পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে","Show topic with questions in exam"],
@@ -2269,6 +2341,8 @@ var TR_PAIRS=[
   ["যে টপিকে বেশি ভুল, সেটি উপরে।","Topics with the most mistakes come first."],
   ["শুধু নতুন (এখনো দেওয়া হয়নি)","New only (not yet attempted)"],
   ["বিষয় অনুযায়ী (বাংলা → English → GK → Math)","By subject (Bangla → English → GK → Math)"],
+  ["পছন্দের মধ্যে ভুলগুলো","Wrong among favorites"],
+  ["সব পছন্দের প্রশ্ন","All favorite questions"],
   ["কমপক্ষে ২টি অপশন লিখুন।","Enter at least 2 options."],
   ["এই ফিল্টারে কোনো প্রশ্ন নেই।","No questions for this filter."],
   ["এখনো কোনো সাধারণ পরীক্ষা শেষ হয়নি।","No regular exam finished yet."],
@@ -2296,6 +2370,8 @@ var TR_PAIRS=[
   ["সাধারণ পরীক্ষার ইতিহাস","Regular Exam History"],
   ["← পরীক্ষার তালিকায় ফিরুন","← Back to Exams"],
   ["টপিক লিস্ট ম্যানেজার","Topic List Manager"],
+  ["এই রাউন্ডে বাকি:","Left in this round:"],
+  ["রাউন্ড রিসেট","Reset round"],
   ["শুধু সহজ (Easy)","Easy only"],
   ["শুধু মাঝারি (Medium)","Medium only"],
   ["শুধু কঠিন (Hard)","Hard only"],
@@ -2436,7 +2512,8 @@ var TR_PAIRS=[
   ["পরীক্ষা মোছা","Exam deleted"],
   ["অ্যাডমিন দ্বারা মোছা","Deleted by admin"],
   ["লগআউট","Logout"],
-  ["মিলেছে","matched"]
+  ["মিলেছে","matched"],
+  ["সর্বোচ্চ","Max"]
 ];
 TR_PAIRS.sort(function(a,b){return b[0].length-a[0].length;});
 function tr(html){if((S.lang||"en")!=="en")return html;html=html.replace(/(\d)\s*(টি|জন)/g,"$1");for(var i=0;i<TR_PAIRS.length;i++)html=html.split(TR_PAIRS[i][0]).join(TR_PAIRS[i][1]);return html;}
@@ -2550,6 +2627,14 @@ app.addEventListener("click",function(e){
     return;
   }
   if(t.dataset.act==="favdiff"){V.favDiffFilter=t.dataset.f;return render();}
+  if(t.dataset.act==="fav-reset-round"){
+    var fDiffR=V.favDiffFilter||"fav";if(fDiffR==="all")fDiffR="fav";
+    var mR=Q.filter(function(x){return matchFav(x,fDiffR);});
+    S.favRound=S.favRound||{};
+    mR.forEach(function(x){delete S.favRound[x.id];});
+    savePrefs(false);
+    var yr0=app.scrollTop;render();app.scrollTop=yr0;return;
+  }
   if(t.dataset.act==="reqedit"){navPush(function(){V.reqId=t.dataset.qid;V.screen="reqedit";});return;}
   if(t.dataset.act==="myreqs"){navPush(function(){V.screen="myreqs";loadMyReqs();});return;}
   if(t.dataset.act==="myreqs-back"||t.dataset.act==="mtlb-back"||t.dataset.act==="reqs-back"||t.dataset.act==="usrback"||t.dataset.act==="uwrongback"||t.dataset.act==="ubackexam"||t.dataset.act==="wrongback"||t.dataset.act==="back"||t.dataset.act==="mt-back"||t.dataset.act==="ulog-back"||t.dataset.act==="topics-back"||t.dataset.act==="mt-folder-back"){return stepBack();}
@@ -2687,9 +2772,18 @@ app.addEventListener("click",function(e){
   if(t.id==="redo")return begin(shuffle(V.ex.bad),"ভুলগুলো আবার");
   if(t.dataset.filter){V.filter=t.dataset.filter;return render();}
   if(t.dataset.go){
-    var kind2=t.dataset.kind,ids2=selIds(kind2),nm2=((document.getElementById("lname")||{}).value||"").trim();if(!ids2.length)return;
+    var kind2=t.dataset.kind,nm2=((document.getElementById("lname")||{}).value||"").trim();
+    if(kind2==="fav"){
+      var pFav2=favMatchedPool();if(!pFav2.length)return;
+      if(t.dataset.go==="exam"){
+        var idsF=pickFavIds(pFav2);if(!idsF.length)return;
+        return begin(idsF,nm2||("পছন্দ পরীক্ষা – "+new Date().toLocaleDateString("en-GB")),{mode:V.cfg.favMode||"subject"});
+      }
+      navPush(function(){V.title=nm2||"পছন্দের প্রশ্ন";V.list=pFav2.map(function(x){return x.id;});V.screen="browse";});return;
+    }
+    var ids2=selIds(kind2);if(!ids2.length)return;
     if(t.dataset.go==="exam")return begin(shuffle(ids2),nm2||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")));
-    navPush(function(){V.title=nm2||(kind2==="fav"?"পছন্দের প্রশ্ন":"ভুল প্রশ্ন");V.list=ids2;V.screen="browse";});return;
+    navPush(function(){V.title=nm2||"ভুল প্রশ্ন";V.list=ids2;V.screen="browse";});return;
   }
   if(t.dataset.act==="adm-mt"){navPush(function(){V.admMT=true;V.admMTCreate=false;V.admMTView=null;V.admPickKey=null;});return;}
   if(t.dataset.act==="mt-new"){navPush(function(){V.admMTCreate=true;V.mtForm={custom:{},picked:{},exUsed:true,selTopics:{},subjOrder:[],customAuto:{},status:"active",pickDiff:""};});return;}
@@ -2799,15 +2893,17 @@ app.addEventListener("change",function(e){
   if(t.dataset.usrtopic!==undefined){V.usrTopic=t.value;return render();}
   if(t.dataset.admsort){V.adm.sort=t.value;return render();}
   if(t.dataset.admtext){V.adm.text=t.value;return render();}
+  if(t.dataset.subn!==undefined){c.subN=c.subN||{};var sv=t.value.trim();if(!sv||+sv<=0)delete c.subN[t.dataset.subn];else c.subN[t.dataset.subn]=sv;savePrefs(false);var ys1=app.scrollTop;render();app.scrollTop=ys1;return;}
+  if(t.dataset.favsubn!==undefined){c.favSubN=c.favSubN||{};var sv2=t.value.trim();if(!sv2||+sv2<=0)delete c.favSubN[t.dataset.favsubn];else c.favSubN[t.dataset.favsubn]=sv2;savePrefs(false);var ys2=app.scrollTop;render();app.scrollTop=ys2;return;}
   if(t.dataset.grp){var gp=t.dataset.grp.split("||");Q.forEach(function(x){if(x.s===gp[0]&&gname(x)===gp[1])c.topics[x.s+"||"+x.t]=t.checked;});savePrefs(false);var y2=app.scrollTop;render();app.scrollTop=y2;return;}
   if(t.dataset.lkind){
     var k=t.dataset.lkind;V.lsel=V.lsel||{};V.lsel[k]=V.lsel[k]||{};var m=V.lsel[k];
     if(t.dataset.ltop)m[t.dataset.ltop]=t.checked;
-    else if(t.dataset.lsub)Q.forEach(function(x){if(x.s===t.dataset.lsub&&(k==="fav"?matchFav(x,V.favDiffFilter||"fav"):S[k][x.id]))m[x.s+"||"+x.t]=t.checked;});
-    else if(t.dataset.lgrp){var gq=t.dataset.lgrp.split("||");Q.forEach(function(x){if(x.s===gq[0]&&gname(x)===gq[1]&&(k==="fav"?matchFav(x,V.favDiffFilter||"fav"):S[k][x.id]))m[x.s+"||"+x.t]=t.checked;});}
+    else if(t.dataset.lsub)Q.forEach(function(x){if(x.s===t.dataset.lsub&&S[k][x.id])m[x.s+"||"+x.t]=t.checked;});
+    else if(t.dataset.lgrp){var gq=t.dataset.lgrp.split("||");Q.forEach(function(x){if(x.s===gq[0]&&gname(x)===gq[1]&&S[k][x.id])m[x.s+"||"+x.t]=t.checked;});}
     var y0=app.scrollTop;render();app.scrollTop=y0;return;
   }
-  if(t.dataset.subn!==undefined){c.subN=c.subN||{};var sv=t.value.trim();if(!sv||+sv<=0)delete c.subN[t.dataset.subn];else c.subN[t.dataset.subn]=sv;savePrefs(false);var y=app.scrollTop;render();app.scrollTop=y;return;}   if(t.dataset.cfg){c[t.dataset.cfg]=t.type==="checkbox"?t.checked:t.value;savePrefs(false);}
+  if(t.dataset.cfg){c[t.dataset.cfg]=t.type==="checkbox"?t.checked:t.value;savePrefs(false);}
   else if(t.dataset.top){c.topics[t.dataset.top]=t.checked;savePrefs(false);}
   else if(t.dataset.sub){Q.forEach(function(x){if(x.s===t.dataset.sub)c.topics[x.s+"||"+x.t]=t.checked;});savePrefs(false);}
   var y=app.scrollTop;render();app.scrollTop=y;
@@ -2833,6 +2929,34 @@ app.addEventListener("input",function(e){
   else if(t.id==="a_t")showSugg("t",t.value);
   else if(t.id==="a_src")showSugg("i",t.value);
   else if(t.id==="a_q")checkAdminDup();
+  else if(t.dataset.subn!==undefined){
+    var sNm=t.dataset.subn,sv=t.value.trim(),mx=+t.dataset.max||0;
+    V.cfg.subN=V.cfg.subN||{};
+    if(!sv||+sv<=0)delete V.cfg.subN[sNm];else V.cfg.subN[sNm]=sv;
+    document.querySelectorAll("[data-subwarn]").forEach(function(w){
+      if(w.dataset.subwarn===sNm){
+        var over=sv!==""&&(+sv>mx);
+        w.style.display=over?"inline":"none";
+        if(over)w.textContent=tr("সর্বোচ্চ "+bn(mx)+"টি");
+      }
+    });
+    var sb=document.getElementById("start");
+    if(sb)sb.textContent=tr(homeStartText(pool()));
+  }
+  else if(t.dataset.favsubn!==undefined){
+    var fsNm=t.dataset.favsubn,fsv=t.value.trim(),fmx=+t.dataset.max||0;
+    V.cfg.favSubN=V.cfg.favSubN||{};
+    if(!fsv||+fsv<=0)delete V.cfg.favSubN[fsNm];else V.cfg.favSubN[fsNm]=fsv;
+    document.querySelectorAll("[data-favsubwarn]").forEach(function(w){
+      if(w.dataset.favsubwarn===fsNm){
+        var over=fsv!==""&&(+fsv>fmx);
+        w.style.display=over?"inline":"none";
+        if(over)w.textContent=tr("সর্বোচ্চ "+bn(fmx)+"টি");
+      }
+    });
+    var fsb=document.querySelector('[data-go="exam"][data-kind="fav"]');
+    if(fsb)fsb.textContent=tr(favStartText(favMatchedPool()));
+  }
 });
 
 document.getElementById("nav").addEventListener("click",function(e){var t=e.target.closest("button");if(t)goTab(t.dataset.tab);});
