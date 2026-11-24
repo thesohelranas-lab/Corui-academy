@@ -1483,6 +1483,7 @@ function admReqsView(){
 function reqHistView(){
   var H=V.reqHist,hf=V.reqHistF||"all",h='';
   h+='<div class="chips" style="margin-top:0">'+[["all","সব"],["approved","অনুমোদিত"],["rejected","বাতিল"]].map(function(x){return '<button class="chip" data-act="req-hf" data-f="'+x[0]+'" aria-pressed="'+(hf===x[0])+'">'+x[1]+'</button>';}).join("")+'</div>';
+  h+='<div class="btn-row" style="margin-bottom:10px"><button class="btn alt sm" data-act="req-clean-old" style="color:var(--bad)">🗑️ ৬ মাসের পুরোনো ইতিহাস মুছুন</button></div>';
   if(H.err)h+='<div class="panel" style="color:var(--bad)">লোড হয়নি: '+esc(H.err)+'</div>';
   var items=H.items.filter(function(r){return hf==="all"||r.status===hf;});
   if(H.loading&&!H.items.length)return h+'<p class="meta">লোড হচ্ছে…</p>';
@@ -1954,7 +1955,9 @@ function renderAdmSearch(){
   box.innerHTML=h;trDom(box);
 }
 var LOG_LABELS={session_start:"সেশন শুরু",exam_start:"পরীক্ষা শুরু",exam_finish:"পরীক্ষা জমা",exam_delete:"পরীক্ষা মোছা",admin_exam_delete:"অ্যাডমিন দ্বারা মোছা",logout:"লগআউট"};
-function loadUsageLogs(reset){
+function deleteQueryBatch(qy,doneCount){   return qy.limit(400).get().then(function(snap){     if(snap.empty)return doneCount;     var b=DB.batch();snap.forEach(function(d){b.delete(d.ref);});     return b.commit().then(function(){       doneCount+=snap.size;       if(snap.size<400)return doneCount;       return deleteQueryBatch(qy,doneCount);     });   }); } function cleanOldUsageLogs(){   if(!ADMIN||!DB||!confirm("৩০ দিনের বেশি পুরোনো সব ব্যবহার লগ (usageLog) স্থায়ীভাবে মুছে ফেলবেন?"))return;   deleteQueryBatch(DB.collection("usageLog").where("at","<",Date.now()-30*864e5),0).then(function(n){     alert(n?"মুছে ফেলা হয়েছে: "+bn(n)+"টি পুরোনো লগ":"৩০ দিনের বেশি পুরোনো কোনো লগ নেই।");     V.ulog.items=[];V.ulog.lastDoc=null;V.ulog.hasMore=false;loadUsageLogs(true);   }).catch(function(err){alert("মোছা যায়নি: "+err.message);}); } function cleanOldAdminLogs(){   if(!ADMIN||!DB||!confirm("সর্বশেষ ১৫টি রেখে বাকি সব পুরোনো adminLog (Undo ও ইমপোর্ট ইতিহাস) মুছে ফেলবেন?
+(এতে কোনো প্রশ্ন মুছবে না)"))return;   DB.collection("adminLog").orderBy("at","desc").get().then(function(snap){     var old=snap.docs.slice(15);if(!old.length)return 0;     var chunks=[];for(var i=0;i<old.length;i+=400)chunks.push(old.slice(i,i+400));     return chunks.reduce(function(p,ch){return p.then(function(){var b=DB.batch();ch.forEach(function(d){b.delete(d.ref);});return b.commit();});},Promise.resolve()).then(function(){return old.length;});   }).then(function(n){     alert(n?"মুছে ফেলা হয়েছে: "+bn(n)+"টি পুরোনো adminLog":"১৫টির বেশি লগ নেই।");     V.histList=null;render();   }).catch(function(err){alert("মোছা যায়নি: "+err.message);}); } function cleanOldEditReqs(){   if(!ADMIN||!DB||!confirm("৬ মাসের (১৮০ দিন) বেশি পুরোনো সব অনুমোদিত ও বাতিল সংশোধন অনুরোধ মুছে ফেলবেন?
+(অপেক্ষমাণ এবং শেষ ৬ মাসেরগুলো থাকবে)"))return;   deleteQueryBatch(DB.collection("editRequests").where("reviewedAt","<",Date.now()-180*864e5),0).then(function(n){     alert(n?"মুছে ফেলা হয়েছে: "+bn(n)+"টি পুরোনো অনুরোধ":"৬ মাসের বেশি পুরোনো কোনো ইতিহাস নেই।");     V.reqHist.loaded=false;render();   }).catch(function(err){alert("মোছা যায়নি: "+err.message);}); } function loadUsageLogs(reset){
   if(!ADMIN||!DB||V.ulog.loading||(!reset&&!V.ulog.hasMore))return;
   V.ulog.loading=true;V.ulog.err="";
   var qy=DB.collection("usageLog").orderBy("at","desc");if(!reset&&V.ulog.lastDoc)qy=qy.startAfter(V.ulog.lastDoc);
@@ -1980,7 +1983,7 @@ function admUsageLogView(){
   if(!V.ulog.items.length&&!V.ulog.loading&&!V.ulog.err)loadUsageLogs(true);
   var h='<button class="btn alt" data-act="ulog-back" style="margin:0 0 10px">← ড্যাশবোর্ডে ফিরুন</button><h1>ব্যবহার লগ</h1><div class="panel"><div class="row"><label>ধরন</label><select id="ulog-type"><option value="all"'+(V.ulog.type==="all"?" selected":"")+'>সব ধরন</option>';
   Object.keys(LOG_LABELS).forEach(function(k){h+='<option value="'+k+'"'+(V.ulog.type===k?" selected":"")+'>'+LOG_LABELS[k]+'</option>';});
-  h+='</select></div><input type="text" id="ulog-q" placeholder="ইমেইল বা UID লিখে খুঁজুন…" value="'+esc(V.ulog.q||"")+'"><button class="btn alt sm" data-act="ulog-refresh" style="margin-top:6px">↻ রিফ্রেশ</button></div>';
+  h+='</select></div><input type="text" id="ulog-q" placeholder="ইমেইল বা UID লিখে খুঁজুন…" value="'+esc(V.ulog.q||"")+'"><button class="btn alt sm" data-act="ulog-refresh">↻ রিফ্রেশ</button><button class="btn alt sm" data-act="ulog-clean" style="color:var(--bad)">🗑️ ৩০ দিনের আগের লগ মুছুন</button></div></div>';
   if(V.ulog.err)h+='<div class="panel" style="color:var(--bad)">লোড হয়নি: '+esc(V.ulog.err)+'</div>';
   if(V.ulog.loading&&!V.ulog.items.length)return h+'<p class="meta">লোড হচ্ছে…</p>';
   return h+'<div id="ulog-list"></div>';
@@ -2217,7 +2220,7 @@ function histView(){
   if(V.histErr)h+='<div class="panel" style="color:var(--bad)">'+esc(V.histErr)+'</div>';
   var f=V.histList.filter(function(x){return x.fid===V.histFolder;})[0];
   if(!f){
-    h+='<h1>ইমপোর্ট ইতিহাস</h1><p class="meta">প্রতিটা ইমপোর্টের জন্য একটা ফোল্ডার। ফোল্ডার খুললে ওই সময়ের প্রশ্নগুলো দেখাবে।</p>';
+    h+='<h1>ইমপোর্ট ইতিহাস</h1><p class="meta">প্রতিটা ইমপোর্টের জন্য একটা ফোল্ডার। ফোল্ডার খুললে ওই সময়ের প্রশ্নগুলো দেখাবে।</p>';     if(V.histList.length>15)h+='<div class="btn-row" style="margin-bottom:10px"><button class="btn alt sm" data-act="hist-clean" style="color:var(--bad)">🗑️ পুরোনো লগ মুছুন (শেষ ১৫টি রেখে)</button></div>';
     if(!V.histList.length)h+='<div class="panel meta">এখনো কোনো ইমপোর্ট নেই।</div>';
     V.histList.forEach(function(x){h+='<button class="card" data-act="hist-folder" data-fid="'+esc(x.fid)+'" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer;margin-bottom:8px"><b>📁 '+fmt(x.at)+'</b><div class="meta">'+esc(x.label)+' · '+bn(x.changes.length)+'টি প্রশ্ন</div></button>';});
     return h;
@@ -2721,7 +2724,7 @@ app.addEventListener("click",function(e){
     TOPIC_LIST.splice(di,1);saveTopicConfig().then(function(){render();});return;
   }
   if(t.dataset.act==="usagelog-open"){navPush(function(){V.admLog=true;V.ulog={items:[],lastDoc:null,hasMore:false,loading:false,err:"",q:"",type:"all"};});return;}
-  if(t.dataset.act==="ulog-refresh"){V.ulog.items=[];V.ulog.lastDoc=null;V.ulog.hasMore=false;loadUsageLogs(true);return;}
+  if(t.dataset.act==="ulog-refresh"){V.ulog.items=[];V.ulog.lastDoc=null;V.ulog.hasMore=false;loadUsageLogs(true);return;}   if(t.dataset.act==="ulog-clean")return cleanOldUsageLogs();   if(t.dataset.act==="hist-clean")return cleanOldAdminLogs();   if(t.dataset.act==="req-clean-old")return cleanOldEditReqs();
   if(t.dataset.act==="ulog-more"){loadUsageLogs(false);return;}
   if(t.dataset.act==="topic-verify"&&V.adm&&V.adm.key){var pv=V.adm.key.split("||");return topicBulkVerify(pv[0],pv[1]);}
   if(t.dataset.act==="topic-rename"&&V.adm&&V.adm.key){var pr=V.adm.key.split("||");return topicBulkRename(pr[0],pr[1]);}
