@@ -142,7 +142,7 @@ var UID=null,DB=null,booted=false;
 var prefsTimer=null,runSaveTimer=null,draftTimer=null,hbTimer=null,retryT=null,exTimer=null;
 var usrUnsub=null,reqUnsub=null,mtUnsub=null;
 var STATE_OK=false,saveFailing=false,finishingCount=0,pendingTx=[],APPLIED=[],prefsDirty=false,runDirty=false;
-var DEFAULT_CFG={topics:{},pool:"new",inst:"",mcq:"",n:10,order:"rand",showTopic:false,reveal:"instant",timer:true};
+var DEFAULT_CFG={topics:{},subN:{},pool:"new",inst:"",mcq:"",n:10,order:"rand",showTopic:false,reveal:"instant",timer:true};
 var S={seen:{},wrong:{},fav:{},st:{},hist:[],exams:[],lang:"en",theme:"auto",cfg:null};
 var V_AUTH={mode:"login",msg:"",ok:false};
 var app=document.getElementById("app");
@@ -2682,7 +2682,7 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="hist-folder"){V.histFolder=t.dataset.fid;V.histQ="";return render();}
   if(t.dataset.fav){var id=t.dataset.fav;if(S.fav[id])delete S.fav[id];else S.fav[id]=1;savePrefs(false);t.textContent=S.fav[id]?"★":"☆";return;}
   if(t.dataset.k!==undefined)return answer(t.dataset.id,+t.dataset.k);
-  if(t.id==="start"){var p=pool(),n=Math.max(1,Math.min(+V.cfg.n||1,p.length));var ids=orderIds((V.cfg.order==="rand"?weightedPick(p,n):p.slice(0,n)).map(function(x){return x.id;}),V.cfg.mode||"subject");var nm=((document.getElementById("exname")||{}).value||"").trim();return begin(ids,nm||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")),{mode:V.cfg.mode||"subject"});}
+  if(t.id==="start"){var p=pool(),ids=pickHomeIds(p);if(!ids.length)return;var nm=((document.getElementById("exname")||{}).value||"").trim();return begin(ids,nm||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")),{mode:V.cfg.mode||"subject"});}
   if(t.id==="quit")return finish(false);
   if(t.id==="redo")return begin(shuffle(V.ex.bad),"ভুলগুলো আবার");
   if(t.dataset.filter){V.filter=t.dataset.filter;return render();}
@@ -2807,7 +2807,7 @@ app.addEventListener("change",function(e){
     else if(t.dataset.lgrp){var gq=t.dataset.lgrp.split("||");Q.forEach(function(x){if(x.s===gq[0]&&gname(x)===gq[1]&&(k==="fav"?matchFav(x,V.favDiffFilter||"fav"):S[k][x.id]))m[x.s+"||"+x.t]=t.checked;});}
     var y0=app.scrollTop;render();app.scrollTop=y0;return;
   }
-  if(t.dataset.cfg){c[t.dataset.cfg]=t.type==="checkbox"?t.checked:t.value;savePrefs(false);}
+  if(t.dataset.subn!==undefined){c.subN=c.subN||{};var sv=t.value.trim();if(!sv||+sv<=0)delete c.subN[t.dataset.subn];else c.subN[t.dataset.subn]=sv;savePrefs(false);var y=app.scrollTop;render();app.scrollTop=y;return;}   if(t.dataset.cfg){c[t.dataset.cfg]=t.type==="checkbox"?t.checked:t.value;savePrefs(false);}
   else if(t.dataset.top){c.topics[t.dataset.top]=t.checked;savePrefs(false);}
   else if(t.dataset.sub){Q.forEach(function(x){if(x.s===t.dataset.sub)c.topics[x.s+"||"+x.t]=t.checked;});savePrefs(false);}
   var y=app.scrollTop;render();app.scrollTop=y;
