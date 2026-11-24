@@ -136,7 +136,7 @@ var FIREBASE_CONFIG={
   messagingSenderId: "683649317136",
   appId: "1:683649317136:web:13d30d9a77ad109ad44d95"
 };
-var NEG=0.25,SEC_PER_Q=30,REG_INIT=5,REG_MORE=10,MT_PAGE=5,ADMIN=false,ADMIN_EMAIL="thesohelranas@gmail.com";
+var NEG=0.25,SEC_PER_Q=30,REG_INIT=5,REG_MORE=10,MT_PAGE=5,ADMIN=false,ADMIN_EMAIL="thesohelranas@gmail.com"; var ID_PFX=[["বাংলা","B"],["bangla","B"],["english","E"],["ইংরেজি","E"],["সাধারণ","G"],["gk","G"],["general","G"],["গণিত","M"],["math","M"]]; var IMP_FIELDS=["s","t","q","o","a","i","y","bn","e","ex","rule","explText","diff","v"];
 var Q=[],RAW={},BY={},insts=[],MT_LIST=[],TOPIC_LIST=[],QERR="";
 var UID=null,DB=null,booted=false;
 var prefsTimer=null,runSaveTimer=null,draftTimer=null,hbTimer=null,retryT=null,exTimer=null;
@@ -159,7 +159,7 @@ function freshV(){
     admHist:false,admLog:false,admTopics:false,mtFolderOpen:false,
     editReqs:[],pendingCnt:0,myReqs:null,myReqsLoading:false,myReqsErr:"",
     authEmail:"",mtForm:{custom:{},picked:{},exUsed:true,selTopics:{},subjOrder:[],customAuto:{},status:"active",pickDiff:""},
-    att:freshAtt(),mtAtt:freshMtAtt(),uatt:freshUserAtt(),mtAttended:{},
+    att:freshAtt(),mtAtt:freshMtAtt(),uatt:freshUserAtt(),mtAttended:{},justDone:{},
     usrSel:null,usrExam:null,usrFilter:"wrong",usrTopic:"",usrQ:"",usrList:null,
     reqId:null,imp:null,impF:"all",
     ulog:{items:[],lastDoc:null,hasMore:false,loading:false,err:"",q:"",type:"all"}
@@ -210,7 +210,10 @@ function runningExamsOnly(list){
 function flushPendingRunningExams(){
   if(!UID||!DB||!STATE_OK)return Promise.resolve();
   var ps=[],changed=false;
-  S.exams.forEach(function(x){if(x.status!=="done"&&!x.lock&&(x.dirtyCount||0)>0){x.dirtyCount=0;saveRunLocal(x);changed=true;}});
+  S.exams.forEach(function(x){
+    if(x.status!=="done"&&!x.lock&&((x.dirtyCount||0)>0||(V.ex&&V.ex.id===x.id&&x.dur>0))){x.dirtyCount=0;saveRunLocal(x);changed=true;}
+  });
+  if(V.ex&&V.ex.status!=="done"&&V.ex.lock&&(draftTimer||V.ex.dur>0))ps.push(saveDraft(V.ex,true));
   if(changed||runSaveTimer)ps.push(saveRunning(true));
   if(prefsTimer)ps.push(savePrefs(true));
   return Promise.all(ps);
@@ -223,9 +226,9 @@ function saveBar(msg){
   el.textContent=msg;
 }
 function checkSaveClear(){if(!saveFailing&&!pendingTx.length&&STATE_OK)saveBar("");}
-function saveFail(on){
+function saveFail(on,customMsg){
   saveFailing=on;
-  if(on){saveBar("⚠ সেভ হয়নি। নেট চেক করুন, আবার চেষ্টা চলছে…");clearTimeout(retryT);retryT=setTimeout(retryAll,8000);}
+  if(on){saveBar(customMsg||"⚠ সেভ হয়নি। নেট চেক করুন, আবার চেষ্টা চলছে…");clearTimeout(retryT);retryT=setTimeout(retryAll,8000);}
   else checkSaveClear();
 }
 function hasPendingSaves(){return !!(UID&&(finishingCount>0||pendingTx.length||saveFailing||prefsTimer||runSaveTimer||draftTimer));}
@@ -253,9 +256,10 @@ function saveRunning(immediate){
   var flush=function(){
     runSaveTimer=null;
     var runOnly=runningExamsOnly(S.exams);
-    return d.collection("users").doc(u).set({
-      state:{exams:runOnly},updated:Date.now(),lastActive:Date.now(),online:true,email:((firebase.auth().currentUser)||{}).email||""
-    },{mergeFields:["state.exams","updated","lastActive","online","email"]})
+    var upd={state:{exams:runOnly},updated:Date.now(),lastActive:Date.now(),online:true,email:((firebase.auth().currentUser)||{}).email||""};
+    var mf=["state.exams","updated","lastActive","online","email"];
+    if(S._userDeleted&&S._userDeleted.length){upd.userDeleted=S._userDeleted.slice(-100);mf.push("userDeleted");}
+    return d.collection("users").doc(u).set(upd,{mergeFields:mf})
       .then(function(){runDirty=false;if(!prefsDirty)saveFail(false);}).catch(function(err){console.warn(err);runDirty=true;saveFail(true);});
   };
   clearTimeout(runSaveTimer);runSaveTimer=null;
@@ -264,11 +268,26 @@ function saveRunning(immediate){
 }
 function retryAll(){
   if(!UID||!DB)return;
-  if(!STATE_OK){loadUserDoc().then(function(){if(STATE_OK){checkSaveClear();render();}});return;}
+  if(!STATE_OK){
+    loadUserDoc().then(function(){
+      if(!STATE_OK)return;
+      mergeLocalRunningExams();
+      loadDrafts().then(function(){render();});
+      if(prefsDirty||prefsTimer)savePrefs(true);
+      if(runDirty||runSaveTimer)saveRunning(true);
+      if(pendingTx.length)retryAll();
+    });
+    return;
+  }
   if(prefsDirty||prefsTimer)savePrefs(true);
   if(runDirty||runSaveTimer)saveRunning(true);
   var list=pendingTx.slice();pendingTx=[];
-  list.forEach(function(p){if(p.kind==="finish")commitFinish(p.ex);else txProgress(p.mut,p.key);});
+  list.forEach(function(p){
+    if(p.kind==="finish"){
+      if(!Q.length){pendingTx.push(p);saveFail(true);}
+      else commitFinish(p.ex);
+    }else txProgress(p.mut,p.key);
+  });
 }
 window.addEventListener("online",function(){if(!STATE_OK||saveFailing||pendingTx.length)retryAll();});
 
@@ -278,16 +297,25 @@ function stopPresence(){if(hbTimer){clearInterval(hbTimer);hbTimer=null;}}
 document.addEventListener("visibilitychange",function(){if(UID&&DB){if(document.visibilityState==="hidden")flushPendingRunningExams();pingPresence(document.visibilityState==="visible");}});
 window.addEventListener("pagehide",function(){if(UID&&DB){flushPendingRunningExams();pingPresence(false);}});
 function logUsage(type,data){if(!UID||!DB)return Promise.resolve();return DB.collection("usageLog").add({uid:UID,email:((firebase.auth().currentUser)||{}).email||"",admin:!!ADMIN,type:type,at:Date.now(),data:data||null}).catch(function(){});}
-function saveDraft(e){
-  if(!UID||!DB)return;clearTimeout(draftTimer);
-  var u=UID,d=DB,id=e.id,a=JSON.parse(JSON.stringify(e.a));
-  draftTimer=setTimeout(function(){draftTimer=null;d.collection("users").doc(u).collection("drafts").doc(id).set({a:a,updated:Date.now()}).catch(function(){});},250);
+function saveDraft(e,immediate){
+  if(!UID||!DB||!e)return Promise.resolve();
+  clearTimeout(draftTimer);draftTimer=null;
+  var u=UID,d=DB,id=e.id,a=JSON.parse(JSON.stringify(e.a||{})),left=e.left;
+  var run=function(){return d.collection("users").doc(u).collection("drafts").doc(id).set({a:a,left:left!=null?left:null,updated:Date.now()}).catch(function(){});};
+  if(immediate)return run();
+  draftTimer=setTimeout(function(){draftTimer=null;run();},250);
+  return Promise.resolve();
 }
 function loadDrafts(){
   var run=S.exams.filter(function(x){return x.lock&&x.status!=="done";});
   return Promise.all(run.map(function(x){
     return DB.collection("users").doc(UID).collection("drafts").doc(x.id).get().then(function(sn){
-      var d=sn.exists?(sn.data().a||{}):{};Object.keys(d).forEach(function(k){if(x.a[k]===undefined)x.a[k]=d[k];});saveRunLocal(x);
+      if(!sn.exists)return;
+      var dt=sn.data()||{},d=dt.a||{};
+      Object.keys(d).forEach(function(k){if(x.a[k]===undefined)x.a[k]=d[k];});
+      if(dt.left!=null&&(x.left==null||dt.left<x.left))x.left=dt.left;
+      if(dt.updated&&(!x.updatedAt||dt.updated>x.updatedAt))x.updatedAt=dt.updated;
+      saveRunLocal(x);
     }).catch(function(){});
   }));
 }
@@ -381,8 +409,9 @@ function commitFinish(exRaw){
         if(res.existing.mtId){
           V.mtAttended[res.existing.mtId]=res.existing;
           if(V.mtAtt.loaded)V.mtAtt.items=[res.existing].concat(V.mtAtt.items.filter(function(x){return x.id!==res.existing.id;}));
-        }else if(V.att.loaded){
-          V.att.items=[res.existing].concat(V.att.items.filter(function(x){return x.id!==res.existing.id;}));
+        }else{
+          V.justDone=V.justDone||{};V.justDone[res.existing.id]=res.existing;
+          if(V.att.loaded)V.att.items=[res.existing].concat(V.att.items.filter(function(x){return x.id!==res.existing.id;}));
         }
       }
       saveFail(false);
@@ -421,16 +450,16 @@ function migrateOldExams(){
 }
 function mergeLocalRunningExams(){
   if(!UID)return;
-  var localMap=readRunLocal(UID).exams,del=S._adminDeleted||[],byId={};
+  var localMap=readRunLocal(UID).exams,del=(S._adminDeleted||[]).concat(S._userDeleted||[]),byId={};
   runningExamsOnly(S.exams).forEach(function(x){byId[x.id]=x;});
   Object.keys(localMap).forEach(function(id){
     var loc=localMap[id];if(!loc)return;
     if(del.indexOf(id)>=0){removeRunLocal(id);return;}
-    if(loc.pendingFinish){delete byId[id];if(APPLIED.indexOf("f:"+id)>=0){removeRunLocal(id);return;}commitFinish(loc);return;}
+    if(loc.pendingFinish){delete byId[id];if(APPLIED.indexOf("f:"+id)>=0){removeRunLocal(id);return;}if(Q.length)commitFinish(loc);return;}
     if(APPLIED.indexOf("f:"+id)>=0){removeRunLocal(id);return;}
     if(loc.status==="done"){removeRunLocal(id);return;}
     var srv=byId[id];if(!srv){byId[id]=loc;return;}
-    if(loc.lock){srv.a=Object.assign({},loc.a||{},srv.a||{});if((loc.updatedAt||0)>(srv.updatedAt||0)&&loc.left!=null)srv.left=loc.left;byId[id]=srv;}
+    if(loc.lock){srv.a=Object.assign({},loc.a||{},srv.a||{});if(loc.left!=null&&(srv.left==null||loc.left<srv.left))srv.left=loc.left;byId[id]=srv;}
     else if((loc.updatedAt||0)>(srv.updatedAt||0))byId[id]=loc;
   });
   S.exams=Object.keys(byId).map(function(k){return byId[k];});
@@ -453,6 +482,10 @@ function loadMoreAttempts(reset){
         if(d&&!seen[d.id]){seen[d.id]=1;items.push(d);added++;}
       }
       if(!broke&&more&&added<target)return step();
+      if(reset&&V.justDone){
+        Object.keys(V.justDone).forEach(function(jid){if(!seen[jid]){seen[jid]=1;items.unshift(V.justDone[jid]);}});
+        items.sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});
+      }
       V.att={items:items,lastDoc:cursor,hasMore:more,loading:false,loaded:true,err:""};
       render();
     });
@@ -559,11 +592,12 @@ function loadUserDoc(){
   return DB.collection("users").doc(u).get().then(function(snapData){
     if(UID!==u)return;
     var d=snapData.data()||{};
-    S=normalize(d.state);STATE_OK=true;APPLIED=d.applied||[];S._adminDeleted=d.adminDeleted||[];
-    if(S._adminDeleted.length)S.exams=S.exams.filter(function(x){return S._adminDeleted.indexOf(x.id)<0;});
-    applyCfgFromState();applyTheme();saveBar("");
+    S=normalize(d.state);STATE_OK=true;APPLIED=d.applied||[];S._adminDeleted=d.adminDeleted||[];S._userDeleted=d.userDeleted||[];
+    var delAll=S._adminDeleted.concat(S._userDeleted);
+    if(delAll.length)S.exams=S.exams.filter(function(x){return delAll.indexOf(x.id)<0;});
+    applyCfgFromState();applyTheme();saveFailing=false;checkSaveClear();
   }).catch(function(err){
-    console.warn(err);STATE_OK=false;saveBar("⚠ আপনার ডেটা লোড হয়নি। নেট চেক করে অপেক্ষা করুন বা রিলোড দিন।");
+    console.warn(err);STATE_OK=false;saveFail(true,"⚠ আপনার ডেটা লোড হয়নি। নেট চেক করুন, আবার চেষ্টা চলছে…");
   });
 }
 function boot(){
@@ -665,11 +699,11 @@ function planSubPick(p,subNMap,reqN){
   p.forEach(function(x){if(!bySub[x.s]){bySub[x.s]=[];subs.push(x.s);}bySub[x.s].push(x);});
   var custSubs=[],autoSubs=[],custTot=0,autoPool=[];
   subs.forEach(function(s){
-    var v=+(subNMap&&subNMap[s]||0);
+    var v=Math.floor(+(subNMap&&subNMap[s]||0));
     if(v>0){var tk=Math.min(v,bySub[s].length);custSubs.push({s:s,qs:bySub[s],take:tk});custTot+=tk;}
     else{autoSubs.push(s);autoPool=autoPool.concat(bySub[s]);}
   });
-  var reqTot=Math.max(1,+reqN||1),autoTake=autoSubs.length?Math.min(Math.max(0,reqTot-custTot),autoPool.length):0;
+  var reqTot=Math.max(1,Math.floor(+reqN||1)),autoTake=autoSubs.length?Math.min(Math.max(0,reqTot-custTot),autoPool.length):0;
   return {custSubs:custSubs,autoPool:autoPool,autoTake:autoTake,total:custTot+autoTake};
 }
 function pickFromPool(qs,take,rand,useRound){
@@ -755,10 +789,12 @@ function stopExamTimer(){if(exTimer){clearInterval(exTimer);exTimer=null;}}
 function syncExamTimer(){
   stopExamTimer();
   if(V.screen!=="exam"||!V.ex||V.ex.status==="done"||!(V.ex.dur>0))return;
+  if(V.ex.mtId){var mt0=MT_LIST.filter(function(x){return x.id===V.ex.mtId;})[0];if(mt0){var rem0=Math.max(0,Math.floor((mt0.endAt-Date.now())/1000));if(V.ex.left==null||rem0<V.ex.left)V.ex.left=rem0;}}
   if(V.ex.left==null)V.ex.left=V.ex.dur;
   if(V.ex.left<=0){finish(true);return;}
   exTimer=setInterval(function(){
     if(V.screen!=="exam"||!V.ex||V.ex.status==="done"||!(V.ex.dur>0)){stopExamTimer();return;}
+    if(V.ex.mtId){var mt1=MT_LIST.filter(function(x){return x.id===V.ex.mtId;})[0];if(mt1&&mt1.endAt<=Date.now()){V.ex.left=0;stopExamTimer();finish(true);return;}}
     if(document.visibilityState==="hidden")return;
     V.ex.left=Math.max(0,(V.ex.left!=null?V.ex.left:V.ex.dur)-1);V.ex.updatedAt=Date.now();
     var el=document.getElementById("ex-timer");
@@ -788,7 +824,7 @@ function answer(id,k){
   else if(e.dirtyCount>=5){e.dirtyCount=0;saveRunLocal(e);saveRunning(false);}
   var cardEl=document.getElementById("qc_"+id);
   if(cardEl){
-    cardEl.innerHTML=examCardInner(id,e.ids.indexOf(id));trDom(cardEl);
+    var qIdx=cardEl.dataset.qidx!==undefined?+cardEl.dataset.qidx:e.ids.indexOf(id);cardEl.innerHTML=examCardInner(id,qIdx);trDom(cardEl);
     var ansN=0;e.ids.forEach(function(x){if(e.a[x]!==undefined)ansN++;});
     var cntEl=document.getElementById("ex-top-cnt"),remEl=document.getElementById("ex-top-rem");
     if(cntEl)cntEl.textContent=bn(ansN)+"/"+bn(e.ids.length);if(remEl)remEl.textContent=bn(e.ids.length-ansN);
@@ -810,8 +846,9 @@ function finish(auto){
   if(exCopy.mtId){
     V.mtAttended[exCopy.mtId]=exCopy;
     if(V.mtAtt.loaded)V.mtAtt.items=[exCopy].concat(V.mtAtt.items.filter(function(x){return x.id!==exCopy.id;}));
-  }else if(V.att.loaded){
-    V.att.items=[exCopy].concat(V.att.items.filter(function(x){return x.id!==exCopy.id;}));
+  }else{
+    V.justDone=V.justDone||{};V.justDone[exCopy.id]=exCopy;
+    if(V.att.loaded)V.att.items=[exCopy].concat(V.att.items.filter(function(x){return x.id!==exCopy.id;}));
   }
   logUsage("exam_finish",{id:exCopy.id,name:exCopy.name,mtId:exCopy.mtId||null,c:r.c,w:r.w,sc:r.sc});
   commitFinish(exCopy);
@@ -907,7 +944,7 @@ function applyState(st){
   V.mtFolderOpen=!!st.mtFolderOpen;V.adm=st.adm?Object.assign({},st.adm):null;V.admAllQ=st.admAllQ||"";
   V.usrSel=st.usrSel||null;V.usrExam=st.usrExam||null;V.usrFilter=st.usrFilter||"wrong";V.usrTopic=st.usrTopic||"";V.usrQ=st.usrQ||"";
   V.reqId=st.reqId||null;V.homeQ=st.homeQ||"";
-  if(st.exid){V.ex=S.exams.filter(function(x){return x.id===st.exid;})[0]||V.att.items.filter(function(x){return x.id===st.exid;})[0]||V.mtAtt.items.filter(function(x){return x.id===st.exid;})[0]||null;}else V.ex=null;
+  if(st.exid){V.ex=S.exams.filter(function(x){return x.id===st.exid;})[0]||V.att.items.filter(function(x){return x.id===st.exid;})[0]||V.mtAtt.items.filter(function(x){return x.id===st.exid;})[0]||(V.justDone&&V.justDone[st.exid])||null;}else V.ex=null;
   if((V.screen==="exam"||V.screen==="result")&&!V.ex)V.screen=null;
   if(V.tab!=="users")stopUsersWatch();else if(ADMIN&&!usrUnsub)watchUsers();
   render();app.scrollTop=st.scroll||0;
@@ -1111,7 +1148,7 @@ function exam(){
   e.ids.forEach(function(id,idx){
     var q=BY[id];if(cur&&(!q||q.s!==cur))return;if(V.exUnans&&e.a[id]!==undefined)return;
     if(e.mode==="subject"&&q&&q.s!==lastS){lastS=q.s;partNo=0;h+='<h2 style="margin:16px 0 6px">'+esc(q.s)+' <small style="color:var(--muted);font-weight:500">('+bn(subCnt[q.s]||0)+'টি)</small></h2>';}
-    partNo++;h+='<div class="card" id="qc_'+id+'">'+examCardInner(id,e.mode==="subject"?partNo-1:idx)+'</div>';
+    partNo++;var qIdx=e.mode==="subject"?partNo-1:idx;h+='<div class="card" id="qc_'+id+'" data-qidx="'+qIdx+'">'+examCardInner(id,qIdx)+'</div>';
   });
   return h+'<button class="btn" id="quit">পরীক্ষা শেষ করুন</button>';
 }
@@ -1159,7 +1196,10 @@ function examsView(){
   if(V.mtFolderOpen)return mtFolderView();
   if(!V.att.loaded&&!V.att.loading)loadMoreAttempts(true);
   var run=S.exams.filter(function(x){return x.status!=="done";});
-  var done=V.att.items.filter(function(x){return !x.mtId;}).sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});
+  var doneMap={},done=V.att.items.filter(function(x){return !x.mtId;});
+  done.forEach(function(x){doneMap[x.id]=1;});
+  if(V.justDone)Object.keys(V.justDone).forEach(function(jid){if(!doneMap[jid]){doneMap[jid]=1;done.push(V.justDone[jid]);}});
+  done.sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});
   var h='<h1>পরীক্ষা</h1>';
   h+='<button class="card" data-act="mt-folder-open" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer;border-color:var(--accent)"><b>🏆 মডেল টেস্ট ফোল্ডার</b><div class="meta" style="margin:2px 0 0">অংশ নেওয়া সব মডেল টেস্টের ইতিহাস, ফলাফল ও মেরিট লিস্ট দেখুন →</div></button>';
   h+='<h2>চলমান পরীক্ষা</h2>';
@@ -2212,7 +2252,7 @@ function watchUsers(){
     if(V.tab==="users"&&!V.usrSel&&!V.screen&&!V.edit)renderUserList();else if(V.tab==="users"&&!V.edit)render();
   },function(err){V.usrLoading=false;V.usrErr="লোড হয়নি: "+err.message;render();});
 }
-function stOf(u){var st=normalize(u.data.state),del=u.data.adminDeleted||[];if(del.length)st.exams=st.exams.filter(function(x){return del.indexOf(x.id)<0;});return st;}
+function stOf(u){var st=normalize(u.data.state),del=(u.data.adminDeleted||[]).concat(u.data.userDeleted||[]);if(del.length)st.exams=st.exams.filter(function(x){return del.indexOf(x.id)<0;});return st;}
 function userName(u){return u.data.email||("ব্যবহারকারী "+u.uid.slice(0,6));}
 function renderUserList(){
   var box=document.getElementById("usr-list-res");if(!box){render();return;}
@@ -2702,22 +2742,25 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="attmore"){loadMoreAttempts(false);return;}
   if(t.dataset.act==="uattmore"){loadUserAttempts(V.usrSel,false);return;}
   if(t.dataset.act==="resume"||t.dataset.act==="exres"){
-    var ex=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0]||V.att.items.filter(function(x){return x.id===t.dataset.exid;})[0]||V.mtAtt.items.filter(function(x){return x.id===t.dataset.exid;})[0];
+    var ex=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0]||V.att.items.filter(function(x){return x.id===t.dataset.exid;})[0]||V.mtAtt.items.filter(function(x){return x.id===t.dataset.exid;})[0]||(V.justDone&&V.justDone[t.dataset.exid]);
     if(!ex)return;
     navPush(function(){V.ex=ex;V.title=ex.name;V.filter="all";V.screen=(t.dataset.act==="resume"&&ex.status!=="done")?"exam":"result";});
     return;
   }
   if(t.dataset.act==="exdel"){
-    var exId=t.dataset.exid,tgt=S.exams.filter(function(x){return x.id===exId;})[0]||V.att.items.filter(function(x){return x.id===exId;})[0]||V.mtAtt.items.filter(function(x){return x.id===exId;})[0];
+    var exId=t.dataset.exid,tgt=S.exams.filter(function(x){return x.id===exId;})[0]||V.att.items.filter(function(x){return x.id===exId;})[0]||V.mtAtt.items.filter(function(x){return x.id===exId;})[0]||(V.justDone&&V.justDone[exId]);
     if(!tgt)return;
     if(tgt.status==="done"&&(Date.now()-(tgt.finishedAt||tgt.at))<7*864e5){alert(S.lang==="bn"?"জমা দেওয়া পরীক্ষা ৭ দিনের মধ্যে মোছা যায় না।":"A submitted exam cannot be deleted within 7 days.");return;}
     if(!confirm("এই পরীক্ষাটি মুছে ফেলবেন?"))return;
     logUsage("exam_delete",{id:tgt.id,name:tgt.name});
     if(tgt.status!=="done"){
+      S._userDeleted=S._userDeleted||[];if(S._userDeleted.indexOf(exId)<0)S._userDeleted.push(exId);
+      S._userDeleted=S._userDeleted.slice(-100);
       S.exams=S.exams.filter(function(x){return x.id!==exId;});removeRunLocal(exId);
       if(DB&&UID)DB.collection("users").doc(UID).collection("drafts").doc(exId).delete().catch(function(){});
       if(V.ex&&V.ex.id===exId){V.ex=null;V.screen=null;}saveRunning(true);render();return;
     }
+    if(V.justDone)delete V.justDone[exId];
     V.att.items=V.att.items.filter(function(x){return x.id!==exId;});
     V.mtAtt.items=V.mtAtt.items.filter(function(x){return x.id!==exId;});
     if(tgt.mtId)V.mtAttended[tgt.mtId]=false;
@@ -2837,8 +2880,13 @@ app.addEventListener("click",function(e){
       var srvSt=normalize((res[1].data()||{}).state);
       var srvRun=srvSt.exams.filter(function(x){return x.id===exId&&x.status!=="done";})[0];
       if(srvRun){
+        var remW=Math.max(0,Math.floor((mt.endAt-Date.now())/1000));
         S.exams=runningExamsOnly(S.exams).filter(function(x){return x.id!==exId;}).concat([srvRun]);
-        loadDrafts().then(function(){navPush(function(){V.ex=srvRun;V.title=srvRun.name;V.filter="all";V.screen="exam";});});
+        loadDrafts().then(function(){
+          if(srvRun.left==null||remW<srvRun.left)srvRun.left=remW;
+          if(srvRun.left<=0){alert("মডেল টেস্টের সময় শেষ হয়ে গেছে।");V.ex=srvRun;finish(true);return;}
+          navPush(function(){V.ex=srvRun;V.title=srvRun.name;V.filter="all";V.screen="exam";});
+        });
         return;
       }
       var validIds=mt.qids.filter(function(id){return !!BY[id];});
@@ -2963,7 +3011,7 @@ document.getElementById("nav").addEventListener("click",function(e){var t=e.targ
 app.addEventListener("click",function(e){
   var b=e.target.closest&&e.target.closest("#retryQ");if(!b||!DB)return;
   b.disabled=true;b.textContent="লোড হচ্ছে…";
-  loadQuestions().then(function(){QERR="";return loadTopicConfig();}).catch(function(err){QERR=(err&&err.message)||"error";}).then(function(){render();});
+  loadQuestions().then(function(){QERR="";mergeLocalRunningExams();return loadTopicConfig();}).catch(function(err){QERR=(err&&err.message)||"error";}).then(function(){render();});
 });
 boot();
 </script>
