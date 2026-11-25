@@ -57,7 +57,8 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent)}
 .opt b{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-size:14px;font-weight:600}
 .opt.ok{background:var(--okbg);border-color:var(--ok)}.opt.ok b{background:var(--ok);border-color:var(--ok);color:#fff}
 .opt.bad{background:var(--badbg);border-color:var(--bad)}.opt.bad b{background:var(--bad);border-color:var(--bad);color:#fff}
-.opt:disabled{opacity:1}.opt i{margin-left:auto;font-style:normal}
+.opt:disabled{opacity:1}.opt.locked-btn:disabled{opacity:.72;cursor:not-allowed}.opt.locked-btn.sel:disabled{opacity:1}
+.opt i{margin-left:auto;font-style:normal}
 .exp{background:var(--bg);border-radius:10px;padding:8px 12px;font-size:15px;margin-top:6px;white-space:pre-wrap;line-height:1.6}
 .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:6px 0}
 .bar i{display:block;height:100%;background:var(--accent)}
@@ -69,6 +70,8 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent)}
 .live-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
 .off-badge{display:inline-block;font-size:12px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:999px;vertical-align:middle}
+.warn-badge{display:inline-block;font-size:12px;font-weight:700;color:var(--warn);background:var(--warnbg);padding:2px 9px;border-radius:999px;vertical-align:middle}
+.pause-box{background:var(--warnbg);border:1.5px solid var(--warn);border-radius:12px;padding:18px 16px;text-align:center;margin:16px 0}
 .diff-box{background:var(--bg);border-radius:10px;padding:8px 10px;font-size:14px;margin-top:6px;border-left:3px solid var(--muted)}
 .edit-box{background:var(--bg);border-radius:10px;padding:10px;margin-top:8px;border-left:3px solid var(--ok)}
 .sugg-wrap{position:relative}
@@ -136,30 +139,37 @@ var FIREBASE_CONFIG={
   messagingSenderId: "683649317136",
   appId: "1:683649317136:web:13d30d9a77ad109ad44d95"
 };
-var NEG=0.25,SEC_PER_Q=30,REG_INIT=5,REG_MORE=10,MT_PAGE=5,ADMIN=false,ADMIN_EMAIL="thesohelranas@gmail.com"; var ID_PFX=[["বাংলা","B"],["bangla","B"],["english","E"],["ইংরেজি","E"],["সাধারণ","G"],["gk","G"],["general","G"],["গণিত","M"],["math","M"]]; var IMP_FIELDS=["s","t","q","o","a","i","y","bn","e","ex","rule","explText","diff","v"];
+var NEG=0.25,SEC_PER_Q=30,REG_INIT=5,REG_MORE=10,MT_PAGE=5,TRASH_DAYS=7,TRASH_MS=7*864e5,HIST_PAGE=7;
+var ADMIN=false,ADMIN_EMAIL="thesohelranas@gmail.com";
+var ID_PFX=[["বাংলা","B"],["bangla","B"],["english","E"],["ইংরেজি","E"],["সাধারণ","G"],["gk","G"],["general","G"],["গণিত","M"],["math","M"]];
+var IMP_FIELDS=["s","t","q","o","a","i","y","bn","e","ex","rule","explText","diff","v"];
 var Q=[],RAW={},BY={},insts=[],MT_LIST=[],TOPIC_LIST=[],QERR="";
+var QMETA={qUpd:0,scoreVer:0};
 var UID=null,DB=null,booted=false;
-var prefsTimer=null,runSaveTimer=null,draftTimer=null,hbTimer=null,retryT=null,exTimer=null;
-var usrUnsub=null,reqUnsub=null,mtUnsub=null;
-var STATE_OK=false,saveFailing=false,finishingCount=0,pendingTx=[],APPLIED=[],prefsDirty=false,runDirty=false;
+var prefsTimer=null,favTimer=null,runSaveTimer=null,draftTimer=null,hbTimer=null,retryT=null,exTimer=null,exPingTick=0;
+var usrUnsub=null,reqUnsub=null,mtUnsub=null,userDocUnsub=null,qMetaUnsub=null,topicsUnsub=null,activeAttUnsub=null,mtRestUnsub=null;
+var STATE_OK=false,saveFailing=false,finishingCount=0,pendingTx=[],APPLIED=[],prefsDirty=false,runDirty=false,recomputingMine=false,loadingQNow=false;
 var DEFAULT_CFG={topics:{},subN:{},pool:"new",inst:"",mcq:"",n:10,order:"rand",mode:"subject",showTopic:false,reveal:"instant",timer:true,favPool:"round",favN:20,favOrder:"rand",favMode:"subject",favSubN:{}};
-var S={seen:{},wrong:{},fav:{},favRound:{},st:{},hist:[],exams:[],lang:"en",theme:"auto",cfg:null};
+var S={seen:{},wrong:{},fav:{},favRound:{},st:{},hist:[],exams:[],lang:"en",theme:"auto",cfg:null,lastScoreSync:0};
 var V_AUTH={mode:"login",msg:"",ok:false};
 var app=document.getElementById("app");
 
 function freshAtt(){return {items:[],lastDoc:null,hasMore:false,loading:false,loaded:false,err:""};}
-function freshUserAtt(){return {uid:"",items:[],lastDoc:null,hasMore:false,loading:false,loaded:false,err:""};}
+function freshTrash(){return {items:[],loading:false,loaded:false,err:""};}
+function freshUserAtt(){return {uid:"",items:[],trashed:[],lastDoc:null,hasMore:false,loading:false,loaded:false,err:"",trashLoaded:false,trashLoading:false};}
 function freshMtAtt(){return {items:[],loading:false,loaded:false,err:"",showN:MT_PAGE};}
+function freshHist(){return {items:[],trash:[],hasMore:false,loading:false,loaded:false,trashLoaded:false,trashLoading:false,err:"",batchCursor:null,legacyCursor:null,legacyDone:false,mode:"active",folder:null,q:"",conflict:null,busy:false};}
 function freshV(){
   return {
     tab:"home",screen:null,cfg:Object.assign({},DEFAULT_CFG,{topics:{},subN:{},favSubN:{}}),
-    ex:null,list:null,title:"",filter:"all",favDiffFilter:"fav",lsel:{},draft:{},rev:{},
+    ex:null,exPaused:false,list:null,title:"",filter:"all",favDiffFilter:"fav",lsel:{},draft:{},rev:{},
     homeQ:"",homeShowAns:{},admAllQ:"",edit:null,adm:null,admReqs:false,reqRev:null,reqTab:"pending",reqF:"all",reqSel:{},reqShowAll:false,reqEditOpen:false,reqBusy:false,reqHistF:"all",reqHist:{items:[],lastDoc:null,hasMore:false,loading:false,loaded:false,err:""},
     admMT:false,admMTCreate:false,admMTView:null,admPickKey:null,admPickQ:"",admPickId:"",admPickDiff:"",
-    admHist:false,admLog:false,admTopics:false,mtFolderOpen:false,
-    editReqs:[],pendingCnt:0,myReqs:null,myReqsLoading:false,myReqsErr:"",
+    admHist:false,admLog:false,admTopics:false,mtFolderOpen:false,trashOpen:false,usrTrashOpen:false,
+    editReqs:[],pendingCnt:0,mtRestReqs:[],mtRestCnt:0,myMtRestReqs:{},myReqs:null,myReqsLoading:false,myReqsErr:"",
     authEmail:"",mtForm:{custom:{},picked:{},exUsed:true,selTopics:{},subjOrder:[],customAuto:{},status:"active",pickDiff:""},
-    att:freshAtt(),mtAtt:freshMtAtt(),uatt:freshUserAtt(),mtAttended:{},justDone:{},
+    att:freshAtt(),trash:freshTrash(),mtAtt:freshMtAtt(),uatt:freshUserAtt(),mtAttended:{},justDone:{},
+    histState:freshHist(),
     usrSel:null,usrExam:null,usrFilter:"wrong",usrTopic:"",usrQ:"",usrList:null,
     reqId:null,imp:null,impF:"all",
     ulog:{items:[],lastDoc:null,hasMore:false,loading:false,err:"",q:"",type:"all"}
@@ -181,13 +191,23 @@ function fmtSec(sec){sec=Math.max(0,Math.floor(sec||0));var m=Math.floor(sec/60)
 function toLocalInput(ms){var d=new Date(ms),p=function(n){return (n<10?"0":"")+n;};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes());}
 function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t;}return a;}
 function clean(x){var c=JSON.parse(JSON.stringify(x));delete c.id;delete c._finishing;delete c.dirtyCount;delete c.pendingFinish;Object.keys(c).forEach(function(k){if(c[k]===""||c[k]===null||(Array.isArray(c[k])&&!c[k].length))delete c[k];});return c;}
-function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},favRound:d.favRound||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[],lang:d.lang||"en",theme:d.theme||"auto",cfg:d.cfg||null};}
+function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},favRound:d.favRound||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[],runMap:d.runMap||{},lang:d.lang||"en",theme:d.theme||"auto",cfg:d.cfg||null,lastScoreSync:d.lastScoreSync||0};}
 function applyCfgFromState(){var src=S.cfg||{};V.cfg=Object.assign({},DEFAULT_CFG,src,{topics:Object.assign({},src.topics||{}),subN:Object.assign({},src.subN||{}),favSubN:Object.assign({},src.favSubN||{})});}
 function applyTheme(){var t=S.theme||"auto";if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);else document.documentElement.removeAttribute("data-theme");}
 function gv(id){var el=document.getElementById(id);return el?el.value.trim():"";}
+function mkFP(seg){
+  if(seg.length===1)return new firebase.firestore.FieldPath(seg[0]);
+  if(seg.length===2)return new firebase.firestore.FieldPath(seg[0],seg[1]);
+  if(seg.length===3)return new firebase.firestore.FieldPath(seg[0],seg[1],seg[2]);
+  return new firebase.firestore.FieldPath(seg[0],seg[1],seg[2],seg[3]);
+}
+function daysLeft(expireAt){return Math.max(0,Math.ceil(((expireAt||0)-Date.now())/864e5));}
 
-/* ===== ২. চলমান পরীক্ষা (localStorage + প্রতি ৫ উত্তরে সার্ভার সিঙ্ক) ===== */
+/* ===== ২. LocalStorage ক্যাশ, পেন্ডিং কিউ ও চলমান পরীক্ষা ===== */
 function runKey(uid){return "corui_run_"+uid;}
+function cacheKey(uid){return "corui_cache_"+uid;}
+function favQKey(uid){return "corui_favq_"+uid;}
+
 function readRunLocal(uid){
   if(!uid)return {exams:{}};
   try{var raw=localStorage.getItem(runKey(uid));if(!raw)return {exams:{}};var p=JSON.parse(raw);return (p&&p.exams&&typeof p.exams==="object")?p:{exams:{}};}catch(e){return {exams:{}};}
@@ -202,85 +222,229 @@ function saveRunLocal(ex){
   delete copy._finishing;store.exams[ex.id]=copy;writeRunLocal(UID,store);
 }
 function removeRunLocal(exId){if(!UID||!exId)return;var store=readRunLocal(UID);if(store.exams[exId]){delete store.exams[exId];writeRunLocal(UID,store);}}
+
+function readFavQueue(uid){
+  if(!uid)return {fav:{},favRound:{}};
+  try{var raw=localStorage.getItem(favQKey(uid));if(!raw)return {fav:{},favRound:{}};var p=JSON.parse(raw);return {fav:p.fav||{},favRound:p.favRound||{}};}catch(e){return {fav:{},favRound:{}};}
+}
+function writeFavQueue(uid,qObj){
+  if(!uid)return;
+  try{
+    if(!Object.keys(qObj.fav||{}).length&&!Object.keys(qObj.favRound||{}).length)localStorage.removeItem(favQKey(uid));
+    else localStorage.setItem(favQKey(uid),JSON.stringify(qObj));
+  }catch(e){}
+}
+function queueFavChange(kind,qid,val){
+  if(!UID||!qid)return;
+  var q=readFavQueue(UID);q[kind]=q[kind]||{};q[kind][qid]=val?1:0;writeFavQueue(UID,q);
+  saveStateCache();
+}
+
+function saveStateCache(){
+  if(!UID)return;
+  try{
+    var attCache=(V.att&&V.att.items?V.att.items.slice(0,12):[]).concat(V.mtAtt&&V.mtAtt.items?V.mtAtt.items.slice(0,8):[]);
+    var payload={
+      at:Date.now(),
+      state:{seen:S.seen,wrong:S.wrong,fav:S.fav,favRound:S.favRound,st:S.st,hist:S.hist,lang:S.lang,theme:S.theme,cfg:S.cfg,lastScoreSync:S.lastScoreSync||0},
+      attCache:attCache
+    };
+    localStorage.setItem(cacheKey(UID),JSON.stringify(payload));
+  }catch(e){}
+}
+function loadStateCache(uid){
+  if(!uid)return false;
+  try{
+    var raw=localStorage.getItem(cacheKey(uid));if(!raw)return false;
+    var p=JSON.parse(raw);if(!p||!p.state)return false;
+    S=normalize(p.state);
+    var fq=readFavQueue(uid);
+    Object.keys(fq.fav).forEach(function(k){if(fq.fav[k])S.fav[k]=1;else delete S.fav[k];});
+    Object.keys(fq.favRound).forEach(function(k){if(fq.favRound[k])S.favRound[k]=1;else delete S.favRound[k];});
+    applyCfgFromState();applyTheme();
+    if(Array.isArray(p.attCache)&&p.attCache.length&&!V.att.loaded){
+      V.att.items=p.attCache.filter(function(x){return x&&!x.mtId&&!x.deletedAt;});
+      V.mtAtt.items=p.attCache.filter(function(x){return x&&!!x.mtId&&!x.deletedAt;});
+      V.mtAtt.items.forEach(function(x){V.mtAttended[x.mtId]=x;});
+    }
+    return true;
+  }catch(e){return false;}
+}
+
 function runningExamsOnly(list){
   return (list||[]).filter(function(x){return x&&x.status!=="done";}).map(function(x){
     var c=JSON.parse(JSON.stringify(x));delete c._finishing;delete c.dirtyCount;delete c.pendingFinish;return c;
   });
 }
-function flushPendingRunningExams(){
-  if(!UID||!DB||!STATE_OK)return Promise.resolve();
-  var ps=[],changed=false;
-  S.exams.forEach(function(x){
-    if(x.status!=="done"&&!x.lock&&((x.dirtyCount||0)>0||(V.ex&&V.ex.id===x.id&&x.dur>0))){x.dirtyCount=0;saveRunLocal(x);changed=true;}
+function extractServerRunning(d){
+  var st=normalize(d&&d.state),byId={};
+  runningExamsOnly(st.exams).forEach(function(x){byId[x.id]=x;});
+  if(st.runMap&&typeof st.runMap==="object"){
+    Object.keys(st.runMap).forEach(function(k){
+      var rx=st.runMap[k];
+      if(rx&&rx.status!=="done"){if(!rx.id)rx.id=k;byId[rx.id]=rx;}
+    });
+  }
+  return Object.keys(byId).map(function(k){return byId[k];});
+}
+function mergeExamObjects(loc,srv){
+  if(!srv)return loc;if(!loc)return srv;
+  var out=JSON.parse(JSON.stringify((srv.updatedAt||0)>(loc.updatedAt||0)?srv:loc));
+  var la=loc.a||{},sa=srv.a||{},lat=loc.ansAt||{},sat=srv.ansAt||{};
+  var mergedA={},mergedAt={};
+  Object.keys(sa).forEach(function(k){mergedA[k]=sa[k];if(sat[k])mergedAt[k]=sat[k];});
+  Object.keys(la).forEach(function(k){
+    if(mergedA[k]===undefined){mergedA[k]=la[k];if(lat[k])mergedAt[k]=lat[k];}
+    else if((lat[k]||loc.updatedAt||0)>=(sat[k]||srv.updatedAt||0)){mergedA[k]=la[k];if(lat[k])mergedAt[k]=lat[k];}
   });
-  if(V.ex&&V.ex.status!=="done"&&V.ex.lock&&(draftTimer||V.ex.dur>0))ps.push(saveDraft(V.ex,true));
-  if(changed||runSaveTimer)ps.push(saveRunning(true));
-  if(prefsTimer)ps.push(savePrefs(true));
-  return Promise.all(ps);
+  out.a=mergedA;if(Object.keys(mergedAt).length)out.ansAt=mergedAt;
+  if(loc.left!=null&&srv.left!=null)out.left=Math.min(loc.left,srv.left);
+  else if(loc.left!=null)out.left=loc.left;
+  else if(srv.left!=null)out.left=srv.left;
+  out.updatedAt=Math.max(loc.updatedAt||0,srv.updatedAt||0);
+  return out;
 }
 
-/* ===== ৩. Firebase সংরক্ষণ (Preferences ও Running আলাদা), ট্রানজ্যাকশন, প্রেজেন্স ও সতর্কতা ===== */
+/* ===== ৩. Firebase সিঙ্ক (Atomic Fav, runMap, qMeta/Topics রিয়েল-টাইম) ===== */
 function saveBar(msg){
   var el=document.getElementById("savebar");if(!msg){if(el)el.remove();return;}
   if(!el){el=document.createElement("div");el.id="savebar";el.style.cssText="position:fixed;top:0;left:0;right:0;z-index:99;background:#b3261e;color:#fff;padding:8px 12px;text-align:center;font-size:14px";document.body.appendChild(el);}
   el.textContent=msg;
 }
-function checkSaveClear(){if(!saveFailing&&!pendingTx.length&&STATE_OK)saveBar("");}
+function hasFavPending(){var fq=readFavQueue(UID);return Object.keys(fq.fav).length>0||Object.keys(fq.favRound).length>0;}
+function checkSaveClear(){if(!saveFailing&&!pendingTx.length&&!hasFavPending()&&STATE_OK)saveBar("");}
 function saveFail(on,customMsg){
   saveFailing=on;
   if(on){saveBar(customMsg||"⚠ সেভ হয়নি। নেট চেক করুন, আবার চেষ্টা চলছে…");clearTimeout(retryT);retryT=setTimeout(retryAll,8000);}
   else checkSaveClear();
 }
-function hasPendingSaves(){return !!(UID&&(finishingCount>0||pendingTx.length||saveFailing||prefsTimer||runSaveTimer||draftTimer));}
+function hasPendingSaves(){return !!(UID&&(finishingCount>0||pendingTx.length||saveFailing||prefsTimer||favTimer||runSaveTimer||draftTimer||hasFavPending()));}
 window.addEventListener("beforeunload",function(e){if(hasPendingSaves()){var msg="সেভ বাকি আছে! এখন বন্ধ করলে সর্বশেষ ডেটা হারাতে পারে।";e.preventDefault();e.returnValue=msg;return msg;}});
+
+function patchUserFields(u,ops){
+  if(!u||!DB||!ops||!ops.length)return Promise.resolve();
+  var ref=DB.collection("users").doc(u),args=[];
+  ops.forEach(function(op){args.push(mkFP(op.path),op.val);});
+  return ref.update.apply(ref,args).catch(function(err){
+    if(err&&err.code==="not-found"){
+      return ref.set({updated:Date.now(),email:((firebase.auth().currentUser)||{}).email||""},{merge:true})
+        .then(function(){return ref.update.apply(ref,args);});
+    }
+    throw err;
+  });
+}
+
+function flushPendingFavs(immediate){
+  if(!UID||!DB)return Promise.resolve();
+  var u=UID;
+  var run=function(){
+    favTimer=null;
+    var snapQ=readFavQueue(u),ops=[];
+    var delV=firebase.firestore.FieldValue.delete();
+    Object.keys(snapQ.fav).forEach(function(qid){ops.push({path:["state","fav",qid],val:snapQ.fav[qid]?1:delV});});
+    Object.keys(snapQ.favRound).forEach(function(qid){ops.push({path:["state","favRound",qid],val:snapQ.favRound[qid]?1:delV});});
+    if(!ops.length)return Promise.resolve();
+    ops.push({path:["updated"],val:Date.now()});
+    ops.push({path:["lastActive"],val:Date.now()});
+    return patchUserFields(u,ops).then(function(){
+      if(UID!==u)return;
+      var curQ=readFavQueue(u);
+      Object.keys(snapQ.fav).forEach(function(k){if(curQ.fav[k]===snapQ.fav[k])delete curQ.fav[k];});
+      Object.keys(snapQ.favRound).forEach(function(k){if(curQ.favRound[k]===snapQ.favRound[k])delete curQ.favRound[k];});
+      writeFavQueue(u,curQ);
+      if(!prefsDirty&&!runDirty)saveFail(false);
+    }).catch(function(err){console.warn(err);saveFail(true);});
+  };
+  clearTimeout(favTimer);favTimer=null;
+  if(immediate)return run();
+  favTimer=setTimeout(run,350);return Promise.resolve();
+}
 
 function savePrefs(immediate){
   if(!UID||!DB||!STATE_OK)return Promise.resolve();
   var u=UID,d=DB;
   var flush=function(){
-    prefsTimer=null;S.cfg=Object.assign({},V.cfg);
+    prefsTimer=null;S.cfg=Object.assign({},V.cfg);saveStateCache();
     var s2=JSON.parse(JSON.stringify(S));
     return d.collection("users").doc(u).set({
-      state:{fav:s2.fav,favRound:s2.favRound,lang:s2.lang,theme:s2.theme,cfg:s2.cfg},
+      state:{lang:s2.lang,theme:s2.theme,cfg:s2.cfg},
       updated:Date.now(),lastActive:Date.now(),online:true,email:((firebase.auth().currentUser)||{}).email||""
-    },{mergeFields:["state.fav","state.favRound","state.lang","state.theme","state.cfg","updated","lastActive","online","email"]})
-      .then(function(){prefsDirty=false;if(!runDirty)saveFail(false);}).catch(function(err){console.warn(err);prefsDirty=true;saveFail(true);});
+    },{mergeFields:["state.lang","state.theme","state.cfg","updated","lastActive","online","email"]})
+      .then(function(){prefsDirty=false;if(!runDirty&&!hasFavPending())saveFail(false);}).catch(function(err){console.warn(err);prefsDirty=true;saveFail(true);});
   };
   clearTimeout(prefsTimer);prefsTimer=null;
   if(immediate)return flush();
   prefsTimer=setTimeout(flush,400);return Promise.resolve();
 }
-function saveRunning(immediate){
-  if(!UID||!DB||!STATE_OK)return Promise.resolve();
-  var u=UID,d=DB;
-  var flush=function(){
+
+function saveRunExam(ex,immediate){
+  if(!UID||!DB||!STATE_OK||!ex||!ex.id||ex.status==="done")return Promise.resolve();
+  var u=UID;
+  var copy=JSON.parse(JSON.stringify(ex));
+  delete copy._finishing;delete copy.dirtyCount;delete copy.pendingFinish;
+  var send=function(){
     runSaveTimer=null;
-    var runOnly=runningExamsOnly(S.exams);
-    var upd={state:{exams:runOnly},updated:Date.now(),lastActive:Date.now(),online:true,email:((firebase.auth().currentUser)||{}).email||""};
-    var mf=["state.exams","updated","lastActive","online","email"];
-    if(S._userDeleted&&S._userDeleted.length){upd.userDeleted=S._userDeleted.slice(-100);mf.push("userDeleted");}
-    return d.collection("users").doc(u).set(upd,{mergeFields:mf})
-      .then(function(){runDirty=false;if(!prefsDirty)saveFail(false);}).catch(function(err){console.warn(err);runDirty=true;saveFail(true);});
+    var ops=[
+      {path:["state","runMap",copy.id],val:copy},
+      {path:["updated"],val:Date.now()},
+      {path:["lastActive"],val:Date.now()},
+      {path:["online"],val:true}
+    ];
+    if(S._userDeleted&&S._userDeleted.length)ops.push({path:["userDeleted"],val:S._userDeleted.slice(-100)});
+    return patchUserFields(u,ops).then(function(){
+      runDirty=false;if(!prefsDirty&&!hasFavPending())saveFail(false);
+    }).catch(function(err){console.warn(err);runDirty=true;saveFail(true);});
   };
   clearTimeout(runSaveTimer);runSaveTimer=null;
-  if(immediate)return flush();
-  runSaveTimer=setTimeout(flush,400);return Promise.resolve();
+  if(immediate)return send();
+  runSaveTimer=setTimeout(send,1200);return Promise.resolve();
 }
+
+function removeRunExamFromServer(exId){
+  if(!UID||!DB||!STATE_OK||!exId)return Promise.resolve();
+  var delV=firebase.firestore.FieldValue.delete();
+  var ops=[
+    {path:["state","runMap",exId],val:delV},
+    {path:["state","exams"],val:runningExamsOnly(S.exams).filter(function(x){return x.id!==exId;})},
+    {path:["updated"],val:Date.now()}
+  ];
+  if(S._userDeleted&&S._userDeleted.length)ops.push({path:["userDeleted"],val:S._userDeleted.slice(-100)});
+  return patchUserFields(UID,ops).catch(function(err){console.warn(err);runDirty=true;saveFail(true);});
+}
+
+function flushPendingRunningExams(){
+  if(!UID||!DB||!STATE_OK)return Promise.resolve();
+  var ps=[];
+  if(favTimer||hasFavPending())ps.push(flushPendingFavs(true));
+  if(V.ex&&V.ex.status!=="done"){
+    saveRunLocal(V.ex);
+    if(V.ex.lock)ps.push(saveDraft(V.ex,true));
+    ps.push(saveRunExam(V.ex,true));
+  }else if(runSaveTimer||runDirty){
+    var run0=S.exams.filter(function(x){return x.status!=="done";})[0];
+    if(run0)ps.push(saveRunExam(run0,true));
+  }
+  if(prefsTimer||prefsDirty)ps.push(savePrefs(true));
+  return Promise.all(ps);
+}
+
 function retryAll(){
   if(!UID||!DB)return;
   if(!STATE_OK){
     loadUserDoc().then(function(){
       if(!STATE_OK)return;
       mergeLocalRunningExams();
-      loadDrafts().then(function(){render();});
+      loadDrafts().then(function(){checkExpiredModelTests();render();});
+      flushPendingFavs(true);
       if(prefsDirty||prefsTimer)savePrefs(true);
-      if(runDirty||runSaveTimer)saveRunning(true);
+      if(runDirty||runSaveTimer){var r0=S.exams.filter(function(x){return x.status!=="done";})[0];if(r0)saveRunExam(r0,true);}
       if(pendingTx.length)retryAll();
     });
     return;
   }
+  if(hasFavPending()||favTimer)flushPendingFavs(true);
   if(prefsDirty||prefsTimer)savePrefs(true);
-  if(runDirty||runSaveTimer)saveRunning(true);
+  if(runDirty||runSaveTimer){var r1=S.exams.filter(function(x){return x.status!=="done";})[0];if(r1)saveRunExam(r1,true);}
   var list=pendingTx.slice();pendingTx=[];
   list.forEach(function(p){
     if(p.kind==="finish"){
@@ -289,21 +453,29 @@ function retryAll(){
     }else txProgress(p.mut,p.key);
   });
 }
-window.addEventListener("online",function(){if(!STATE_OK||saveFailing||pendingTx.length)retryAll();});
+window.addEventListener("online",function(){if(!STATE_OK||saveFailing||pendingTx.length||hasFavPending())retryAll();});
 
 function pingPresence(isOnline){if(!UID||!DB)return Promise.resolve();return DB.collection("users").doc(UID).set({lastActive:Date.now(),online:!!isOnline,email:((firebase.auth().currentUser)||{}).email||""},{merge:true}).catch(function(){});}
 function startPresence(){stopPresence();pingPresence(true);hbTimer=setInterval(function(){if(document.visibilityState==="visible")pingPresence(true);},45000);}
 function stopPresence(){if(hbTimer){clearInterval(hbTimer);hbTimer=null;}}
-document.addEventListener("visibilitychange",function(){if(UID&&DB){if(document.visibilityState==="hidden")flushPendingRunningExams();pingPresence(document.visibilityState==="visible");}});
+document.addEventListener("visibilitychange",function(){
+  if(UID&&DB){
+    if(document.visibilityState==="hidden"){
+      if(V.screen==="exam"&&V.ex&&V.ex.status!=="done"){V.ex.updatedAt=Date.now();saveRunLocal(V.ex);}
+      flushPendingRunningExams();
+    }
+    pingPresence(document.visibilityState==="visible");
+  }
+});
 window.addEventListener("pagehide",function(){if(UID&&DB){flushPendingRunningExams();pingPresence(false);}});
 function logUsage(type,data){if(!UID||!DB)return Promise.resolve();return DB.collection("usageLog").add({uid:UID,email:((firebase.auth().currentUser)||{}).email||"",admin:!!ADMIN,type:type,at:Date.now(),data:data||null}).catch(function(){});}
 function saveDraft(e,immediate){
   if(!UID||!DB||!e)return Promise.resolve();
   clearTimeout(draftTimer);draftTimer=null;
-  var u=UID,d=DB,id=e.id,a=JSON.parse(JSON.stringify(e.a||{})),left=e.left;
-  var run=function(){return d.collection("users").doc(u).collection("drafts").doc(id).set({a:a,left:left!=null?left:null,updated:Date.now()}).catch(function(){});};
+  var u=UID,d=DB,id=e.id,a=JSON.parse(JSON.stringify(e.a||{})),ansAt=JSON.parse(JSON.stringify(e.ansAt||{})),left=e.left;
+  var run=function(){return d.collection("users").doc(u).collection("drafts").doc(id).set({a:a,ansAt:ansAt,left:left!=null?left:null,updated:Date.now()}).catch(function(){});};
   if(immediate)return run();
-  draftTimer=setTimeout(function(){draftTimer=null;run();},250);
+  draftTimer=setTimeout(function(){draftTimer=null;run();},350);
   return Promise.resolve();
 }
 function loadDrafts(){
@@ -320,7 +492,107 @@ function loadDrafts(){
   }));
 }
 
-/* ===== ৪. প্রোগ্রেস, মাইগ্রেশন ও অ্যাটেম্পটস ===== */
+function stopLiveSync(){
+  if(userDocUnsub){userDocUnsub();userDocUnsub=null;}
+  if(qMetaUnsub){qMetaUnsub();qMetaUnsub=null;}
+  if(topicsUnsub){topicsUnsub();topicsUnsub=null;}
+  if(activeAttUnsub){activeAttUnsub();activeAttUnsub=null;}
+  if(mtRestUnsub){mtRestUnsub();mtRestUnsub=null;}
+}
+
+function watchQMeta(){
+  if(qMetaUnsub||!DB)return;
+  qMetaUnsub=DB.collection("appConfig").doc("qMeta").onSnapshot(function(sn){
+    if(!sn.exists)return;
+    var d=sn.data()||{};QMETA={qUpd:d.qUpd||0,scoreVer:d.scoreVer||0};
+    var localMax=maxUpdOf(RAW);
+    if(QMETA.qUpd>localMax&&!loadingQNow){
+      loadingQNow=true;
+      loadQuestions().then(function(){
+        loadingQNow=false;QERR="";
+        if(QMETA.scoreVer>(S.lastScoreSync||0))return recomputeMyProgressAndScores(QMETA.scoreVer);
+      }).catch(function(){loadingQNow=false;}).then(function(){safeRender();});
+    }else if(QMETA.scoreVer>(S.lastScoreSync||0)&&!recomputingMine&&Q.length&&STATE_OK){
+      recomputeMyProgressAndScores(QMETA.scoreVer);
+    }
+  },function(err){console.warn(err);});
+}
+
+function watchTopics(){
+  if(topicsUnsub||!DB)return;
+  topicsUnsub=DB.collection("appConfig").doc("topics").onSnapshot(function(sn){
+    if(sn.exists&&Array.isArray(sn.data().list)){TOPIC_LIST=sn.data().list;safeRender();}
+  },function(){});
+}
+
+function watchUserDoc(){
+  if(userDocUnsub||!UID||!DB)return;
+  var u=UID;
+  userDocUnsub=DB.collection("users").doc(u).onSnapshot(function(sn){
+    if(UID!==u||!sn.exists||sn.metadata.hasPendingWrites)return;
+    var d=sn.data()||{},srv=normalize(d.state),changed=false;
+    var fq=readFavQueue(u);
+    var newFav=Object.assign({},srv.fav);
+    Object.keys(fq.fav).forEach(function(k){if(fq.fav[k])newFav[k]=1;else delete newFav[k];});
+    if(JSON.stringify(newFav)!==JSON.stringify(S.fav)){S.fav=newFav;changed=true;}
+    var newFR=Object.assign({},srv.favRound);
+    Object.keys(fq.favRound).forEach(function(k){if(fq.favRound[k])newFR[k]=1;else delete newFR[k];});
+    if(JSON.stringify(newFR)!==JSON.stringify(S.favRound)){S.favRound=newFR;changed=true;}
+    if(!prefsTimer&&!prefsDirty){
+      if(srv.lang&&srv.lang!==S.lang){S.lang=srv.lang;changed=true;}
+      if(srv.theme&&srv.theme!==S.theme){S.theme=srv.theme;applyTheme();changed=true;}
+    }
+    S.lastScoreSync=Math.max(S.lastScoreSync||0,d.lastScoreSync||0);
+    S._adminDeleted=d.adminDeleted||[];S._userDeleted=d.userDeleted||[];
+    var delAll=S._adminDeleted.concat(S._userDeleted);
+    var srvRun=extractServerRunning(d).filter(function(x){return delAll.indexOf(x.id)<0;});
+    var localRunMap={};S.exams.forEach(function(x){if(x.status!=="done")localRunMap[x.id]=x;});
+    var mergedList=[];
+    srvRun.forEach(function(sx){
+      var lx=localRunMap[sx.id];
+      var m=lx?mergeExamObjects(lx,sx):sx;
+      if(V.ex&&V.ex.id===m.id&&V.ex.status!=="done"){
+        var beforeLen=Object.keys(V.ex.a||{}).length;
+        V.ex=Object.assign(V.ex,m);saveRunLocal(V.ex);
+        if(Object.keys(V.ex.a||{}).length!==beforeLen)changed=true;
+      }
+      mergedList.push(m);delete localRunMap[sx.id];
+    });
+    Object.keys(localRunMap).forEach(function(id){
+      if(delAll.indexOf(id)>=0){removeRunLocal(id);return;}
+      mergedList.push(localRunMap[id]);
+    });
+    S.exams=mergedList;
+    if(!finishingCount&&!pendingTx.length&&!recomputingMine){
+      if(JSON.stringify(srv.wrong)!==JSON.stringify(S.wrong)||JSON.stringify(srv.seen)!==JSON.stringify(S.seen)){
+        S.seen=srv.seen;S.wrong=srv.wrong;S.st=srv.st;S.hist=srv.hist;changed=true;
+      }
+    }
+    saveStateCache();
+    if(QMETA.scoreVer>(S.lastScoreSync||0)&&!recomputingMine&&Q.length&&STATE_OK)recomputeMyProgressAndScores(QMETA.scoreVer);
+    if(changed&&!V.screen&&!V.edit)safeRender();
+  },function(err){console.warn(err);});
+}
+
+function stopActiveAttemptWatch(){if(activeAttUnsub){activeAttUnsub();activeAttUnsub=null;}}
+function watchActiveAttempt(exId){
+  stopActiveAttemptWatch();
+  if(!UID||!DB||!exId)return;
+  var u=UID;
+  activeAttUnsub=DB.collection("users").doc(u).collection("attempts").doc(exId).onSnapshot(function(sn){
+    if(UID!==u||!sn.exists||!V.ex||V.ex.id!==exId||V.ex._finishing||V.ex.status==="done")return;
+    var existing=sn.data();if(!existing||existing.deletedAt)return;
+    stopExamTimer();stopActiveAttemptWatch();
+    V.ex=existing;S.exams=runningExamsOnly(S.exams).filter(function(x){return x.id!==exId;});removeRunLocal(exId);
+    if(existing.mtId){V.mtAttended[existing.mtId]=existing;if(V.mtAtt.loaded)V.mtAtt.items=[existing].concat(V.mtAtt.items.filter(function(x){return x.id!==existing.id;}));}
+    else{V.justDone=V.justDone||{};V.justDone[existing.id]=existing;if(V.att.loaded)V.att.items=[existing].concat(V.att.items.filter(function(x){return x.id!==existing.id;}));}
+    saveStateCache();
+    navReplace(function(){V.screen="result";});
+    setTimeout(function(){alert(S.lang==="bn"?"এই পরীক্ষাটি অন্য ডিভাইস থেকে জমা দেওয়া হয়েছে!":"This exam was submitted from another device!");},50);
+  },function(){});
+}
+
+/* ===== ৪. প্রোগ্রেস, ট্র্যাশ, রিস্টোর, অটো-রিক্যালকুলেশন ও অ্যাটেম্পটস ===== */
 function computeResultStats(ex){
   var ids=(ex.ids||[]).filter(function(id){return !!BY[id];}),c=0,w=0,exNeg=ex.neg!=null?ex.neg:NEG;
   ids.forEach(function(id){var a=(ex.a||{})[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
@@ -336,12 +608,13 @@ function applyFinish(st,ex){
   st.hist.unshift({d:ex.finishedAt||ex.at,t:ex.name,n:r.n,c:r.c,w:r.w,sc:r.sc});st.hist=st.hist.slice(0,30);
 }
 function computeProgressFromAttempts(attempts){
-  var sorted=(attempts||[]).slice().sort(function(a,b){return ((a.finishedAt||a.at||0)-(b.finishedAt||b.at||0));});
+  var active=(attempts||[]).filter(function(ex){return ex&&!ex.deletedAt;});
+  active.sort(function(a,b){return ((a.finishedAt||a.at||0)-(b.finishedAt||b.at||0));});
   var seen={},wrong={},st={},hist=[];
-  sorted.forEach(function(ex){
+  active.forEach(function(ex){
     (ex.ids||[]).forEach(function(id){
       var a=(ex.a||{})[id];if(a===undefined||!BY[id])return;
-      seen[id]=1;var s3=st[id]=st[id]||[0,0];
+      seen[id]=1;var s3=st.st[id]=st.st[id]||[0,0];
       if(a===BY[id].a){s3[0]++;delete wrong[id];}else{s3[1]++;wrong[id]=1;}
     });
     var r=ex.r||computeResultStats(ex);
@@ -349,6 +622,64 @@ function computeProgressFromAttempts(attempts){
   });
   return {seen:seen,wrong:wrong,st:st,hist:hist.slice(0,30)};
 }
+function sameRes(a,b){
+  if(!a||!b)return false;
+  return a.n===b.n&&a.c===b.c&&a.w===b.w&&a.sk===b.sk&&Math.abs((a.sc||0)-(b.sc||0))<0.001;
+}
+function recomputeUserProgressByUid(uid,targetScoreVer){
+  if(!uid||!DB||!Q.length)return Promise.resolve(null);
+  var uRef=DB.collection("users").doc(uid),em="";
+  return Promise.all([uRef.get(),uRef.collection("attempts").get()]).then(function(res){
+    var uData=res[0].exists?(res[0].data()||{}):{};em=uData.email||"";
+    var snap=res[1],all=[],active=[],expired=[],now=Date.now();
+    snap.forEach(function(doc){
+      var d=doc.data();if(!d)return;
+      if(d.deletedAt&&d.expireAt&&d.expireAt<=now){expired.push(d);return;}
+      all.push(d);if(!d.deletedAt)active.push(d);
+    });
+    var jobs=[];
+    expired.forEach(function(ex){
+      jobs.push(uRef.collection("attempts").doc(ex.id).delete().catch(function(){}));
+      jobs.push(uRef.collection("drafts").doc(ex.id).delete().catch(function(){}));
+      if(ex.mtId){
+        jobs.push(DB.collection("modelTests").doc(ex.mtId).collection("scores").doc(uid).delete().catch(function(){}));
+        jobs.push(DB.collection("mtRestoreRequests").doc(uid+"_"+ex.mtId).delete().catch(function(){}));
+      }
+    });
+    active.forEach(function(ex){
+      var nr=computeResultStats(ex);
+      if(!sameRes(ex.r,nr)){
+        ex.r=nr;
+        jobs.push(uRef.collection("attempts").doc(ex.id).update({r:nr}).catch(function(){}));
+        if(ex.mtId){
+          jobs.push(DB.collection("modelTests").doc(ex.mtId).collection("scores").doc(uid).set({uid:uid,email:em,c:nr.c,w:nr.w,sk:nr.sk,sc:nr.sc,finishedAt:ex.finishedAt||ex.at}).catch(function(){}));
+        }
+      }
+    });
+    var prog=computeProgressFromAttempts(active);
+    var ver=(targetScoreVer!=null)?targetScoreVer:(QMETA.scoreVer||Date.now());
+    var updObj={"state.seen":prog.seen,"state.wrong":prog.wrong,"state.st":prog.st,"state.hist":prog.hist,lastScoreSync:ver,updated:Date.now()};
+    jobs.push(uRef.update(updObj).catch(function(){return uRef.set({state:prog,lastScoreSync:ver,updated:Date.now()},{merge:true});}));
+    return Promise.all(jobs).then(function(){return {prog:prog,active:active,all:all,scoreVer:ver};});
+  });
+}
+
+function recomputeMyProgressAndScores(targetScoreVer){
+  if(!UID||!DB||!Q.length||recomputingMine)return Promise.resolve();
+  recomputingMine=true;var u=UID;
+  return recomputeUserProgressByUid(u,targetScoreVer).then(function(res){
+    recomputingMine=false;if(!res||UID!==u)return;
+    S.seen=res.prog.seen;S.wrong=res.prog.wrong;S.st=res.prog.st;S.hist=res.prog.hist;S.lastScoreSync=res.scoreVer;
+    var activeMap={};res.active.forEach(function(x){activeMap[x.id]=x;});
+    if(V.att.loaded){V.att.items=res.active.filter(function(x){return !x.mtId;}).sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});V.att.hasMore=false;}
+    if(V.mtAtt.loaded){V.mtAtt.items=res.active.filter(function(x){return !!x.mtId;}).sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});}
+    res.all.forEach(function(x){if(x.mtId){V.mtAttended[x.mtId]=x.deletedAt?{trashed:true,ex:x}:x;}});
+    if(V.ex&&activeMap[V.ex.id])V.ex=activeMap[V.ex.id];
+    if(V.trash.loaded)V.trash.items=res.all.filter(function(x){return !!x.deletedAt;}).sort(function(a,b){return (b.deletedAt||0)-(a.deletedAt||0);});
+    saveStateCache();safeRender();
+  }).catch(function(err){recomputingMine=false;console.warn(err);});
+}
+
 function txProgress(mut,key){
   if(!UID||!DB)return Promise.resolve();
   var u=UID,ref=DB.collection("users").doc(u);
@@ -363,10 +694,11 @@ function txProgress(mut,key){
     });
   }).then(function(srv){
     if(!srv||UID!==u)return;
-    S.seen=srv.seen;S.wrong=srv.wrong;S.st=srv.st;S.hist=srv.hist;saveFail(false);
-    if(V.tab==="home"&&!V.screen)render();
+    S.seen=srv.seen;S.wrong=srv.wrong;S.st=srv.st;S.hist=srv.hist;saveStateCache();saveFail(false);
+    if(V.tab==="home"&&!V.screen)safeRender();
   }).catch(function(err){console.warn(err);pendingTx.push({kind:"tx",mut:mut,key:key});saveFail(true);});
 }
+
 function commitFinish(exRaw){
   if(!UID||!DB)return Promise.resolve();
   var exCopy=JSON.parse(JSON.stringify(exRaw));
@@ -379,19 +711,20 @@ function commitFinish(exRaw){
     return Promise.all([tx.get(userRef),tx.get(attRef),scRef?tx.get(scRef):Promise.resolve(null)]).then(function(res){
       if(UID!==u)return null;
       var sn=res[0],attSn=res[1],data=sn.data()||{},srv=normalize(data.state),ap=(data.applied||[]).slice(),key="f:"+exCopy.id;
-      srv.exams=runningExamsOnly(srv.exams).filter(function(x){return x.id!==exCopy.id;});
+      var runMap=Object.assign({},srv.runMap||{});delete runMap[exCopy.id];
+      var remExams=runningExamsOnly(srv.exams).filter(function(x){return x.id!==exCopy.id;});
       if(attSn.exists||ap.indexOf(key)>=0){
-        if(scRef&&attSn.exists&&!(res[2]&&res[2].exists))tx.set(scRef,scoreDoc(attSn.data()));
-        tx.set(userRef,{state:{exams:srv.exams},updated:Date.now()},{mergeFields:["state.exams","updated"]});
+        if(scRef&&attSn.exists&&!attSn.data().deletedAt&&!(res[2]&&res[2].exists))tx.set(scRef,scoreDoc(attSn.data()));
+        tx.set(userRef,{state:{exams:remExams,runMap:runMap},updated:Date.now()},{mergeFields:["state.exams","state.runMap","updated"]});
         return {alreadyDone:true,srv:srv,existing:attSn.exists?attSn.data():null};
       }
       applyFinish(srv,exCopy);ap.push(key);
       tx.set(attRef,exCopy);
       if(scRef)tx.set(scRef,scoreDoc(exCopy));
       tx.set(userRef,{
-        state:{seen:srv.seen,wrong:srv.wrong,st:srv.st,hist:srv.hist,exams:srv.exams},
+        state:{seen:srv.seen,wrong:srv.wrong,st:srv.st,hist:srv.hist,exams:remExams,runMap:runMap},
         applied:ap.slice(-300),updated:Date.now(),lastActive:Date.now(),online:true
-      },{mergeFields:["state.seen","state.wrong","state.st","state.hist","state.exams","applied","updated","lastActive","online"]});
+      },{mergeFields:["state.seen","state.wrong","state.st","state.hist","state.exams","state.runMap","applied","updated","lastActive","online"]});
       return {alreadyDone:false,srv:srv,ap:ap.slice(-300)};
     });
   }).then(function(res){
@@ -402,9 +735,9 @@ function commitFinish(exRaw){
     if(res.ap)APPLIED=res.ap;
     S.exams=runningExamsOnly(S.exams).filter(function(x){return x.id!==exCopy.id;});
     removeRunLocal(exCopy.id);
-    if(exCopy.lock)d.collection("users").doc(u).collection("drafts").doc(exCopy.id).delete().catch(function(){});
+    d.collection("users").doc(u).collection("drafts").doc(exCopy.id).delete().catch(function(){});
     if(res.alreadyDone){
-      if(res.existing){
+      if(res.existing&&!res.existing.deletedAt){
         if(V.ex&&V.ex.id===exCopy.id)V.ex=res.existing;
         if(res.existing.mtId){
           V.mtAttended[res.existing.mtId]=res.existing;
@@ -414,12 +747,14 @@ function commitFinish(exRaw){
           if(V.att.loaded)V.att.items=[res.existing].concat(V.att.items.filter(function(x){return x.id!==res.existing.id;}));
         }
       }
-      saveFail(false);
+      saveStateCache();saveFail(false);
       if(res.existing&&exCopy.finishedAt&&res.existing.finishedAt!==exCopy.finishedAt)alert(S.lang==="bn"?"এই পরীক্ষাটি ইতিমধ্যে অন্য ডিভাইস থেকে জমা দেওয়া হয়েছে!":"This exam was already submitted from another device!");
       render();
       return;
     }
-    saveFail(false);
+    saveStateCache();saveFail(false);
+    /* অফলাইনে পুরোনো পরীক্ষা দেরিতে সিঙ্ক হলে সঠিক ক্রমে প্রোগ্রেস নিশ্চিত করতে রিক্যালকুলেট */
+    if(Q.length&&!recomputingMine)recomputeMyProgressAndScores(QMETA.scoreVer||S.lastScoreSync||0);
   }).catch(function(err){
     finishingCount=Math.max(0,finishingCount-1);console.warn(err);
     var pCopy=JSON.parse(JSON.stringify(exCopy));pCopy.pendingFinish=true;saveRunLocal(pCopy);
@@ -427,6 +762,46 @@ function commitFinish(exRaw){
     saveFail(true);
   });
 }
+
+function finalizeExamObject(ex,auto,customFinTime){
+  if(!ex||ex.status==="done"||ex._finishing)return;
+  ex._finishing=true;clearTimeout(draftTimer);draftTimer=null;clearTimeout(runSaveTimer);runSaveTimer=null;
+  var r=computeResultStats(ex);
+  ex.r=r;ex.status="done";ex.finishedAt=customFinTime||Date.now();ex.v2=1;
+  var exCopy=JSON.parse(JSON.stringify(ex));
+  delete exCopy._finishing;delete exCopy.dirtyCount;delete exCopy.pendingFinish;
+  /* সার্ভার কল করার আগেই লোকাল স্টোরেজে pendingFinish নিশ্চিত করা */
+  var pLocal=JSON.parse(JSON.stringify(exCopy));pLocal.pendingFinish=true;saveRunLocal(pLocal);
+  applyFinish(S,exCopy);
+  S.exams=runningExamsOnly(S.exams).filter(function(x){return x.id!==exCopy.id;});
+  if(exCopy.mtId){
+    V.mtAttended[exCopy.mtId]=exCopy;
+    if(V.mtAtt.loaded)V.mtAtt.items=[exCopy].concat(V.mtAtt.items.filter(function(x){return x.id!==exCopy.id;}));
+  }else{
+    V.justDone=V.justDone||{};V.justDone[exCopy.id]=exCopy;
+    if(V.att.loaded)V.att.items=[exCopy].concat(V.att.items.filter(function(x){return x.id!==exCopy.id;}));
+  }
+  saveStateCache();
+  logUsage("exam_finish",{id:exCopy.id,name:exCopy.name,mtId:exCopy.mtId||null,c:r.c,w:r.w,sc:r.sc,auto:!!auto});
+  commitFinish(exCopy);
+  return exCopy;
+}
+
+function checkExpiredModelTests(){
+  if(!UID||!DB||!STATE_OK||!Q.length||!MT_LIST.length)return;
+  var now=Date.now(),changed=false;
+  S.exams.slice().forEach(function(x){
+    if(!x||x.status==="done"||!x.mtId)return;
+    var mt=MT_LIST.filter(function(m){return m.id===x.mtId;})[0];
+    if(mt&&mt.endAt<=now){
+      finalizeExamObject(x,true,mt.endAt);
+      if(V.ex&&V.ex.id===x.id&&V.screen==="exam")navReplace(function(){V.screen="result";});
+      changed=true;
+    }
+  });
+  if(changed)safeRender();
+}
+
 function migrateOldExams(){
   if(!UID||!DB||!STATE_OK)return Promise.resolve();
   var oldDone=S.exams.filter(function(x){return x&&x.status==="done";});
@@ -448,6 +823,7 @@ function migrateOldExams(){
     return d.collection("users").doc(u).update({"state.exams":S.exams,updated:Date.now()});
   }).catch(function(err){console.warn("মাইগ্রেশন:",err);});
 }
+
 function mergeLocalRunningExams(){
   if(!UID)return;
   var localMap=readRunLocal(UID).exams,del=(S._adminDeleted||[]).concat(S._userDeleted||[]),byId={};
@@ -455,15 +831,19 @@ function mergeLocalRunningExams(){
   Object.keys(localMap).forEach(function(id){
     var loc=localMap[id];if(!loc)return;
     if(del.indexOf(id)>=0){removeRunLocal(id);return;}
-    if(loc.pendingFinish){delete byId[id];if(APPLIED.indexOf("f:"+id)>=0){removeRunLocal(id);return;}if(Q.length)commitFinish(loc);return;}
-    if(APPLIED.indexOf("f:"+id)>=0){removeRunLocal(id);return;}
+    if(loc.pendingFinish){
+      delete byId[id];
+      if(Q.length&&STATE_OK)commitFinish(loc);
+      else if(!pendingTx.some(function(p){return p.kind==="finish"&&p.ex.id===loc.id;}))pendingTx.push({kind:"finish",ex:loc});
+      return;
+    }
     if(loc.status==="done"){removeRunLocal(id);return;}
-    var srv=byId[id];if(!srv){byId[id]=loc;return;}
-    if(loc.lock){srv.a=Object.assign({},loc.a||{},srv.a||{});if(loc.left!=null&&(srv.left==null||loc.left<srv.left))srv.left=loc.left;byId[id]=srv;}
-    else if((loc.updatedAt||0)>(srv.updatedAt||0))byId[id]=loc;
+    var srv=byId[id];
+    byId[id]=srv?mergeExamObjects(loc,srv):loc;
   });
   S.exams=Object.keys(byId).map(function(k){return byId[k];});
 }
+
 function loadMoreAttempts(reset){
   if(!UID||!DB||V.att.loading||(!reset&&!V.att.hasMore))return;
   V.att.loading=true;V.att.err="";
@@ -472,80 +852,226 @@ function loadMoreAttempts(reset){
   function step(){
     var qy=DB.collection("users").doc(UID).collection("attempts").orderBy("finishedAt","desc");
     if(cursor)qy=qy.startAfter(cursor);
-    return qy.limit(10).get().then(function(snap){
-      var docs=snap.docs,more=docs.length===10,broke=false;
+    return qy.limit(12).get().then(function(snap){
+      var docs=snap.docs,more=docs.length===12,broke=false;
       for(var i=0;i<docs.length;i++){
         var d=docs[i].data();
-        if(d&&d.mtId){V.mtAttended[d.mtId]=d;cursor=docs[i];continue;}
+        if(!d){cursor=docs[i];continue;}
+        if(d.deletedAt){cursor=docs[i];continue;}
+        if(d.mtId){V.mtAttended[d.mtId]=d;cursor=docs[i];continue;}
         if(added>=target){more=true;broke=true;break;}
         cursor=docs[i];
-        if(d&&!seen[d.id]){seen[d.id]=1;items.push(d);added++;}
+        if(!seen[d.id]){seen[d.id]=1;items.push(d);added++;}
       }
       if(!broke&&more&&added<target)return step();
       if(reset&&V.justDone){
-        Object.keys(V.justDone).forEach(function(jid){if(!seen[jid]){seen[jid]=1;items.unshift(V.justDone[jid]);}});
+        Object.keys(V.justDone).forEach(function(jid){if(!seen[jid]&&!V.justDone[jid].deletedAt){seen[jid]=1;items.unshift(V.justDone[jid]);}});
         items.sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});
       }
       V.att={items:items,lastDoc:cursor,hasMore:more,loading:false,loaded:true,err:""};
-      render();
+      saveStateCache();render();
     });
   }
   step().catch(function(err){V.att.loading=false;V.att.loaded=true;V.att.err=err.message;render();});
 }
+
 function loadMTFolderAttempts(){
   if(!UID||!DB||V.mtAtt.loading)return;
   V.mtAtt.loading=true;V.mtAtt.err="";
   DB.collection("users").doc(UID).collection("attempts").where("mtId",">","").get().then(function(snap){
     var items=[],seen={};
-    snap.forEach(function(doc){var d=doc.data();if(d&&!seen[d.id]){seen[d.id]=1;items.push(d);V.mtAttended[d.mtId]=d;}});
-    Object.keys(V.mtAttended).forEach(function(mtId){var x=V.mtAttended[mtId];if(x&&x.ids&&!seen[x.id]){seen[x.id]=1;items.push(x);}});
+    snap.forEach(function(doc){
+      var d=doc.data();if(!d)return;
+      if(d.deletedAt){V.mtAttended[d.mtId]={trashed:true,ex:d};return;}
+      if(!seen[d.id]){seen[d.id]=1;items.push(d);V.mtAttended[d.mtId]=d;}
+    });
+    Object.keys(V.mtAttended).forEach(function(mtId){var x=V.mtAttended[mtId];if(x&&x.ids&&!x.deletedAt&&!seen[x.id]){seen[x.id]=1;items.push(x);}});
     items.sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});
     V.mtAtt={items:items,loading:false,loaded:true,err:"",showN:V.mtAtt.showN||MT_PAGE};
-    render();
+    saveStateCache();render();
   }).catch(function(err){V.mtAtt.loading=false;V.mtAtt.loaded=true;V.mtAtt.err=err.message;render();});
 }
+
+function loadTrashAttempts(){
+  if(!UID||!DB||V.trash.loading)return;
+  V.trash.loading=true;V.trash.err="";
+  Promise.all([
+    DB.collection("users").doc(UID).collection("attempts").where("deletedAt",">",0).get(),
+    DB.collection("mtRestoreRequests").where("uid","==",UID).get().catch(function(){return {forEach:function(){}};})
+  ]).then(function(res){
+    var items=[],expired=[],now=Date.now();
+    res[0].forEach(function(doc){
+      var d=doc.data();if(!d||!d.deletedAt)return;
+      if(d.expireAt&&d.expireAt<=now)expired.push(d);
+      else items.push(d);
+    });
+    V.myMtRestoreReqs={};
+    res[1].forEach(function(doc){var r=doc.data();if(r&&r.mtId)V.myMtRestoreReqs[r.mtId]=Object.assign({rid:doc.id},r);});
+    items.sort(function(a,b){return (b.deletedAt||0)-(a.deletedAt||0);});
+    V.trash={items:items,loading:false,loaded:true,err:""};
+    if(expired.length)Promise.all(expired.map(function(ex){return purgeAttempt(UID,ex,true);})).catch(function(){});
+    render();
+  }).catch(function(err){V.trash.loading=false;V.trash.loaded=true;V.trash.err=err.message;render();});
+}
+
 function loadUserAttempts(uid,reset){
   if(!uid||!DB)return;
   if(V.uatt.uid===uid&&V.uatt.loading)return;
   if(V.uatt.uid!==uid){reset=true;V.uatt=freshUserAtt();V.uatt.uid=uid;}
   if(!reset&&!V.uatt.hasMore)return;
   V.uatt.loading=true;V.uatt.err="";
-  var qy=DB.collection("users").doc(uid).collection("attempts").orderBy("finishedAt","desc");
-  if(!reset&&V.uatt.lastDoc)qy=qy.startAfter(V.uatt.lastDoc);
-  qy.limit(10).get().then(function(snap){
-    if(V.uatt.uid!==uid)return;
-    var items=reset?[]:V.uatt.items.slice(),seen={};items.forEach(function(x){seen[x.id]=1;});
-    snap.forEach(function(doc){var d=doc.data();if(d&&!seen[d.id]){seen[d.id]=1;items.push(d);}});
-    V.uatt={uid:uid,items:items,lastDoc:snap.docs.length?snap.docs[snap.docs.length-1]:(reset?null:V.uatt.lastDoc),hasMore:snap.docs.length===10,loading:false,loaded:true,err:""};
-    render();
-  }).catch(function(err){V.uatt.loading=false;V.uatt.loaded=true;V.uatt.err=err.message;render();});
+  var items=reset?[]:V.uatt.items.slice(),seen={},cursor=reset?null:V.uatt.lastDoc,added=0;
+  items.forEach(function(x){seen[x.id]=1;});
+  function step(){
+    var qy=DB.collection("users").doc(uid).collection("attempts").orderBy("finishedAt","desc");
+    if(cursor)qy=qy.startAfter(cursor);
+    return qy.limit(12).get().then(function(snap){
+      if(V.uatt.uid!==uid)return;
+      var docs=snap.docs,more=docs.length===12,broke=false;
+      for(var i=0;i<docs.length;i++){
+        var d=docs[i].data();
+        if(!d||d.deletedAt){cursor=docs[i];continue;}
+        if(added>=10){more=true;broke=true;break;}
+        cursor=docs[i];
+        if(!seen[d.id]){seen[d.id]=1;items.push(d);added++;}
+      }
+      if(!broke&&more&&added<10)return step();
+      V.uatt=Object.assign({},V.uatt,{uid:uid,items:items,lastDoc:cursor,hasMore:more,loading:false,loaded:true,err:""});
+      render();
+    });
+  }
+  step().catch(function(err){V.uatt.loading=false;V.uatt.loaded=true;V.uatt.err=err.message;render();});
 }
-function syncAfterAttemptDelete(uid,ex,isAdminDel){
+
+function loadUserTrash(uid){
+  if(!uid||!DB||V.uatt.trashLoading)return;
+  V.uatt.trashLoading=true;
+  DB.collection("users").doc(uid).collection("attempts").where("deletedAt",">",0).get().then(function(snap){
+    if(V.uatt.uid!==uid)return;
+    var tr=[],exp=[],now=Date.now();
+    snap.forEach(function(doc){
+      var d=doc.data();if(!d||!d.deletedAt)return;
+      if(d.expireAt&&d.expireAt<=now)exp.push(d);else tr.push(d);
+    });
+    tr.sort(function(a,b){return (b.deletedAt||0)-(a.deletedAt||0);});
+    V.uatt.trashed=tr;V.uatt.trashLoaded=true;V.uatt.trashLoading=false;
+    if(exp.length)Promise.all(exp.map(function(ex){return purgeAttempt(uid,ex,true);})).catch(function(){});
+    render();
+  }).catch(function(err){V.uatt.trashLoading=false;V.uatt.err=err.message;render();});
+}
+
+function syncUserProgAfterAttChange(uid){
   var uRef=DB.collection("users").doc(uid);
-  var jobs=[uRef.collection("attempts").doc(ex.id).delete().catch(function(){}),uRef.collection("drafts").doc(ex.id).delete().catch(function(){})];
-  if(ex.mtId)jobs.push(DB.collection("modelTests").doc(ex.mtId).collection("scores").doc(uid).delete().catch(function(){}));
-  return Promise.all(jobs).then(function(){return uRef.collection("attempts").get();}).then(function(snap){
-    var all=[];snap.forEach(function(d){var dat=d.data();if(dat&&dat.id!==ex.id)all.push(dat);});
-    var prog=computeProgressFromAttempts(all);
+  return uRef.collection("attempts").get().then(function(snap){
+    var active=[],all=[];
+    snap.forEach(function(d){var dat=d.data();if(dat){all.push(dat);if(!dat.deletedAt)active.push(dat);}});
+    var prog=computeProgressFromAttempts(active);
     return DB.runTransaction(function(tx){
       return tx.get(uRef).then(function(sn){
-        var data=sn.data()||{},srv=normalize(data.state),remRun=runningExamsOnly(srv.exams).filter(function(x){return x.id!==ex.id;});
-        var updObj={"state.seen":prog.seen,"state.wrong":prog.wrong,"state.st":prog.st,"state.hist":prog.hist,"state.exams":remRun,updated:Date.now()};
-        if(isAdminDel){var ad=(data.adminDeleted||[]).slice();if(ad.indexOf(ex.id)<0)ad.push(ex.id);updObj.adminDeleted=ad.slice(-100);}
-        tx.update(uRef,updObj);
-        return {prog:prog,exams:remRun};
+        var data=sn.data()||{},srv=normalize(data.state);
+        tx.update(uRef,{"state.seen":prog.seen,"state.wrong":prog.wrong,"state.st":prog.st,"state.hist":prog.hist,updated:Date.now()});
+        return {prog:prog,active:active,all:all,srv:srv};
       });
     });
   });
 }
 
-/* ===== ৫. প্রশ্নব্যাংক, ক্যাশ ও টপিক কনফিগ (appConfig) ===== */
+function moveAttemptToTrash(uid,ex,byRole){
+  var uRef=DB.collection("users").doc(uid),now=Date.now(),exp=now+TRASH_MS;
+  var upd={deletedAt:now,deletedBy:byRole||"student",expireAt:exp};
+  var jobs=[uRef.collection("attempts").doc(ex.id).update(upd)];
+  if(ex.mtId)jobs.push(DB.collection("modelTests").doc(ex.mtId).collection("scores").doc(uid).delete().catch(function(){}));
+  return Promise.all(jobs).then(function(){return syncUserProgAfterAttChange(uid);});
+}
+
+function restoreAttemptFromTrash(uid,ex){
+  var uRef=DB.collection("users").doc(uid),delV=firebase.firestore.FieldValue.delete();
+  var r=computeResultStats(ex);
+  var jobs=[
+    uRef.collection("attempts").doc(ex.id).update({deletedAt:delV,deletedBy:delV,expireAt:delV,r:r}),
+    uRef.get().then(function(sn){
+      if(!ex.mtId)return;
+      var em=(sn.data()||{}).email||"";
+      return DB.collection("modelTests").doc(ex.mtId).collection("scores").doc(uid).set({uid:uid,email:em,c:r.c,w:r.w,sk:r.sk,sc:r.sc,finishedAt:ex.finishedAt||ex.at});
+    }),
+    ex.mtId?DB.collection("mtRestoreRequests").doc(uid+"_"+ex.mtId).delete().catch(function(){}):Promise.resolve()
+  ];
+  return Promise.all(jobs).then(function(){return syncUserProgAfterAttChange(uid);});
+}
+
+function purgeAttempt(uid,ex,silent){
+  var uRef=DB.collection("users").doc(uid);
+  var jobs=[
+    uRef.collection("attempts").doc(ex.id).delete().catch(function(){}),
+    uRef.collection("drafts").doc(ex.id).delete().catch(function(){})
+  ];
+  if(ex.mtId){
+    jobs.push(DB.collection("modelTests").doc(ex.mtId).collection("scores").doc(uid).delete().catch(function(){}));
+    jobs.push(DB.collection("mtRestoreRequests").doc(uid+"_"+ex.mtId).delete().catch(function(){}));
+  }
+  return Promise.all(jobs).then(function(){
+    if(silent)return null;
+    return syncUserProgAfterAttChange(uid);
+  });
+}
+
+function requestMTRestore(ex){
+  if(!UID||!DB||!ex||!ex.mtId)return;
+  var docId=UID+"_"+ex.mtId,em=((firebase.auth().currentUser)||{}).email||"";
+  var obj={uid:UID,email:em,exId:ex.id,mtId:ex.mtId,title:ex.name,status:"pending",createdAt:Date.now(),deletedAt:ex.deletedAt||Date.now()};
+  DB.collection("mtRestoreRequests").doc(docId).set(obj).then(function(){
+    V.myMtRestoreReqs[ex.mtId]=Object.assign({rid:docId},obj);
+    alert(S.lang==="bn"?"মডেল টেস্ট ফিরিয়ে আনার অনুরোধ অ্যাডমিনের কাছে পাঠানো হয়েছে।":"Restore request sent to admin.");
+    render();
+  }).catch(function(err){alert("পাঠানো যায়নি: "+err.message);});
+}
+
+function watchMTRestoreReqs(){
+  if(mtRestUnsub||!ADMIN||!DB)return;
+  mtRestUnsub=DB.collection("mtRestoreRequests").where("status","==","pending").onSnapshot(function(snap){
+    V.mtRestReqs=[];snap.forEach(function(d){V.mtRestReqs.push(Object.assign({rid:d.id},d.data()));});
+    V.mtRestReqs.sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
+    V.mtRestCnt=V.mtRestReqs.length;
+    if(V.tab==="admin"&&V.admReqs)safeRender();else if(typeof updateNotifBadges==="function")updateNotifBadges();
+  },function(err){console.warn(err);});
+}
+
+function approveMTRestore(rid){
+  var req=V.mtRestReqs.filter(function(x){return x.rid===rid;})[0];if(!req)return;
+  DB.collection("users").doc(req.uid).collection("attempts").doc(req.exId).get().then(function(sn){
+    if(!sn.exists)throw new Error("ট্র্যাশে এই মডেল টেস্টটি আর পাওয়া যায়নি (হয়তো ৭ দিন পার হয়েছে)।");
+    return restoreAttemptFromTrash(req.uid,sn.data());
+  }).then(function(res){
+    return DB.collection("mtRestoreRequests").doc(rid).update({status:"approved",reviewedAt:Date.now()}).then(function(){return res;});
+  }).then(function(res){
+    V.mtRestReqs=V.mtRestReqs.filter(function(x){return x.rid!==rid;});V.mtRestCnt=V.mtRestReqs.length;
+    if(V.usrSel===req.uid&&res){V.uatt.items=res.active.sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});V.uatt.trashLoaded=false;}
+    alert("মডেল টেস্টটি সফলভাবে ফিরিয়ে আনা হয়েছে এবং মেরিট লিস্ট আপডেট হয়েছে।");render();
+  }).catch(function(err){alert("সমস্যা: "+err.message);});
+}
+
+function rejectMTRestore(rid){
+  if(!confirm("এই মডেল টেস্ট রিস্টোর অনুরোধটি বাতিল করবেন?"))return;
+  DB.collection("mtRestoreRequests").doc(rid).update({status:"rejected",reviewedAt:Date.now()}).then(function(){
+    V.mtRestReqs=V.mtRestReqs.filter(function(x){return x.rid!==rid;});V.mtRestCnt=V.mtRestReqs.length;render();
+  }).catch(function(err){alert("সমস্যা: "+err.message);});
+}
+
+/* ===== ৫. প্রশ্নব্যাংক, ক্যাশ, qMeta ও টপিক কনফিগ ===== */
 function idb(){return new Promise(function(res,rej){var r=indexedDB.open("corui-quiz",1);r.onupgradeneeded=function(){r.result.createObjectStore("kv");};r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};});}
 function cacheGet(){return idb().then(function(db){return new Promise(function(res){var t=db.transaction("kv").objectStore("kv").get("questions");t.onsuccess=function(){res(t.result||null);};t.onerror=function(){res(null);};});}).catch(function(){return null;});}
 function cachePut(v){return idb().then(function(db){return new Promise(function(res){var t=db.transaction("kv","readwrite");t.objectStore("kv").put(v,"questions");t.oncomplete=function(){res();};t.onerror=function(){res();};});}).catch(function(){});}
 function maxUpdOf(map){var m=0;Object.keys(map).forEach(function(k){if((map[k].upd||0)>m)m=map[k].upd||0;});return m;}
-function nextUpd(){return Math.max(Date.now(),maxUpdOf(RAW)+1);}
+function nextUpd(){return Math.max(Date.now(),maxUpdOf(RAW)+1,QMETA.qUpd+1);}
 function syncQuestionCache(){return cachePut({ver:1,map:RAW,maxUpd:maxUpdOf(RAW),at:Date.now()});}
+function bumpQMeta(updTs,scoreChanged){
+  if(!ADMIN||!DB)return Promise.resolve();
+  var u=updTs||nextUpd(),patch={qUpd:u,updated:Date.now()};
+  if(scoreChanged)patch.scoreVer=u;
+  QMETA.qUpd=Math.max(QMETA.qUpd||0,u);
+  if(scoreChanged)QMETA.scoreVer=Math.max(QMETA.scoreVer||0,u);
+  return DB.collection("appConfig").doc("qMeta").set(patch,{merge:true}).catch(function(){});
+}
 function buildFrom(map){
   var out={};Object.keys(map).forEach(function(id){var data=map[id];if(data&&!data.deleted)out[id]=Object.assign({},data,{id:id});});
   var arr=Object.keys(out).map(function(k){return out[k];});arr.sort(function(a,b){return (a.ord||0)-(b.ord||0);});
@@ -580,10 +1106,10 @@ function masterTopics(){
 
 /* ===== ৬. অ্যাপ বুট, অথেনটিকেশন ও লগআউট ক্লিনআপ ===== */
 function clearSessionState(){
-  clearTimeout(prefsTimer);prefsTimer=null;clearTimeout(runSaveTimer);runSaveTimer=null;
+  clearTimeout(prefsTimer);prefsTimer=null;clearTimeout(favTimer);favTimer=null;clearTimeout(runSaveTimer);runSaveTimer=null;
   clearTimeout(draftTimer);draftTimer=null;clearTimeout(retryT);retryT=null;
-  pendingTx=[];APPLIED=[];saveFailing=false;finishingCount=0;prefsDirty=false;runDirty=false;STATE_OK=false;saveBar("");
-  stopExamTimer();stopPresence();stopUsersWatch();stopReqsWatch();stopMTWatch();
+  pendingTx=[];APPLIED=[];saveFailing=false;finishingCount=0;prefsDirty=false;runDirty=false;STATE_OK=false;recomputingMine=false;loadingQNow=false;saveBar("");
+  stopExamTimer();stopPresence();stopUsersWatch();stopReqsWatch();stopMTWatch();stopLiveSync();
   S=normalize(null);V=freshV();applyCfgFromState();applyTheme();
 }
 function loadUserDoc(){
@@ -592,12 +1118,17 @@ function loadUserDoc(){
   return DB.collection("users").doc(u).get().then(function(snapData){
     if(UID!==u)return;
     var d=snapData.data()||{};
-    S=normalize(d.state);STATE_OK=true;APPLIED=d.applied||[];S._adminDeleted=d.adminDeleted||[];S._userDeleted=d.userDeleted||[];
+    S=normalize(d.state);
+    S.exams=extractServerRunning(d);
+    var fq=readFavQueue(u);
+    Object.keys(fq.fav).forEach(function(k){if(fq.fav[k])S.fav[k]=1;else delete S.fav[k];});
+    Object.keys(fq.favRound).forEach(function(k){if(fq.favRound[k])S.favRound[k]=1;else delete S.favRound[k];});
+    STATE_OK=true;APPLIED=d.applied||[];S._adminDeleted=d.adminDeleted||[];S._userDeleted=d.userDeleted||[];
     var delAll=S._adminDeleted.concat(S._userDeleted);
     if(delAll.length)S.exams=S.exams.filter(function(x){return delAll.indexOf(x.id)<0;});
-    applyCfgFromState();applyTheme();saveFailing=false;checkSaveClear();
+    applyCfgFromState();applyTheme();saveStateCache();saveFailing=false;checkSaveClear();
   }).catch(function(err){
-    console.warn(err);STATE_OK=false;saveFail(true,"⚠ আপনার ডেটা লোড হয়নি। নেট চেক করুন, আবার চেষ্টা চলছে…");
+    console.warn(err);STATE_OK=false;loadStateCache(u);saveFail(true,"⚠ আপনার ডেটা লোড হয়নি। নেট চেক করুন, আবার চেষ্টা চলছে…");
   });
 }
 function boot(){
@@ -609,11 +1140,31 @@ function boot(){
     if(!user){UID=null;DB=null;ADMIN=false;booted=true;render();return;}
     UID=user.uid;DB=firebase.firestore();ADMIN=(user.email||"").toLowerCase()===ADMIN_EMAIL.toLowerCase();booted=false;render();
     loadUserDoc()
-      .then(function(){startPresence();if(ADMIN)watchPendingReqs();logUsage("session_start");return Promise.all([loadQuestions().then(function(){QERR="";}).catch(function(err){console.warn(err);QERR=(err&&err.message)||"error";}),loadTopicConfig()]);})
+      .then(function(){
+        startPresence();
+        if(ADMIN){watchPendingReqs();watchMTRestoreReqs();}
+        logUsage("session_start");
+        return Promise.all([
+          loadQuestions().then(function(){QERR="";}).catch(function(err){console.warn(err);QERR=(err&&err.message)||"error";}),
+          loadTopicConfig(),
+          DB.collection("appConfig").doc("qMeta").get().then(function(sn){if(sn.exists){var d=sn.data()||{};QMETA={qUpd:d.qUpd||0,scoreVer:d.scoreVer||0};}}).catch(function(){})
+        ]);
+      })
       .catch(function(err){console.warn(err);})
       .then(function(){return migrateOldExams();})
-      .then(function(){watchModelTests();mergeLocalRunningExams();return loadDrafts();}).catch(function(){})
-      .then(function(){booted=true;render();history.replaceState(snap(),"","#"+V.tab);});
+      .then(function(){
+        watchModelTests();watchUserDoc();watchQMeta();watchTopics();
+        mergeLocalRunningExams();
+        if(hasFavPending())flushPendingFavs(true);
+        return loadDrafts();
+      }).catch(function(){})
+      .then(function(){
+        if(Q.length&&STATE_OK&&QMETA.scoreVer>(S.lastScoreSync||0))return recomputeMyProgressAndScores(QMETA.scoreVer);
+      }).catch(function(){})
+      .then(function(){
+        checkExpiredModelTests();
+        booted=true;render();history.replaceState(snap(),"","#"+V.tab);
+      });
   });
 }
 function authScreen(){
@@ -626,7 +1177,8 @@ function authScreen(){
     (isLogin?'<button class="btn alt" id="forgotPw">পাসওয়ার্ড ভুলে গেছেন?</button>':'')+
     '<button class="btn alt" id="'+(isLogin?'toSignup':'toLogin')+'">'+(isLogin?'নতুন অ্যাকাউন্ট খুলুন':'আগে থেকে অ্যাকাউন্ট আছে, লগইন করুন')+'</button></div>';
 }
-  /* ===== ৭. টপিক ট্রি (TOPIC_LIST ক্রমসহ), ফিল্টার ও বাছাই ===== */
+
+/* ===== ৭. টপিক ট্রি (TOPIC_LIST ক্রমসহ), ফিল্টার ও বাছাই ===== */
 var COLL=(function(){try{return new Intl.Collator(["bn","en"],{numeric:true,sensitivity:"base"});}catch(e){return {compare:function(a,b){return a<b?-1:(a>b?1:0);}};}})();
 var SUBJ_ORDER=["বাংলা","English","সাধারণ জ্ঞান","গণিত"];
 var STU_SORT_OPTS=[["default","ডিফল্ট"],["az","নাম অনুযায়ী (A→Z)"],["new","নতুন MCQ বেশি থেকে কম"],["weak","দুর্বল টপিক আগে"]];
@@ -713,16 +1265,16 @@ function pickFromPool(qs,take,rand,useRound){
   var unseen=qs.filter(function(x){return !S.favRound[x.id];});
   if(unseen.length>=take){
     var p1=rand?weightedPick(unseen,take):unseen.slice(0,take);
-    p1.forEach(function(x){S.favRound[x.id]=1;});
+    p1.forEach(function(x){S.favRound[x.id]=1;queueFavChange("favRound",x.id,1);});
     return p1;
   }
   var unseenIds={};unseen.forEach(function(x){unseenIds[x.id]=1;});
   var rest=qs.filter(function(x){return !unseenIds[x.id];});
-  qs.forEach(function(x){delete S.favRound[x.id];});
-  unseen.forEach(function(x){S.favRound[x.id]=1;});
+  qs.forEach(function(x){delete S.favRound[x.id];queueFavChange("favRound",x.id,0);});
+  unseen.forEach(function(x){S.favRound[x.id]=1;queueFavChange("favRound",x.id,1);});
   var need=Math.min(take-unseen.length,rest.length);
   var p2=need>0?(rand?weightedPick(rest,need):rest.slice(0,need)):[];
-  p2.forEach(function(x){S.favRound[x.id]=1;});
+  p2.forEach(function(x){S.favRound[x.id]=1;queueFavChange("favRound",x.id,1);});
   return unseen.concat(p2);
 }
 function homeStartText(p){
@@ -757,18 +1309,21 @@ function pickFavIds(pFav){
   var c=V.cfg,useRound=(c.favPool||"round")==="round",pl=planSubPick(pFav,c.favSubN,c.favN),picked=[],rand=(c.favOrder||"rand")==="rand",mode=c.favMode||"subject";
   pl.custSubs.forEach(function(cs){picked=picked.concat(pickFromPool(cs.qs,cs.take,rand,useRound));});
   if(pl.autoTake>0)picked=picked.concat(pickFromPool(pl.autoPool,pl.autoTake,rand,useRound));
-  if(useRound)savePrefs(false);
+  if(useRound)flushPendingFavs(false);
   if(rand&&mode!=="subject")picked=shuffle(picked);
   return orderIds(picked.map(function(x){return x.id;}),mode);
 }
-
-/* ===== ৮. মডেল টেস্ট ওয়াচ, টাইমার ও এক্সাম ইঞ্জিন ===== */
+  /* ===== ৮. মডেল টেস্ট ওয়াচ, টাইমার (পজসহ) ও এক্সাম ইঞ্জিন ===== */
 function stopMTWatch(){if(mtUnsub){mtUnsub();mtUnsub=null;}}
 function checkMTAttendance(mt){
   if(!mt||!UID||!DB||V.mtAttended[mt.id]!==undefined)return;
   V.mtAttended[mt.id]="checking";
   DB.collection("users").doc(UID).collection("attempts").where("mtId","==",mt.id).limit(1).get().then(function(snap){
-    if(!snap.empty){V.mtAttended[mt.id]=snap.docs[0].data();render();return;}
+    if(!snap.empty){
+      var d=snap.docs[0].data();
+      V.mtAttended[mt.id]=(d&&d.deletedAt)?{trashed:true,ex:d}:d;
+      render();return;
+    }
     return DB.collection("modelTests").doc(mt.id).collection("scores").doc(UID).get().then(function(sc){
       V.mtAttended[mt.id]=sc.exists?{scoreOnly:true}:false;render();
     });
@@ -779,6 +1334,7 @@ function watchModelTests(){
   mtUnsub=DB.collection("modelTests").orderBy("createdAt","desc").onSnapshot(function(snap){
     MT_LIST=[];snap.forEach(function(d){MT_LIST.push(Object.assign({id:d.id},d.data()));});
     var act=activeModelTest();if(act)checkMTAttendance(act);
+    checkExpiredModelTests();
     if(!V.screen)safeRender();
   },function(err){console.warn(err);});
 }
@@ -786,20 +1342,38 @@ function activeModelTest(){var now=Date.now();for(var i=0;i<MT_LIST.length;i++){
 function hasAttendedMT(mtId){var v=V.mtAttended[mtId];return !!v&&v!=="checking";}
 
 function stopExamTimer(){if(exTimer){clearInterval(exTimer);exTimer=null;}}
+function pauseExam(on){
+  if(!V.ex||V.ex.status==="done")return;
+  V.exPaused=!!on;V.ex.updatedAt=Date.now();saveRunLocal(V.ex);
+  if(on){if(V.ex.lock)saveDraft(V.ex,true);saveRunExam(V.ex,true);}
+  render();
+}
 function syncExamTimer(){
   stopExamTimer();
-  if(V.screen!=="exam"||!V.ex||V.ex.status==="done"||!(V.ex.dur>0))return;
-  if(V.ex.mtId){var mt0=MT_LIST.filter(function(x){return x.id===V.ex.mtId;})[0];if(mt0){var rem0=Math.max(0,Math.floor((mt0.endAt-Date.now())/1000));if(V.ex.left==null||rem0<V.ex.left)V.ex.left=rem0;}}
+  if(V.screen!=="exam"||!V.ex||V.ex.status==="done"){stopActiveAttemptWatch();return;}
+  watchActiveAttempt(V.ex.id);
+  if(!(V.ex.dur>0))return;
+  if(V.ex.mtId){
+    var mt0=MT_LIST.filter(function(x){return x.id===V.ex.mtId;})[0];
+    if(mt0){var rem0=Math.max(0,Math.floor((mt0.endAt-Date.now())/1000));if(V.ex.left==null||rem0<V.ex.left)V.ex.left=rem0;}
+  }
   if(V.ex.left==null)V.ex.left=V.ex.dur;
   if(V.ex.left<=0){finish(true);return;}
+  exPingTick=0;
   exTimer=setInterval(function(){
     if(V.screen!=="exam"||!V.ex||V.ex.status==="done"||!(V.ex.dur>0)){stopExamTimer();return;}
-    if(V.ex.mtId){var mt1=MT_LIST.filter(function(x){return x.id===V.ex.mtId;})[0];if(mt1&&mt1.endAt<=Date.now()){V.ex.left=0;stopExamTimer();finish(true);return;}}
-    if(document.visibilityState==="hidden")return;
+    if(V.ex.mtId){
+      var mt1=MT_LIST.filter(function(x){return x.id===V.ex.mtId;})[0];
+      if(mt1&&mt1.endAt<=Date.now()){V.ex.left=0;stopExamTimer();finish(true);return;}
+    }
+    /* সাধারণ পরীক্ষা ও পজ অবস্থায় ট্যাব সরালে টাইমার থেমে থাকবে যাতে পরে চালানো যায় */
+    if(V.exPaused||document.visibilityState==="hidden")return;
     V.ex.left=Math.max(0,(V.ex.left!=null?V.ex.left:V.ex.dur)-1);V.ex.updatedAt=Date.now();
     var el=document.getElementById("ex-timer");
     if(el){el.textContent="⏱ "+fmtSec(V.ex.left);el.style.color=V.ex.left<=30?"var(--bad)":"var(--accent)";}
     saveRunLocal(V.ex);
+    exPingTick++;
+    if(exPingTick>=20){exPingTick=0;saveRunExam(V.ex,false);}
     if(V.ex.left<=0){stopExamTimer();finish(true);}
   },1000);
 }
@@ -808,20 +1382,22 @@ function begin(ids,title,extraOpt){
   var dur=extraOpt.dur!=null?extraOpt.dur:(V.cfg.timer?ids.length*SEC_PER_Q:0),neg=extraOpt.neg!=null?extraOpt.neg:NEG;
   var ex={
     id:extraOpt.id||("e"+Date.now().toString(36)),name:title||"পরীক্ষা",at:Date.now(),updatedAt:Date.now(),dirtyCount:0,
-    ids:ids,a:{},status:"running",dur:dur,left:dur,
+    ids:ids,a:{},ansAt:{},status:"running",dur:dur,left:dur,
     reveal:extraOpt.reveal||V.cfg.reveal||"instant",showTopic:extraOpt.showTopic!==undefined?extraOpt.showTopic:!!V.cfg.showTopic,
     mtId:extraOpt.mtId||null,lock:!!extraOpt.lock,neg:neg,mode:extraOpt.mode||"mixed"
   };
-  S.exams.unshift(ex);V.exSubj="";saveRunLocal(ex);saveRunning(true);
+  S.exams.unshift(ex);V.exSubj="";V.exPaused=false;saveRunLocal(ex);saveRunExam(ex,true);
   logUsage("exam_start",{id:ex.id,name:ex.name,n:ids.length,mtId:ex.mtId||null});
   navPush(function(){V.ex=ex;V.filter="all";V.title=ex.name;V.screen="exam";});
 }
 function answer(id,k){
   var e=V.ex;if(!e||e.status==="done")return;
   if(e.lock&&e.a[id]!==undefined)return;
-  e.a[id]=k;e.updatedAt=Date.now();e.dirtyCount=(e.dirtyCount||0)+1;saveRunLocal(e);
-  if(e.lock){e.dirtyCount=0;saveDraft(e);}
-  else if(e.dirtyCount>=5){e.dirtyCount=0;saveRunLocal(e);saveRunning(false);}
+  var now=Date.now();
+  e.a[id]=k;e.ansAt=e.ansAt||{};e.ansAt[id]=now;e.updatedAt=now;
+  saveRunLocal(e);
+  if(e.lock)saveDraft(e);
+  saveRunExam(e,false);
   var cardEl=document.getElementById("qc_"+id);
   if(cardEl){
     var qIdx=cardEl.dataset.qidx!==undefined?+cardEl.dataset.qidx:e.ids.indexOf(id);cardEl.innerHTML=examCardInner(id,qIdx);trDom(cardEl);
@@ -833,28 +1409,14 @@ function answer(id,k){
   render();
 }
 function finish(auto){
-  stopExamTimer();if(!V.ex)return;
+  stopExamTimer();stopActiveAttemptWatch();V.exPaused=false;
+  if(!V.ex)return;
   if(V.ex.status==="done"){navReplace(function(){V.screen="result";});return;}
-  if(V.ex._finishing)return;
-  V.ex._finishing=true;clearTimeout(draftTimer);draftTimer=null;clearTimeout(runSaveTimer);runSaveTimer=null;
-  var r=computeResultStats(V.ex);
-  V.ex.r=r;V.ex.status="done";V.ex.finishedAt=Date.now();V.ex.v2=1;
-  var exCopy=JSON.parse(JSON.stringify(V.ex));
-  delete exCopy._finishing;delete exCopy.dirtyCount;delete exCopy.pendingFinish;
-  applyFinish(S,exCopy);
-  S.exams=runningExamsOnly(S.exams).filter(function(x){return x.id!==exCopy.id;});
-  if(exCopy.mtId){
-    V.mtAttended[exCopy.mtId]=exCopy;
-    if(V.mtAtt.loaded)V.mtAtt.items=[exCopy].concat(V.mtAtt.items.filter(function(x){return x.id!==exCopy.id;}));
-  }else{
-    V.justDone=V.justDone||{};V.justDone[exCopy.id]=exCopy;
-    if(V.att.loaded)V.att.items=[exCopy].concat(V.att.items.filter(function(x){return x.id!==exCopy.id;}));
-  }
-  logUsage("exam_finish",{id:exCopy.id,name:exCopy.name,mtId:exCopy.mtId||null,c:r.c,w:r.w,sc:r.sc});
-  commitFinish(exCopy);
+  finalizeExamObject(V.ex,auto);
   navReplace(function(){V.screen="result";});
   if(auto)setTimeout(function(){alert(S.lang==="bn"?"সময় শেষ! পরীক্ষা স্বয়ংক্রিয়ভাবে জমা হয়েছে।":"Time is up! Exam submitted automatically.");},50);
 }
+
 /* ===== ৯. ব্যাখ্যা, প্রশ্ন কার্ড, PDF ও ব্রাউজার হিস্ট্রি ===== */
 function diffLbl(d){return d==="hard"?"কঠিন":(d==="medium"?"মাঝারি":"সহজ");}
 function submitDiffProposal(q,newD,el){
@@ -930,8 +1492,8 @@ function snap(){
   return {
     tab:V.tab,screen:V.screen||null,exid:V.ex?V.ex.id:null,list:V.list||null,title:V.title||"",filter:V.filter||"all",favDiffFilter:V.favDiffFilter||"fav",
     edit:V.edit||null,admReqs:!!V.admReqs,reqRev:V.reqRev||null,reqTab:V.reqTab||"pending",reqF:V.reqF||"all",admMT:!!V.admMT,admMTCreate:!!V.admMTCreate,admMTView:V.admMTView||null,
-    admPickKey:V.admPickKey||null,admHist:!!V.admHist,histFolder:V.histFolder||null,admLog:!!V.admLog,admTopics:!!V.admTopics,
-    mtFolderOpen:!!V.mtFolderOpen,adm:V.adm?{key:V.adm.key,sort:V.adm.sort,text:V.adm.text}:null,admAllQ:V.admAllQ||"",
+    admPickKey:V.admPickKey||null,admHist:!!V.admHist,histMode:V.histState.mode||"active",histFolder:V.histState.folder||null,admLog:!!V.admLog,admTopics:!!V.admTopics,
+    mtFolderOpen:!!V.mtFolderOpen,trashOpen:!!V.trashOpen,usrTrashOpen:!!V.usrTrashOpen,adm:V.adm?{key:V.adm.key,sort:V.adm.sort,text:V.adm.text}:null,admAllQ:V.admAllQ||"",
     usrSel:V.usrSel||null,usrExam:V.usrExam||null,usrFilter:V.usrFilter||"wrong",usrTopic:V.usrTopic||"",usrQ:V.usrQ||"",
     reqId:V.reqId||null,homeQ:V.homeQ||"",scroll:app.scrollTop
   };
@@ -940,10 +1502,10 @@ function applyState(st){
   st=st||{tab:"home",screen:null};
   V.tab=st.tab||"home";V.screen=st.screen||null;V.list=st.list||null;V.title=st.title||"";V.filter=st.filter||"all";V.favDiffFilter=st.favDiffFilter||"fav";
   V.edit=st.edit||null;V.admReqs=!!st.admReqs;V.reqRev=st.reqRev||null;V.reqTab=st.reqTab||"pending";V.reqF=st.reqF||"all";V.admMT=!!st.admMT;V.admMTCreate=!!st.admMTCreate;V.admMTView=st.admMTView||null;
-  V.admPickKey=st.admPickKey||null;V.admHist=!!st.admHist;V.histFolder=st.histFolder||null;V.admLog=!!st.admLog;V.admTopics=!!st.admTopics;
-  V.mtFolderOpen=!!st.mtFolderOpen;V.adm=st.adm?Object.assign({},st.adm):null;V.admAllQ=st.admAllQ||"";
+  V.admPickKey=st.admPickKey||null;V.admHist=!!st.admHist;V.histState.mode=st.histMode||"active";V.histState.folder=st.histFolder||null;V.admLog=!!st.admLog;V.admTopics=!!st.admTopics;
+  V.mtFolderOpen=!!st.mtFolderOpen;V.trashOpen=!!st.trashOpen;V.usrTrashOpen=!!st.usrTrashOpen;V.adm=st.adm?Object.assign({},st.adm):null;V.admAllQ=st.admAllQ||"";
   V.usrSel=st.usrSel||null;V.usrExam=st.usrExam||null;V.usrFilter=st.usrFilter||"wrong";V.usrTopic=st.usrTopic||"";V.usrQ=st.usrQ||"";
-  V.reqId=st.reqId||null;V.homeQ=st.homeQ||"";
+  V.reqId=st.reqId||null;V.homeQ=st.homeQ||"";V.exPaused=false;
   if(st.exid){V.ex=S.exams.filter(function(x){return x.id===st.exid;})[0]||V.att.items.filter(function(x){return x.id===st.exid;})[0]||V.mtAtt.items.filter(function(x){return x.id===st.exid;})[0]||(V.justDone&&V.justDone[st.exid])||null;}else V.ex=null;
   if((V.screen==="exam"||V.screen==="result")&&!V.ex)V.screen=null;
   if(V.tab!=="users")stopUsersWatch();else if(ADMIN&&!usrUnsub)watchUsers();
@@ -954,14 +1516,14 @@ function navReplace(fn){fn();render();app.scrollTop=0;history.replaceState(snap(
 function stepBack(){history.back();}
 function goTab(tab){
   if(tab===V.tab){
-    if(V.screen||V.edit||V.admReqs||V.admMT||V.admMTCreate||V.admMTView||V.admPickKey||V.admHist||V.admLog||V.admTopics||V.mtFolderOpen||V.adm||V.usrSel){
-      navPush(function(){V.screen=null;V.edit=null;V.admReqs=false;V.reqRev=null;V.admMT=false;V.admMTCreate=false;V.admMTView=null;V.admPickKey=null;V.admHist=false;V.histFolder=null;V.admLog=false;V.admTopics=false;V.mtFolderOpen=false;V.adm=null;V.usrSel=null;V.usrExam=null;V.reqId=null;});
+    if(V.screen||V.edit||V.admReqs||V.admMT||V.admMTCreate||V.admMTView||V.admPickKey||V.admHist||V.admLog||V.admTopics||V.mtFolderOpen||V.trashOpen||V.usrTrashOpen||V.adm||V.usrSel){
+      navPush(function(){V.screen=null;V.edit=null;V.admReqs=false;V.reqRev=null;V.admMT=false;V.admMTCreate=false;V.admMTView=null;V.admPickKey=null;V.admHist=false;V.histState.folder=null;V.histState.conflict=null;V.admLog=false;V.admTopics=false;V.mtFolderOpen=false;V.trashOpen=false;V.usrTrashOpen=false;V.adm=null;V.usrSel=null;V.usrExam=null;V.reqId=null;V.exPaused=false;});
     }
     return;
   }
   navPush(function(){
-    V.tab=tab;V.screen=null;V.edit=null;V.admReqs=false;V.reqRev=null;V.admMT=false;V.admMTCreate=false;V.admMTView=null;V.admPickKey=null;V.admHist=false;V.histFolder=null;V.admLog=false;V.admTopics=false;V.mtFolderOpen=false;V.adm=null;V.usrSel=null;V.usrExam=null;V.reqId=null;
-    if(tab!=="users")stopUsersWatch();if(tab==="users")V.usrList=null;if(tab==="admin"&&ADMIN)loadPendingCount();
+    V.tab=tab;V.screen=null;V.edit=null;V.admReqs=false;V.reqRev=null;V.admMT=false;V.admMTCreate=false;V.admMTView=null;V.admPickKey=null;V.admHist=false;V.histState.folder=null;V.histState.conflict=null;V.admLog=false;V.admTopics=false;V.mtFolderOpen=false;V.trashOpen=false;V.usrTrashOpen=false;V.adm=null;V.usrSel=null;V.usrExam=null;V.reqId=null;V.exPaused=false;
+    if(tab!=="users")stopUsersWatch();if(tab==="users")V.usrList=null;if(tab==="admin"&&ADMIN){loadPendingCount();watchMTRestoreReqs();}
   });
 }
 window.addEventListener("popstate",function(e){if(e.state&&e.state.tab)applyState(e.state);});
@@ -971,7 +1533,7 @@ function nav(){
   document.getElementById("nav").innerHTML=T.map(function(x){return '<button data-tab="'+x[0]+'"'+(V.tab===x[0]?' aria-current="page"':'')+'>'+x[1]+'</button>';}).join("");
 }
 
-/* ===== ১০. ইউজার স্ক্রিন (হোম, পছন্দ, পরীক্ষা, ফলাফল, অগ্রগতি) ===== */
+/* ===== ১০. ইউজার স্ক্রিন (হোম, পছন্দ, পরীক্ষা, ট্র্যাশ, ফলাফল, অগ্রগতি) ===== */
 function homeMatches(){
   var txt=(V.homeQ||"").trim().toLowerCase();if(!txt)return [];
   return Q.filter(function(x){return (x.q+" "+x.o.join(" ")+" "+x.t+" "+x.s+" "+(x.i||"")+" "+(x.y||"")+" "+(x.bn||"")+" "+(x.e||"")).toLowerCase().indexOf(txt)>=0;});
@@ -1022,7 +1584,8 @@ function groupHead(s,g,T,kind){
 function home(){
   var c=V.cfg,T=groupTree(),p=pool(),mfH=parseMcqFilter(c.mcq),rsvH=reservedIds();
   var thLabel=(S.theme==="dark")?"☀️ লাইট":(S.theme==="light"?"🌙 ডার্ক":"🌓 অটো");
-  var notifBtn=ADMIN?'<button class="btn alt sm notif-btn" data-act="go-reqs" aria-label="সংশোধন অনুরোধ">🔔<span id="home-notif-cnt" class="notif-cnt" style="'+(V.pendingCnt?'':'display:none')+'">'+bn(V.pendingCnt||0)+'</span></button>':'';
+  var totalNotif=(V.pendingCnt||0)+(V.mtRestCnt||0);
+  var notifBtn=ADMIN?'<button class="btn alt sm notif-btn" data-act="go-reqs" aria-label="সংশোধন অনুরোধ">🔔<span id="home-notif-cnt" class="notif-cnt" style="'+(totalNotif?'':'display:none')+'">'+bn(totalNotif)+'</span></button>':'';
   var h='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h1 style="margin:0">Corui Academy</h1><div style="display:flex;gap:6px;align-items:center">'+notifBtn+'<button class="btn alt sm" data-act="theme">'+thLabel+'</button><button class="btn alt sm" data-act="lang">'+((S.lang||"en")==="bn"?"English":"বাংলা")+'</button></div></div>';
   h+=liveMTBanner()+runBanner();
   h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label><b>সব প্রশ্ন থেকে খুঁজুন</b></label></div><input type="text" id="home-q" placeholder="প্রশ্ন, অপশন, প্রতিষ্ঠান বা টপিক লিখে খুঁজুন…" value="'+esc(V.homeQ||"")+'"></div><div id="home-search-res"></div>';
@@ -1127,12 +1690,13 @@ function listTab(kind){
 }
 function examCardInner(id,idx){
   var q=BY[id],e=V.ex,L=optL();if(!q)return '<div class="meta">প্রশ্নটি পাওয়া যায়নি (হয়তো মুছে ফেলা হয়েছে)।</div>';
-  var revMode=e.reveal||V.cfg.reveal,showTop=(e.showTopic!==undefined)?e.showTopic:V.cfg.showTopic,a=e.a[id],answered=a!==undefined,show=answered&&revMode==="instant";
-  var h='<div class="meta">প্রশ্ন '+bn(idx+1)+'</div><div class="tags">'+(showTop?'<span>'+esc(q.s)+' – '+esc(q.t)+'</span>':'')+(q.id?'<span data-notr>ID: '+esc(q.id)+'</span>':'')+(q.i?'<span>'+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'<button class="star" data-fav="'+id+'" aria-label="পছন্দের তালিকায় রাখুন">'+(S.fav[id]?'★':'☆')+'</button></div><p class="q">'+esc(q.q)+'</p><div class="opts-grid '+optClass(q.o)+'">';
+  var revMode=e.reveal||V.cfg.reveal,showTop=(e.showTopic!==undefined)?e.showTopic:V.cfg.showTopic,a=e.a[id],answered=a!==undefined,show=answered&&revMode==="instant",isLocked=!!(e.lock&&answered);
+  var h='<div class="meta">প্রশ্ন '+bn(idx+1)+(isLocked?' · 🔒 লক':'')+'</div><div class="tags">'+(showTop?'<span>'+esc(q.s)+' – '+esc(q.t)+'</span>':'')+(q.id?'<span data-notr>ID: '+esc(q.id)+'</span>':'')+(q.i?'<span>'+esc(q.i)+(q.y?' '+esc(q.y):'')+'</span>':'')+(q.v?'<span>উত্তর যাচাই হয়নি</span>':'')+'<button class="star" data-fav="'+id+'" aria-label="পছন্দের তালিকায় রাখুন">'+(S.fav[id]?'★':'☆')+'</button></div><p class="q">'+esc(q.q)+'</p><div class="opts-grid '+optClass(q.o)+'">';
   q.o.forEach(function(t,k){
     var c="opt",m=a===k?'✓ নির্বাচিত':'';if(a===k)c+=" sel";
+    if(isLocked)c+=" locked-btn";
     if(show){if(k===q.a){c+=" ok";m="✔️";}else if(k===a){c+=" bad";m="❌";}}
-    h+='<button class="'+c+'" data-id="'+id+'" data-k="'+k+'"><b>'+L[k]+'</b><span>'+esc(t)+'</span><i>'+m+'</i></button>';
+    h+='<button class="'+c+'" data-id="'+id+'" data-k="'+k+'"'+(isLocked?' disabled':'')+'><b>'+L[k]+'</b><span>'+esc(t)+'</span><i>'+m+'</i></button>';
   });
   h+='</div>';if(answered&&!show)h+='<div class="meta">উত্তর সেভ হয়েছে। ফলাফল শেষে দেখতে পারবেন।</div>';if(show)h+=expl(q);
   return h;
@@ -1140,7 +1704,11 @@ function examCardInner(id,idx){
 function exam(){
   var e=V.ex,n=0;e.ids.forEach(function(id){if(e.a[id]!==undefined)n++;});
   var rem=e.ids.length-n,tLeft=(e.left!=null)?e.left:(e.dur||0),tBadge=(e.dur>0)?'<span id="ex-timer" class="timer-pill" style="color:'+(tLeft<=30?'var(--bad)':'var(--accent)')+'">⏱ '+fmtSec(tLeft)+'</span>':'';
-  var h='<div class="panel" style="position:sticky;top:0;z-index:2;margin-bottom:12px"><div class="row" style="margin:0;flex-wrap:wrap;gap:8px"><b id="ex-top-cnt">'+bn(n)+'/'+bn(e.ids.length)+'</b>'+tBadge+'<button class="chip" data-act="exunans" aria-pressed="'+(V.exUnans?'true':'false')+'">অমীমাংসিত <span id="ex-top-rem">'+bn(rem)+'</span></button><button class="btn alt sm" data-act="exmore" style="margin:0">'+(V.exMore?'কম দেখুন':'আরও দেখুন')+'</button></div>'+(V.exMore?'<div class="meta" style="margin-top:6px">মোট প্রশ্ন '+bn(e.ids.length)+' · উত্তর দেওয়া '+bn(n)+' · বাকি '+bn(rem)+(e.lock?' · একবার উত্তর দিলে বদলানো যাবে না':'')+'</div><div class="row" style="margin-top:6px"><button class="btn alt sm" data-act="expdf" style="margin:0">PDF ডাউনলোড</button></div>':'')+'</div>';
+  var pauseBtn=(e.dur>0&&!e.mtId)?'<button class="btn alt sm" data-act="'+(V.exPaused?'exresume':'expause')+'" style="margin:0">'+(V.exPaused?'▶ চালু করুন':'⏸ বিরতি')+'</button>':'';
+  var h='<div class="panel" style="position:sticky;top:0;z-index:2;margin-bottom:12px"><div class="row" style="margin:0;flex-wrap:wrap;gap:8px"><b id="ex-top-cnt">'+bn(n)+'/'+bn(e.ids.length)+'</b>'+tBadge+pauseBtn+'<button class="chip" data-act="exunans" aria-pressed="'+(V.exUnans?'true':'false')+'">অমীমাংসিত <span id="ex-top-rem">'+bn(rem)+'</span></button><button class="btn alt sm" data-act="exmore" style="margin:0">'+(V.exMore?'কম দেখুন':'আরও দেখুন')+'</button></div>'+(V.exMore?'<div class="meta" style="margin-top:6px">মোট প্রশ্ন '+bn(e.ids.length)+' · উত্তর দেওয়া '+bn(n)+' · বাকি '+bn(rem)+(e.lock?' · একবার উত্তর দিলে বদলানো যাবে না':'')+'</div><div class="row" style="margin-top:6px"><button class="btn alt sm" data-act="expdf" style="margin:0">PDF ডাউনলোড</button></div>':'')+'</div>';
+  if(V.exPaused){
+    return h+'<div class="pause-box"><h2 style="margin-top:0">⏸ পরীক্ষা বিরতিতে আছে</h2><p class="meta" style="color:var(--ink)">আপনার উত্তর ও বাকি সময় ('+fmtSec(tLeft)+') নিরাপদে সেভ করা হয়েছে। কাজ শেষে আবার শুরু করতে পারবেন।</p><button class="btn sm" data-act="exresume">▶ পরীক্ষা পুনরায় শুরু করুন</button></div>';
+  }
   var subs=[];e.ids.forEach(function(id){var q0=BY[id];if(q0&&subs.indexOf(q0.s)<0)subs.push(q0.s);});
   var cur=(V.exSubj&&subs.indexOf(V.exSubj)>=0)?V.exSubj:"";
   if(subs.length>1&&V.exMore)h+='<div class="chips"><button class="chip" data-act="exsubj" data-subj="" aria-pressed="'+(!cur)+'">সব</button>'+subs.map(function(s){return '<button class="chip" data-act="exsubj" data-subj="'+esc(s)+'" aria-pressed="'+(cur===s)+'">'+esc(s)+'</button>';}).join('')+'</div>';
@@ -1172,9 +1740,7 @@ function result(){
 }
 function browse(){var h='<h1>'+esc(V.title)+'</h1><button class="btn alt" id="home" style="margin:0 0 12px">ফিরে যান</button>';(V.list||[]).forEach(function(id){h+=card(BY[id]);});return h;}
 function delPart(x){
-  var age=Date.now()-(x.finishedAt||x.at),lock=7*864e5;
-  if(age>=lock)return '<button class="btn alt" data-act="exdel" data-exid="'+x.id+'" style="margin:6px 0 0">মুছে ফেলুন</button>';
-  return '<div class="meta" style="margin:6px 0 0">জমা দেওয়া পরীক্ষা ৭ দিন পর মুছতে পারবেন · '+bn(Math.ceil((lock-age)/864e5))+' দিন বাকি</div>';
+  return '<button class="btn alt sm" data-act="exdel" data-exid="'+x.id+'" style="margin:8px 0 0;color:var(--bad)">🗑️ ট্র্যাশে পাঠান</button>';
 }
 function mtFolderView(){
   if(!V.mtAtt.loaded&&!V.mtAtt.loading)loadMTFolderAttempts();
@@ -1192,16 +1758,43 @@ function mtFolderView(){
   if(all.length>showN)h+='<button class="btn alt" data-act="mt-folder-more">আরও দেখুন</button>';
   return h;
 }
+function trashView(){
+  if(!V.trash.loaded&&!V.trash.loading)loadTrashAttempts();
+  var h='<button class="btn alt" data-act="trash-back" style="margin:0 0 10px">← পরীক্ষার তালিকায় ফিরুন</button><h1>🗑️ ট্র্যাশ (৭ দিন)</h1><p class="meta">মুছে ফেলা পরীক্ষা ও মডেল টেস্ট এখানে ৭ দিন জমা থাকবে। ৭ দিন পর স্থায়ীভাবে মুছে যাবে।</p>';
+  if(V.trash.err)h+='<div class="panel" style="color:var(--bad)">লোড হয়নি: '+esc(V.trash.err)+'</div>';
+  if(V.trash.loading&&!V.trash.items.length)return h+'<p class="meta">লোড হচ্ছে…</p>';
+  var items=V.trash.items||[];
+  if(!items.length)return h+'<div class="panel meta">ট্র্যাশ ফাঁকা আছে।</div>';
+  items.forEach(function(x){
+    var dl=daysLeft(x.expireAt),byTxt=x.deletedBy==="admin"?"অ্যাডমিন দ্বারা ডিলিটেড":"আপনি ডিলিট করেছেন",r=x.r||computeResultStats(x);
+    h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><b>'+esc(x.name)+'</b><span class="warn-badge">বাকি '+bn(dl)+' দিন</span></div><div class="meta" style="margin:4px 0 6px">'+(x.mtId?'🏆 মডেল টেস্ট':'📝 সাধারণ পরীক্ষা')+' · '+byTxt+' · '+fmt(x.deletedAt)+'<br>নম্বর '+bn((r.sc||0).toFixed(2))+'/'+bn(r.n)+' (সঠিক '+bn(r.c)+', ভুল '+bn(r.w)+')</div>';
+    if(!x.mtId){
+      h+='<div class="btn-row"><button class="btn sm" data-act="trash-restore" data-exid="'+x.id+'">↺ ফিরিয়ে আনুন</button></div>';
+    }else{
+      var req=V.myMtRestoreReqs&&V.myMtRestoreReqs[x.mtId];
+      if(req&&req.status==="pending"){
+        h+='<div class="meta" style="margin:0;color:var(--warn)">⏳ ফিরিয়ে আনার অনুরোধ অ্যাডমিনের অনুমোদনের অপেক্ষায় আছে।</div>';
+      }else{
+        if(req&&req.status==="rejected")h+='<div class="meta" style="margin:0 0 6px;color:var(--bad)">✕ আগের অনুরোধ বাতিল হয়েছে।</div>';
+        h+='<div class="btn-row"><button class="btn sm" data-act="mt-req-restore" data-exid="'+x.id+'">↺ ফিরিয়ে আনার অনুরোধ পাঠান</button></div>';
+      }
+    }
+    h+='</div>';
+  });
+  return h;
+}
 function examsView(){
+  if(V.trashOpen)return trashView();
   if(V.mtFolderOpen)return mtFolderView();
   if(!V.att.loaded&&!V.att.loading)loadMoreAttempts(true);
   var run=S.exams.filter(function(x){return x.status!=="done";});
-  var doneMap={},done=V.att.items.filter(function(x){return !x.mtId;});
+  var doneMap={},done=V.att.items.filter(function(x){return !x.mtId&&!x.deletedAt;});
   done.forEach(function(x){doneMap[x.id]=1;});
-  if(V.justDone)Object.keys(V.justDone).forEach(function(jid){if(!doneMap[jid]){doneMap[jid]=1;done.push(V.justDone[jid]);}});
+  if(V.justDone)Object.keys(V.justDone).forEach(function(jid){if(!doneMap[jid]&&!V.justDone[jid].deletedAt){doneMap[jid]=1;done.push(V.justDone[jid]);}});
   done.sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});
   var h='<h1>পরীক্ষা</h1>';
   h+='<button class="card" data-act="mt-folder-open" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer;border-color:var(--accent)"><b>🏆 মডেল টেস্ট ফোল্ডার</b><div class="meta" style="margin:2px 0 0">অংশ নেওয়া সব মডেল টেস্টের ইতিহাস, ফলাফল ও মেরিট লিস্ট দেখুন →</div></button>';
+  h+='<button class="card" data-act="trash-open" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer"><b>🗑️ ট্র্যাশ (৭ দিন)</b><div class="meta" style="margin:2px 0 0">মুছে ফেলা পরীক্ষা ও মডেল টেস্ট এখান থেকে ফিরিয়ে আনুন →</div></button>';
   h+='<h2>চলমান পরীক্ষা</h2>';
   if(!run.length)h+='<div class="panel meta">কোনো চলমান পরীক্ষা নেই।</div>';
   run.forEach(function(x){
@@ -1221,7 +1814,7 @@ function examsView(){
   return h;
 }
 function wrongList(){return Object.keys(S.wrong).filter(function(id){return BY[id];}).map(function(id){return BY[id];});}
-function latestAnswer(exams,id){var list=(exams||[]).slice().sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});for(var i=0;i<list.length;i++){if(list[i].a&&list[i].a[id]!==undefined)return list[i].a[id];}return undefined;}
+function latestAnswer(exams,id){var list=(exams||[]).filter(function(x){return x&&!x.deletedAt;}).slice().sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});for(var i=0;i<list.length;i++){if(list[i].a&&list[i].a[id]!==undefined)return list[i].a[id];}return undefined;}
 function renderWrongListUI(wr,exams,isAdminUser){
   var cnt={},L=optL();wr.forEach(function(q){var k=q.s+"||"+q.t;cnt[k]=(cnt[k]||0)+1;});
   var keys=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];});
@@ -1271,7 +1864,7 @@ function prog(){
   return h+'</table><p class="meta" style="margin-top:14px">আপনার অগ্রগতি অ্যাকাউন্টে সেভ হচ্ছে।</p><button class="btn alt" id="logout">লগ আউট</button>';
 }
 
-/* ===== ১১. ফর্ম হেল্পার ও সংশোধন প্রস্তাব ===== */
+/* ===== ১১. ফর্ম হেল্পার ও সংশোধন / রিস্টোর অনুরোধ ===== */
 function parseOpts(o4,ansIdx){
   var last=-1;for(var k=0;k<4;k++){if(o4[k])last=k;}
   if(last<1)return {err:"কমপক্ষে ২টি অপশন লিখুন।"};
@@ -1332,7 +1925,7 @@ function submitEditReq(){
 }
 function stopReqsWatch(){if(reqUnsub){reqUnsub();reqUnsub=null;}}
 function updateNotifBadges(){
-  var c=V.pendingCnt||0,hEl=document.getElementById("home-notif-cnt"),aEl=document.getElementById("adm-notif-cnt");
+  var c=(V.pendingCnt||0)+(V.mtRestCnt||0),hEl=document.getElementById("home-notif-cnt"),aEl=document.getElementById("adm-notif-cnt");
   if(hEl){hEl.textContent=bn(c);hEl.style.display=c?"":"none";}
   if(aEl)aEl.textContent=bn(c);
 }
@@ -1352,7 +1945,6 @@ function loadPendingCount(){
     if(V.tab==="admin"&&V.admReqs){if(!safeRender())updateNotifBadges();}else updateNotifBadges();
   }).catch(function(err){console.warn(err);});
 }
-/* ===== সংশোধন অনুরোধ: তুলনা (আগে/পরে), তালিকা, রিভিউ, ইতিহাস, একসাথে অনুমোদন ===== */
 function nz(s){return String(s==null?"":s).replace(/\r\n?/g,"\n").trim();}
 function srcStr(x){x=x||{};return (x.i||"")+(x.y?" "+x.y:"");}
 function splitSrc(src){
@@ -1461,11 +2053,21 @@ function reqCard(r,info,histMode){
   if(!histMode&&info.simple)h+='<label class="req-sel"><input type="checkbox" data-reqsel="'+rid+'"'+(V.reqSel[r.rid]?' checked':'')+'> সরল (শুধু কঠিনতা/সোর্স) — একসাথে অনুমোদনের জন্য বাছুন</label>';
   return h+'</div>';
 }
+function mtRestoreReqsView(){
+  var list=V.mtRestReqs||[];
+  if(!list.length)return '<div class="panel meta">মডেল টেস্ট ফিরিয়ে আনার কোনো অনুরোধ নেই।</div>';
+  var h='';
+  list.forEach(function(r){
+    h+='<div class="card"><div class="tags"><span>🏆 মডেল টেস্ট রিস্টোর</span><span>'+esc(r.email||r.uid||"")+'</span><span>'+fmt(r.createdAt)+'</span></div><b>'+esc(r.title||"মডেল টেস্ট")+'</b><div class="meta" style="margin:4px 0">ট্র্যাশে গিয়েছিল: '+fmt(r.deletedAt||r.createdAt)+'</div><div class="btn-row"><button class="btn sm" data-act="mt-rest-app" data-rid="'+esc(r.rid)+'">✓ অনুমোদন ও ফিরিয়ে আনুন</button><button class="btn alt sm" data-act="mt-rest-rej" data-rid="'+esc(r.rid)+'" style="color:var(--bad)">✕ বাতিল</button></div></div>';
+  });
+  return h;
+}
 function admReqsView(){
   if(V.reqRev)return reqReviewView();
-  var tab=V.reqTab==="history"?"history":"pending";
-  var h='<button class="btn alt" data-act="reqs-back" style="margin:0 0 10px">← ফিরে যান</button><h1>সংশোধন অনুরোধ</h1>';
-  h+='<div class="chips" style="margin-top:0"><button class="chip" data-act="req-tab" data-rtab="pending" aria-pressed="'+(tab==="pending")+'">অপেক্ষমাণ ('+bn((V.editReqs||[]).length)+')</button><button class="chip" data-act="req-tab" data-rtab="history" aria-pressed="'+(tab==="history")+'">ইতিহাস</button></div>';
+  var tab=V.reqTab||"pending";
+  var h='<button class="btn alt" data-act="reqs-back" style="margin:0 0 10px">← ফিরে যান</button><h1>অনুরোধ ও রিস্টোর</h1>';
+  h+='<div class="chips" style="margin-top:0"><button class="chip" data-act="req-tab" data-rtab="pending" aria-pressed="'+(tab==="pending")+'">প্রশ্ন সংশোধন ('+bn((V.editReqs||[]).length)+')</button><button class="chip" data-act="req-tab" data-rtab="mtrestore" aria-pressed="'+(tab==="mtrestore")+'">মডেল টেস্ট রিস্টোর ('+bn((V.mtRestReqs||[]).length)+')</button><button class="chip" data-act="req-tab" data-rtab="history" aria-pressed="'+(tab==="history")+'">ইতিহাস</button></div>';
+  if(tab==="mtrestore")return h+mtRestoreReqsView();
   if(tab==="history")return h+reqHistView();
   var rows=reqRows(),f=V.reqF||"all";
   var cAll=rows.length,cAns=rows.filter(function(x){return reqMatch(x.i,"ans");}).length,cDiff=rows.filter(function(x){return reqMatch(x.i,"diff");}).length;
@@ -1554,11 +2156,12 @@ function reqReviewView(){
   return h;
 }
 function reqCommitApproval(r,cur,updated,label){
-  var rid=r.rid,before=snapOf(cur.id),after=clean(updated);
+  var rid=r.rid,before=snapOf(cur.id),after=clean(updated),now=updated.upd||nextUpd();
+  var scChg=(cur.a!==updated.a||cur.s!==updated.s||cur.t!==updated.t||!!cur.deleted!==!!updated.deleted);
   return DB.collection("questions").doc(cur.id).set(after).then(function(){
     RAW[cur.id]=after;logChanges([{id:cur.id,before:before,after:after}],label);updated.id=cur.id;
     var arr=Q.filter(function(x){return x.id!==cur.id;});arr.push(updated);arr.sort(function(a,b){return (a.ord||0)-(b.ord||0);});
-    setQuestions(arr);syncQuestionCache();
+    setQuestions(arr);syncQuestionCache();bumpQMeta(now,scChg);
     if(TOPIC_LIST.length&&!TOPIC_LIST.some(function(it){return it.s===updated.s&&it.t===updated.t;})){TOPIC_LIST.push({s:updated.s,t:updated.t});saveTopicConfig();}
     return DB.collection("editRequests").doc(rid).update({status:"approved",reviewedAt:Date.now(),final:after});
   }).then(function(){
@@ -1610,7 +2213,8 @@ function reqBulkApprove(){
     render();
   });
 }
-  /* ===== ব্যাকগ্রাউন্ড রেন্ডারে অ্যাডমিনের অসেভড লেখা বাঁচানো ===== */
+
+/* ===== ১২. অ্যাডমিন: প্রশ্ন CRUD, ইমপোর্ট, ৭-বাই-৭ হিস্ট্রি ও ৭-দিনের ট্র্যাশ ===== */
 function formDirty(){
   var els=app.querySelectorAll("input,textarea,select");
   for(var i=0;i<els.length;i++){
@@ -1629,11 +2233,17 @@ function qErrBanner(){
   if(!QERR||Q.length||!UID)return "";
   return '<div class="df-danger" style="margin:0 0 12px"><b>প্রশ্নব্যাংক লোড হয়নি।</b><div class="meta" style="margin:4px 0" data-notr>'+esc(QERR)+'</div><button class="btn sm" id="retryQ">আবার চেষ্টা করুন</button></div>';
 }
-
 function dbCount(){return Object.keys(RAW).filter(function(id){return RAW[id]&&!RAW[id].deleted;}).length;}
 function snapOf(id){return RAW[id]?JSON.parse(JSON.stringify(RAW[id])):null;}
 function canon(v){if(v===undefined||v===null)return null;if(Array.isArray(v))return v.map(canon);if(typeof v==="object"){var o={};Object.keys(v).sort().forEach(function(k){if(v[k]!==undefined)o[k]=canon(v[k]);});return o;}return v;}
 function impSame(a,b){return JSON.stringify(canon(a))===JSON.stringify(canon(b));}
+function normQForCmp(q){
+  if(!q||q.deleted)return {deleted:true};
+  var c=JSON.parse(JSON.stringify(q));
+  delete c.upd;delete c.ord;delete c.ib;delete c.id;
+  Object.keys(c).forEach(function(k){if(c[k]===""||c[k]===null||(Array.isArray(c[k])&&!c[k].length))delete c[k];});
+  return c;
+}
 function idPrefix(sub){var s4=String(sub||"").toLowerCase();for(var i=0;i<ID_PFX.length;i++){if(s4.indexOf(ID_PFX[i][0])>=0)return ID_PFX[i][1];}return null;}
 function newQId(sub,seqs,customPfx){
   var p=String(idPrefix(sub)||(customPfx&&customPfx[sub])||"Q").toUpperCase().replace(/[^A-Z]/g,"")||"Q";
@@ -1650,15 +2260,39 @@ function logChanges(changes,label){
   return DB.collection("adminRedo").get().then(function(snap){var b=DB.batch();snap.forEach(function(d){b.delete(d.ref);});return b.commit();})
     .then(function(){return DB.collection("adminLog").add({at:Date.now(),by:((firebase.auth().currentUser)||{}).email||"",label:label,changes:changes});});
 }
-function writeAll(arr,label,keepBatch){
-  var bid=nextUpd();arr.forEach(function(x,i){if(!x.ord)x.ord=i+1;if(!keepBatch)x.ib=bid;x.upd=bid;});
+function writeAll(arr,label,keepBatch,isImport){
+  var bid=nextUpd(),scoreChanged=false;
+  arr.forEach(function(x,i){
+    if(!x.ord)x.ord=i+1;
+    if(!keepBatch)x.ib=bid;
+    x.upd=bid;
+    var bef=RAW[x.id];
+    if(!bef||bef.a!==x.a||bef.s!==x.s||bef.t!==x.t||!!bef.deleted!==!!x.deleted)scoreChanged=true;
+  });
   var changes=arr.map(function(x){return {id:x.id,before:snapOf(x.id),after:clean(x)};}),chunks=[];
   for(var i=0;i<changes.length;i+=400)chunks.push(changes.slice(i,i+400));
-  var total=chunks.length;
+  var total=chunks.length,em=((firebase.auth().currentUser)||{}).email||"";
   return chunks.reduce(function(p,chunk,ci){
     return p.then(function(){var b=DB.batch();chunk.forEach(function(c){b.set(DB.collection("questions").doc(c.id),c.after);});return b.commit();})
-      .then(function(){chunk.forEach(function(c){RAW[c.id]=c.after;});return logChanges(chunk,(label||"ইমপোর্ট")+(total>1?" ("+(ci+1)+"/"+total+")":""));});
-  },Promise.resolve()).then(function(){return syncQuestionCache();}).then(function(){buildFrom(RAW);alert("সেভ হয়েছে: "+arr.length+"টি প্রশ্ন");render();}).catch(function(err){alert("সমস্যা: "+err.message);});
+      .then(function(){
+        chunk.forEach(function(c){RAW[c.id]=c.after;});
+        if(!isImport)return logChanges(chunk,(label||"আপডেট")+(total>1?" ("+(ci+1)+"/"+total+")":""));
+      });
+  },Promise.resolve()).then(function(){
+    if(!isImport)return;
+    var batchDocId="ib_"+bid.toString(36),bRef=DB.collection("importBatches").doc(batchDocId);
+    return bRef.set({bid:batchDocId,at:bid,by:em,label:label||"JSON ইমপোর্ট",count:changes.length,chunks:total,trashedAt:null,trashedBy:null,expireAt:null,skippedIds:[]}).then(function(){
+      return chunks.reduce(function(p,chunk,ci){
+        return p.then(function(){return bRef.collection("chunks").doc(String(ci)).set({idx:ci,changes:chunk});});
+      },Promise.resolve());
+    });
+  }).then(function(){
+    return Promise.all([syncQuestionCache(),bumpQMeta(bid,scoreChanged)]);
+  }).then(function(){
+    buildFrom(RAW);
+    if(isImport)V.histState=freshHist();
+    alert("সেভ হয়েছে: "+arr.length+"টি প্রশ্ন");render();
+  }).catch(function(err){alert("সমস্যা: "+err.message);});
 }
 function admUndo(){
   DB.collection("adminLog").orderBy("at","desc").limit(1).get().then(function(snap){
@@ -1671,7 +2305,7 @@ function admUndo(){
         chunk.forEach(function(c){var ref=DB.collection("questions").doc(c.id);if(c.before===null){var del={deleted:true,id:c.id,upd:now};b.set(ref,del);RAW[c.id]=del;}else{var prev=Object.assign({},c.before,{upd:now});b.set(ref,prev);RAW[c.id]=prev;}});
         return b.commit();
       });
-    },Promise.resolve()).then(function(){return DB.collection("adminRedo").add({at:now,label:entry.label,changes:entry.changes});}).then(function(){return DB.collection("adminLog").doc(doc.id).delete();}).then(function(){return syncQuestionCache();}).then(function(){buildFrom(RAW);alert("আনডু হয়েছে: "+entry.label);render();});
+    },Promise.resolve()).then(function(){return DB.collection("adminRedo").add({at:now,label:entry.label,changes:entry.changes});}).then(function(){return DB.collection("adminLog").doc(doc.id).delete();}).then(function(){return Promise.all([syncQuestionCache(),bumpQMeta(now,true)]);}).then(function(){buildFrom(RAW);alert("আনডু হয়েছে: "+entry.label);render();});
   }).catch(function(err){alert("আনডু হয়নি: "+err.message);});
 }
 function admRedo(){
@@ -1685,7 +2319,7 @@ function admRedo(){
         chunk.forEach(function(c){var ref=DB.collection("questions").doc(c.id);if(c.after===null||c.after.deleted){var del={deleted:true,id:c.id,upd:now};b.set(ref,del);RAW[c.id]=del;}else{var nxt=Object.assign({},c.after,{upd:now});b.set(ref,nxt);RAW[c.id]=nxt;}});
         return b.commit();
       });
-    },Promise.resolve()).then(function(){return DB.collection("adminLog").add({at:now,by:((firebase.auth().currentUser)||{}).email||"",label:entry.label,changes:entry.changes});}).then(function(){return DB.collection("adminRedo").doc(doc.id).delete();}).then(function(){return syncQuestionCache();}).then(function(){buildFrom(RAW);alert("আবার করা হয়েছে: "+entry.label);render();});
+    },Promise.resolve()).then(function(){return DB.collection("adminLog").add({at:now,by:((firebase.auth().currentUser)||{}).email||"",label:entry.label,changes:entry.changes});}).then(function(){return DB.collection("adminRedo").doc(doc.id).delete();}).then(function(){return Promise.all([syncQuestionCache(),bumpQMeta(now,true)]);}).then(function(){buildFrom(RAW);alert("আবার করা হয়েছে: "+entry.label);render();});
   }).catch(function(err){alert("আবার করা হয়নি: "+err.message);});
 }
 function planImport(arr){
@@ -1821,9 +2455,9 @@ function impApply(){
     newTops.forEach(function(nt){if(!TOPIC_LIST.some(function(it){return it.s===nt.s&&it.t===nt.t;})){TOPIC_LIST.push(nt);changedTL=true;}});
     if(changedTL)saveTopicConfig();
   }
-  V.imp=null;writeAll(out,"JSON ইমপোর্ট");
+  V.imp=null;writeAll(out,"JSON ইমপোর্ট",false,true);
 }
-function admLock(id){var x=BY[id];if(!x)return;writeAll([Object.assign({},x,{lock:!x.lock})],!x.lock?"তালা লাগানো":"তালা খোলা",true);}
+function admLock(id){var x=BY[id];if(!x)return;writeAll([Object.assign({},x,{lock:!x.lock})],!x.lock?"তালা লাগানো":"তালা খোলা",true,false);}
 function findDupMatches(qTxt){
   var sk=simKey(qTxt);if(sk.length<5)return [];var exId=(V.edit&&V.edit!=="new")?V.edit:null;
   return Q.filter(function(x){if(exId&&x.id===exId)return false;var xs=simKey(x.q);return xs===sk||(sk.length>=12&&(xs.indexOf(sk)>=0||sk.indexOf(xs)>=0));});
@@ -1853,21 +2487,24 @@ function admSave(){
   var src=gv("a_src"),iVal="",yVal="";if(src){var sp=splitSrc(src);iVal=sp.i;yVal=sp.y;}
   var rawExp=gv("a_exp"),pExt=parseExplText(rawExp,old),now=nextUpd();
   var obj={s:sVal,t:tVal,q:q,o:o,a:ansIdx,i:iVal,y:yVal,bn:pExt.bn,e:pExt.e,ex:pExt.ex,rule:pExt.rule,explText:rawExp,diff:gv("a_diff")||"easy",v:document.getElementById("a_v").checked?0:1,ord:old.ord||(Q.length+1),ib:isNew?now:(old.ib||0),upd:now};
-  var before=snapOf(id),after=clean(obj);
+  var before=snapOf(id),after=clean(obj),scChg=isNew||(old.a!==obj.a||old.s!==obj.s||old.t!==obj.t);
   DB.collection("questions").doc(id).set(after).then(function(){
     RAW[id]=after;logChanges([{id:id,before:before,after:after}],(isNew?"নতুন প্রশ্ন যোগ: ":"প্রশ্ন এডিট: ")+q.slice(0,40));obj.id=id;
     var arr=Q.filter(function(x){return x.id!==id;});arr.push(obj);arr.sort(function(a,b){return (a.ord||0)-(b.ord||0);});
-    setQuestions(arr);syncQuestionCache();
+    setQuestions(arr);syncQuestionCache();bumpQMeta(now,scChg);
     if(TOPIC_LIST.length&&!TOPIC_LIST.some(function(it){return it.s===sVal&&it.t===tVal;})){TOPIC_LIST.push({s:sVal,t:tVal});saveTopicConfig();}
     stepBack();
   }).catch(function(err){if(btn)btn.disabled=false;alert("সেভ হয়নি: "+err.message);});
 }
 function admDelete(id){
   if(!confirm("এই প্রশ্নটি মুছে ফেলবেন?"))return;
-  var before=snapOf(id),after={deleted:true,id:id,upd:nextUpd()};
-  DB.collection("questions").doc(id).set(after).then(function(){RAW[id]=after;logChanges([{id:id,before:before,after:after}],"প্রশ্ন মুছে ফেলা");setQuestions(Q.filter(function(x){return x.id!==id;}));syncQuestionCache();stepBack();}).catch(function(err){alert("মোছা যায়নি: "+err.message);});
+  var now=nextUpd(),before=snapOf(id),after={deleted:true,id:id,upd:now};
+  DB.collection("questions").doc(id).set(after).then(function(){
+    RAW[id]=after;logChanges([{id:id,before:before,after:after}],"প্রশ্ন মুছে ফেলা");
+    setQuestions(Q.filter(function(x){return x.id!==id;}));syncQuestionCache();bumpQMeta(now,true);stepBack();
+  }).catch(function(err){alert("মোছা যায়নি: "+err.message);});
 }
-function topicBulkVerify(s,t){var list=Q.filter(function(x){return x.s===s&&x.t===t&&x.v;});if(!list.length){alert("এই টপিকের সব প্রশ্ন আগেই যাচাইকৃত আছে।");return;}if(!confirm("এই টপিকের "+list.length+"টি প্রশ্নকে 'যাচাইকৃত' হিসেবে মার্ক করবেন?"))return;writeAll(list.map(function(x){return Object.assign({},x,{v:0});}),"বাল্ক যাচাই: "+t,true);}
+function topicBulkVerify(s,t){var list=Q.filter(function(x){return x.s===s&&x.t===t&&x.v;});if(!list.length){alert("এই টপিকের সব প্রশ্ন আগেই যাচাইকৃত আছে।");return;}if(!confirm("এই টপিকের "+list.length+"টি প্রশ্নকে 'যাচাইকৃত' হিসেবে মার্ক করবেন?"))return;writeAll(list.map(function(x){return Object.assign({},x,{v:0});}),"বাল্ক যাচাই: "+t,true,false);}
 function topicBulkRename(s,t){
   var newS=prompt("নতুন বিষয় (Subject):",s);if(newS===null)return;newS=newS.trim();
   var newT=prompt("নতুন টপিকের নাম (Topic):",t);if(newT===null)return;newT=newT.trim();
@@ -1882,7 +2519,7 @@ function topicBulkRename(s,t){
   }
   if(!list.length)return render();
   if(V.adm)V.adm.key=newS+"||"+newT;
-  writeAll(list.map(function(x){return Object.assign({},x,{s:newS,t:newT});}),"টপিক রিনেম: "+t+" → "+newT,true);
+  writeAll(list.map(function(x){return Object.assign({},x,{s:newS,t:newT});}),"টপিক রিনেম: "+t+" → "+newT,true,false);
 }
 function admTopicsView(){
   if(!TOPIC_LIST.length)TOPIC_LIST=masterTopics().slice();
@@ -1953,7 +2590,7 @@ function renderAdmSearch(){
   });
   box.innerHTML=h;trDom(box);
 }
-var LOG_LABELS={session_start:"সেশন শুরু",exam_start:"পরীক্ষা শুরু",exam_finish:"পরীক্ষা জমা",exam_delete:"পরীক্ষা মোছা",admin_exam_delete:"অ্যাডমিন দ্বারা মোছা",logout:"লগআউট"};
+var LOG_LABELS={session_start:"সেশন শুরু",exam_start:"পরীক্ষা শুরু",exam_finish:"পরীক্ষা জমা",exam_delete:"পরীক্ষা ট্র্যাশে",exam_restore:"ট্র্যাশ থেকে রিস্টোর",admin_exam_delete:"অ্যাডমিন ট্র্যাশে পাঠিয়েছে",logout:"লগআউট"};
 function loadUsageLogs(reset){
   if(!ADMIN||!DB||V.ulog.loading||(!reset&&!V.ulog.hasMore))return;
   V.ulog.loading=true;V.ulog.err="";
@@ -1985,7 +2622,256 @@ function admUsageLogView(){
   if(V.ulog.loading&&!V.ulog.items.length)return h+'<p class="meta">লোড হচ্ছে…</p>';
   return h+'<div id="ulog-list"></div>';
 }
-/* ===== ১৩. অ্যাডমিন: লাইভ মডেল টেস্ট (শিডিউল, এডিট, ID/Range ও Difficulty পিকার) এবং ড্যাশবোর্ড ===== */
+
+/* ===== ইমপোর্ট হিস্ট্রি (৭টি করে), ৭ দিনের ট্র্যাশ ও Safe/Force Mode ===== */
+function loadHistActive(reset){
+  var H=V.histState;if(H.loading||(!reset&&!H.hasMore))return;
+  H.loading=true;H.err="";
+  if(reset){H.items=[];H.batchCursor=null;H.legacyCursor=null;H.batchDone=false;H.legacyDone=false;}
+  var items=H.items.slice(),seen={},added=0;items.forEach(function(x){seen[x.fid]=1;});
+  function step(){
+    if(!H.batchDone){
+      var q1=DB.collection("importBatches").orderBy("at","desc");
+      if(H.batchCursor)q1=q1.startAfter(H.batchCursor);
+      return q1.limit(12).get().then(function(snap){
+        var docs=snap.docs;if(docs.length<12)H.batchDone=true;
+        for(var i=0;i<docs.length;i++){
+          var d=docs[i].data();
+          if(added>=HIST_PAGE){H.batchDone=false;return true;}
+          H.batchCursor=docs[i];
+          if(d&&!d.trashedAt&&!seen[docs[i].id]){
+            seen[docs[i].id]=1;
+            items.push({fid:docs[i].id,bid:d.bid||docs[i].id,at:d.at||0,label:d.label||"JSON ইমপোর্ট",count:d.count||0,chunks:d.chunks||1,legacy:false});
+            added++;
+          }
+        }
+        if(added<HIST_PAGE)return step();
+        return true;
+      });
+    }
+    if(!H.legacyDone){
+      var q2=DB.collection("adminLog").orderBy("at","desc");
+      if(H.legacyCursor)q2=q2.startAfter(H.legacyCursor);
+      return q2.limit(20).get().then(function(snap){
+        var docs=snap.docs;if(docs.length<20)H.legacyDone=true;
+        for(var i=0;i<docs.length;i++){
+          var d=docs[i].data();
+          if(added>=HIST_PAGE){H.legacyDone=false;return true;}
+          H.legacyCursor=docs[i];
+          if(d&&/ইমপোর্ট/.test(d.label||"")&&!seen["leg_"+docs[i].id]){
+            seen["leg_"+docs[i].id]=1;
+            items.push({fid:"leg_"+docs[i].id,legId:docs[i].id,at:d.at||0,label:d.label||"",count:(d.changes||[]).length,changes:d.changes||[],legacy:true});
+            added++;
+          }
+        }
+        if(added<HIST_PAGE&&!H.legacyDone)return step();
+        return true;
+      });
+    }
+    return Promise.resolve(false);
+  }
+  step().then(function(){
+    H.items=items;H.hasMore=!(H.batchDone&&H.legacyDone);H.loading=false;H.loaded=true;render();
+  }).catch(function(err){H.loading=false;H.loaded=true;H.err=err.message;render();});
+}
+function loadHistTrash(){
+  var H=V.histState;if(H.trashLoading)return;
+  H.trashLoading=true;H.err="";
+  DB.collection("importBatches").where("trashedAt",">",0).get().then(function(snap){
+    var tr=[],exp=[],now=Date.now();
+    snap.forEach(function(doc){
+      var d=doc.data();if(!d||!d.trashedAt)return;
+      if(d.expireAt&&d.expireAt<=now)exp.push(doc.id);
+      else tr.push(Object.assign({fid:doc.id,bid:d.bid||doc.id},d));
+    });
+    tr.sort(function(a,b){return (b.trashedAt||0)-(a.trashedAt||0);});
+    H.trash=tr;H.trashLoaded=true;H.trashLoading=false;
+    if(exp.length)Promise.all(exp.map(function(id){return purgeImportBatch(id,true);})).catch(function(){});
+    render();
+  }).catch(function(err){H.trashLoading=false;H.trashLoaded=true;H.err=err.message;render();});
+}
+function loadBatchChanges(item){
+  if(item.legacy)return Promise.resolve(item.changes||[]);
+  return DB.collection("importBatches").doc(item.bid).collection("chunks").get().then(function(snap){
+    var chs=[];snap.forEach(function(d){chs.push(d.data());});
+    chs.sort(function(a,b){return (a.idx||0)-(b.idx||0);});
+    var all=[];chs.forEach(function(c){all=all.concat(c.changes||[]);});
+    item.changes=all;return all;
+  });
+}
+function promoteLegacyImport(item){
+  var now=item.at||Date.now(),bid="ib_leg_"+item.legId,bRef=DB.collection("importBatches").doc(bid),chs=[],all=item.changes||[];
+  for(var i=0;i<all.length;i+=400)chs.push(all.slice(i,i+400));
+  return bRef.set({bid:bid,at:now,by:"",label:item.label||"JSON ইমপোর্ট",count:all.length,chunks:chs.length,trashedAt:null,trashedBy:null,expireAt:null,skippedIds:[]})
+    .then(function(){return Promise.all(chs.map(function(c,ci){return bRef.collection("chunks").doc(String(ci)).set({idx:ci,changes:c});}));})
+    .then(function(){return DB.collection("adminLog").doc(item.legId).delete().catch(function(){});})
+    .then(function(){return {fid:bid,bid:bid,at:now,label:item.label,count:all.length,chunks:chs.length,changes:all,legacy:false};});
+}
+function findHistItem(fid){
+  var H=V.histState;
+  return H.items.filter(function(x){return x.fid===fid;})[0]||H.trash.filter(function(x){return x.fid===fid;})[0]||null;
+}
+function trashImportBatch(fid,mode){
+  var H=V.histState,item=findHistItem(fid);if(!item||H.busy)return;
+  H.busy=true;render();
+  (item.legacy?promoteLegacyImport(item):Promise.resolve(item)).then(function(realItem){
+    return loadBatchChanges(realItem).then(function(changes){return {item:realItem,changes:changes};});
+  }).then(function(res){
+    var realItem=res.item,changes=res.changes,conflicts=[];
+    changes.forEach(function(c){
+      var cur=RAW[c.id]||null;
+      if(!impSame(normQForCmp(cur),normQForCmp(c.after))){
+        conflicts.push({id:c.id,q:(cur&&cur.q)||(c.after&&c.after.q)||c.id});
+      }
+    });
+    if(conflicts.length&&!mode){
+      H.busy=false;
+      H.conflict={action:"trash",fid:realItem.fid,bid:realItem.bid,label:realItem.label,conflicts:conflicts,total:changes.length};
+      H.items=H.items.map(function(x){return x.fid===fid?realItem:x;});
+      render();return;
+    }
+    if(!mode&&!confirm("এই ইমপোর্টটি ('"+realItem.label+"', "+changes.length+"টি প্রশ্ন) ট্র্যাশে পাঠাবেন?\r\nনতুন যোগ হওয়া প্রশ্ন সরে যাবে এবং আপডেট হওয়া প্রশ্ন আগের অবস্থায় ফিরে যাবে।")){
+      H.busy=false;render();return;
+    }
+    var confMap={};conflicts.forEach(function(x){confMap[x.id]=1;});
+    var now=nextUpd(),skipped=[],toWrite=[],scoreChanged=false;
+    changes.forEach(function(c){
+      if(confMap[c.id]&&mode==="safe"){skipped.push(c.id);return;}
+      var cur=RAW[c.id]||null,tgt;
+      if(c.before===null){
+        tgt={deleted:true,id:c.id,upd:now};
+        if(cur&&!cur.deleted)scoreChanged=true;
+      }else{
+        tgt=Object.assign({},c.before,{upd:now});
+        if(!cur||cur.deleted||cur.a!==tgt.a||cur.s!==tgt.s||cur.t!==tgt.t)scoreChanged=true;
+      }
+      toWrite.push({id:c.id,doc:tgt});
+    });
+    var ops=[];for(var i=0;i<toWrite.length;i+=400)ops.push(toWrite.slice(i,i+400));
+    var em=((firebase.auth().currentUser)||{}).email||"",trAt=Date.now();
+    return ops.reduce(function(p,chunk){
+      return p.then(function(){var b=DB.batch();chunk.forEach(function(o){b.set(DB.collection("questions").doc(o.id),o.doc);});return b.commit();});
+    },Promise.resolve()).then(function(){
+      toWrite.forEach(function(o){RAW[o.id]=o.doc;});
+      return DB.collection("importBatches").doc(realItem.bid).update({trashedAt:trAt,trashedBy:em,expireAt:trAt+TRASH_MS,skippedIds:skipped});
+    }).then(function(){
+      return Promise.all([syncQuestionCache(),bumpQMeta(now,scoreChanged)]);
+    }).then(function(){
+      buildFrom(RAW);H.busy=false;H.conflict=null;H.folder=null;H.loaded=false;H.trashLoaded=false;
+      alert("ইমপোর্টটি ৭ দিনের জন্য ট্র্যাশে পাঠানো হয়েছে। ("+toWrite.length+"টি প্রশ্ন আগের অবস্থায় ফিরেছে"+(skipped.length?", "+skipped.length+"টি কনফ্লিক্ট প্রশ্ন সেফ মোডে অপরিবর্তিত আছে":"")+")");
+      render();
+    });
+  }).catch(function(err){H.busy=false;alert("সমস্যা: "+err.message);render();});
+}
+function restoreImportBatch(fid,mode){
+  var H=V.histState,item=findHistItem(fid);if(!item||H.busy)return;
+  H.busy=true;render();
+  loadBatchChanges(item).then(function(changes){
+    var skipSet={};(item.skippedIds||[]).forEach(function(id){skipSet[id]=1;});
+    var activeChanges=changes.filter(function(c){return !skipSet[c.id];}),conflicts=[];
+    activeChanges.forEach(function(c){
+      var cur=RAW[c.id]||null,exp=c.before?normQForCmp(c.before):{deleted:true};
+      if(!impSame(normQForCmp(cur),exp)){
+        conflicts.push({id:c.id,q:(cur&&cur.q)||(c.after&&c.after.q)||c.id});
+      }
+    });
+    if(conflicts.length&&!mode){
+      H.busy=false;H.conflict={action:"restore",fid:item.fid,bid:item.bid,label:item.label,conflicts:conflicts,total:activeChanges.length};render();return;
+    }
+    if(!mode&&!confirm("এই ইমপোর্টটি ('"+item.label+"') ট্র্যাশ থেকে ফিরিয়ে আনবেন?")){
+      H.busy=false;render();return;
+    }
+    var confMap={};conflicts.forEach(function(x){confMap[x.id]=1;});
+    var now=nextUpd(),toWrite=[],scoreChanged=false;
+    activeChanges.forEach(function(c){
+      if(confMap[c.id]&&mode==="safe")return;
+      var cur=RAW[c.id]||null,tgt=Object.assign({},c.after,{upd:now});delete tgt.deleted;
+      if(!cur||cur.deleted||cur.a!==tgt.a||cur.s!==tgt.s||cur.t!==tgt.t)scoreChanged=true;
+      toWrite.push({id:c.id,doc:tgt});
+    });
+    var ops=[];for(var i=0;i<toWrite.length;i+=400)ops.push(toWrite.slice(i,i+400));
+    var delV=firebase.firestore.FieldValue.delete();
+    return ops.reduce(function(p,chunk){
+      return p.then(function(){var b=DB.batch();chunk.forEach(function(o){b.set(DB.collection("questions").doc(o.id),o.doc);});return b.commit();});
+    },Promise.resolve()).then(function(){
+      toWrite.forEach(function(o){RAW[o.id]=o.doc;});
+      return DB.collection("importBatches").doc(item.bid).update({trashedAt:delV,trashedBy:delV,expireAt:delV,skippedIds:delV});
+    }).then(function(){
+      return Promise.all([syncQuestionCache(),bumpQMeta(now,scoreChanged)]);
+    }).then(function(){
+      buildFrom(RAW);H.busy=false;H.conflict=null;H.folder=null;H.loaded=false;H.trashLoaded=false;
+      alert("ইমপোর্টটি সফলভাবে ফিরিয়ে আনা হয়েছে ("+toWrite.length+"টি প্রশ্ন)।");render();
+    });
+  }).catch(function(err){H.busy=false;alert("সমস্যা: "+err.message);render();});
+}
+function purgeImportBatch(bid,silent){
+  var bRef=DB.collection("importBatches").doc(bid);
+  return bRef.collection("chunks").get().then(function(snap){
+    var b=DB.batch();snap.forEach(function(d){b.delete(d.ref);});b.delete(bRef);return b.commit();
+  }).then(function(){
+    if(!silent){V.histState.trash=V.histState.trash.filter(function(x){return x.bid!==bid;});render();}
+  });
+}
+function histView(){
+  var H=V.histState,h='<button class="btn alt sm" data-act="hist-back" style="margin:0 0 10px">← অ্যাডমিন ড্যাশবোর্ড</button>';
+  if(H.conflict){
+    var cf=H.conflict,isTr=cf.action==="trash";
+    h+='<div class="dup-warn" style="padding:12px"><b>⚠️ কনফ্লিক্ট পাওয়া গেছে ('+bn(cf.conflicts.length)+' / '+bn(cf.total)+'টি প্রশ্ন)</b><div class="meta" style="margin:6px 0;color:var(--ink)">এই ইমপোর্টের পর নিচের প্রশ্নগুলো আলাদাভাবে এডিট বা আরেকটি ইমপোর্টে বদলানো হয়েছে। কীভাবে '+(isTr?'ট্র্যাশে পাঠাবেন':'রিস্টোর করবেন')+'?</div>';
+    cf.conflicts.slice(0,5).forEach(function(x){h+='<div class="dup-item"><b>'+esc(x.id)+':</b> '+esc(String(x.q||"").slice(0,90))+'</div>';});
+    if(cf.conflicts.length>5)h+='<div class="meta">...এবং আরও '+bn(cf.conflicts.length-5)+'টি প্রশ্ন</div>';
+    h+='<div class="btn-row" style="margin-top:10px"><button class="btn sm" data-act="hist-cf-safe">🛡️ সেফ মোড (পরবর্তী এডিট রাখুন)</button><button class="btn alt sm" data-act="hist-cf-force" style="color:var(--bad)">⚡ ফোর্স মোড (সবগুলো বদলান)</button><button class="btn alt sm" data-act="hist-cf-cancel">বাতিল</button></div></div>';
+    return h;
+  }
+  var f=H.folder?findHistItem(H.folder):null;
+  if(f){
+    if(!f.changes&&!f._loadingCh){
+      f._loadingCh=true;loadBatchChanges(f).then(function(){f._loadingCh=false;render();}).catch(function(err){f._loadingCh=false;H.err=err.message;render();});
+      return h+'<p class="meta">ফোল্ডারের প্রশ্ন লোড হচ্ছে…</p>';
+    }
+    var q=(H.q||"").trim().toLowerCase(),items=(f.changes||[]).map(function(c){return {id:c.id,q:(c.after&&c.after.q)||(BY[c.id]&&BY[c.id].q)||"",x:BY[c.id]||c.after||{}};})
+      .filter(function(it){return !q||(it.q+" "+((it.x.o)||[]).join(" ")+" "+it.id+" "+(it.x.i||"")+" "+(it.x.y||"")).toLowerCase().indexOf(q)>=0;});
+    h+='<h1>📁 '+fmt(f.at)+'</h1><p class="meta">'+esc(f.label)+' · মোট '+bn((f.changes||[]).length)+'টি · দেখাচ্ছে '+bn(items.length)+'টি</p>';
+    h+='<div class="btn-row" style="margin-bottom:10px">'+(f.trashedAt?'<button class="btn sm" data-act="hist-restore" data-fid="'+esc(f.fid)+'"'+(H.busy?' disabled':'')+'>↺ ফিরিয়ে আনুন</button>':'<button class="btn alt sm" data-act="hist-trash" data-fid="'+esc(f.fid)+'" style="color:var(--bad)"'+(H.busy?' disabled':'')+'>🗑️ ট্র্যাশে পাঠান</button>')+'</div>';
+    h+='<div class="panel"><div class="row"><label>খুঁজুন</label><input type="text" data-histq="1" value="'+esc(H.q||"")+'"></div></div>';
+    items.slice(0,100).forEach(function(it){h+='<div class="card"><div class="meta" style="margin-bottom:4px">আইডি: '+esc(it.id)+' · সোর্স: '+(it.x.i?esc(it.x.i)+(it.x.y?' '+esc(it.x.y):''):'নেই')+'</div><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(it.q)+'</p><button class="btn alt sm" data-act="edit" data-qid="'+esc(it.id)+'" style="margin:0">এডিট</button></div>';});
+    return h;
+  }
+  h+='<h1>ইমপোর্ট ইতিহাস</h1><div class="chips" style="margin-top:0"><button class="chip" data-act="hist-mode" data-m="active" aria-pressed="'+(H.mode!=="trash")+'">📁 সক্রিয় ইমপোর্ট</button><button class="chip" data-act="hist-mode" data-m="trash" aria-pressed="'+(H.mode==="trash")+'">🗑️ ট্র্যাশ (৭ দিন)</button></div>';
+  if(H.err)h+='<div class="panel" style="color:var(--bad)">'+esc(H.err)+'</div>';
+  if(H.mode==="trash"){
+    if(!H.trashLoaded&&!H.trashLoading){loadHistTrash();return h+'<p class="meta">লোড হচ্ছে…</p>';}
+    if(H.trashLoading&&!H.trash.length)return h+'<p class="meta">লোড হচ্ছে…</p>';
+    if(!H.trash.length)return h+'<div class="panel meta">ইমপোর্ট ট্র্যাশ ফাঁকা আছে।</div>';
+    H.trash.forEach(function(x){
+      var dl=daysLeft(x.expireAt);
+      h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><b>📁 '+fmt(x.at)+'</b><span class="warn-badge">বাকি '+bn(dl)+' দিন</span></div><div class="meta" style="margin:4px 0 8px">'+esc(x.label)+' · '+bn(x.count||0)+'টি প্রশ্ন · ট্র্যাশে: '+fmt(x.trashedAt)+'</div><div class="btn-row"><button class="btn sm" data-act="hist-restore" data-fid="'+esc(x.fid)+'"'+(H.busy?' disabled':'')+'>↺ ফিরিয়ে আনুন</button><button class="btn alt sm" data-act="hist-folder" data-fid="'+esc(x.fid)+'">প্রশ্ন দেখুন</button><button class="btn alt sm" data-act="hist-purge" data-bid="'+esc(x.bid)+'" style="color:var(--bad)">স্থায়ীভাবে মুছুন</button></div></div>';
+    });
+    return h;
+  }
+  if(!H.loaded&&!H.loading){loadHistActive(true);return h+'<p class="meta">লোড হচ্ছে…</p>';}
+  h+='<p class="meta">প্রতিবার '+bn(HIST_PAGE)+'টি করে ইমপোর্ট ফোল্ডার দেখাচ্ছে। কোনো ফোল্ডার ডিলিট করলে তা ৭ দিনের জন্য ট্র্যাশে যাবে।</p>';
+  if(H.loading&&!H.items.length)return h+'<p class="meta">লোড হচ্ছে…</p>';
+  if(!H.items.length)return h+'<div class="panel meta">এখনো কোনো ইমপোর্ট নেই।</div>';
+  H.items.forEach(function(x){
+    h+='<div class="card"><button data-act="hist-folder" data-fid="'+esc(x.fid)+'" style="display:block;width:100%;text-align:left;background:none;border:0;padding:0;font:inherit;color:var(--ink);cursor:pointer"><b>📁 '+fmt(x.at)+'</b><div class="meta" style="margin:2px 0 6px">'+esc(x.label)+' · '+bn(x.count)+'টি প্রশ্ন</div></button><div class="btn-row"><button class="btn alt sm" data-act="hist-folder" data-fid="'+esc(x.fid)+'">প্রশ্ন দেখুন</button><button class="btn alt sm" data-act="hist-trash" data-fid="'+esc(x.fid)+'" style="color:var(--bad)"'+(H.busy?' disabled':'')+'>🗑️ ট্র্যাশে পাঠান</button></div></div>';
+  });
+  if(H.hasMore)h+='<button class="btn alt" data-act="hist-more"'+(H.loading?' disabled':'')+'>'+(H.loading?'লোড হচ্ছে…':'আরও দেখুন (+'+bn(HIST_PAGE)+'টি)')+'</button>';
+  return h;
+}
+function adminView(){
+  if(V.imp)return impView();
+  if(V.admTopics)return admTopicsView();
+  if(V.admLog)return admUsageLogView();
+  if(V.admHist)return histView();
+  if(V.admPickKey)return admMTPickView();
+  if(V.admMTCreate)return admMTFormView();
+  if(V.admMTView)return admMTDetailView();
+  if(V.admMT)return admMTView();
+  if(V.admReqs)return admReqsView();
+  if(V.adm&&V.adm.key)return topicView();
+  return topicTree();
+}
+  /* ===== ১৩. অ্যাডমিন: লাইভ মডেল টেস্ট, মেরিট লিস্ট সিঙ্ক ও ড্যাশবোর্ড ===== */
 function isLockedByOtherMT(q,editMtId){return !!(q.usedMT&&q.usedMT.some(function(id){return id!==editMtId;}));}
 function mtSortSubjects(list,pref){pref=pref||[];var seen=[];list.forEach(function(s){if(seen.indexOf(s)<0)seen.push(s);});return seen.map(function(s,i){var p=pref.indexOf(s);return {s:s,r:p>=0?p:1000+subjRank(s),i:i};}).sort(function(a,b){return (a.r-b.r)||(a.i-b.i);}).map(function(x){return x.s;});}
 function mtActiveSubjects(f){var out=[];Object.keys(f.selTopics||{}).forEach(function(k){if(f.selTopics[k]){var s=k.split("||")[0];if(out.indexOf(s)<0)out.push(s);}});return mtSortSubjects(out,f.subjOrder);}
@@ -2122,7 +3008,7 @@ function createModelTest(){
   var cntS={};finalIds.forEach(function(id){var s2=BY[id].s;cntS[s2]=(cntS[s2]||0)+1;});
   if(!confirm("'"+title+"' – মোট "+finalIds.length+"টি প্রশ্ন\r\n\r\n"+subjOrder.map(function(s2,i){return (i+1)+". "+s2+": "+cntS[s2]+"টি";}).join("\r\n")+"\r\n\r\n"+(isEdit?"পরিবর্তন সেভ করবেন?":"পাবলিশ করবেন?")))return;
   var mtId=isEdit?f.editMtId:("mt_"+Date.now().toString(36)),finalDur=durMin>0?(durMin*60):(finalIds.length*SEC_PER_Q),now=nextUpd();
-  var mtData={id:mtId,title:title,startAt:startAt,endAt:endAt,dur:finalDur,neg:negVal,lockOpt:!!f.lockOpt,qids:finalIds,subjOrder:subjOrder,createdAt:(oldMt&&oldMt.createdAt)||Date.now(),updatedAt:Date.now(),status:statusVal};
+  var mtData={id:mtId,title:title,startAt:startAt,endAt:endAt,dur:finalDur,neg:negVal,lockOpt:!!f.lockOpt,qids:finalIds,subjOrder:subjOrder,createdAt:(oldMt&&oldMt.createdAt)||Date.now(),updatedAt:Date.now(),status:statusVal,scoreVer:QMETA.scoreVer||0};
   var btn=document.getElementById("mt-create-submit");if(btn)btn.disabled=true;
   var oldIds=(oldMt&&oldMt.qids)||[],added=finalIds.filter(function(id){return oldIds.indexOf(id)<0;}),removed=oldIds.filter(function(id){return finalIds.indexOf(id)<0;});
   DB.collection("modelTests").doc(mtId).set(mtData).then(function(){
@@ -2132,7 +3018,8 @@ function createModelTest(){
     var chunks=[];for(var i=0;i<ops.length;i+=400)chunks.push(ops.slice(i,i+400));
     return chunks.reduce(function(p,chunk){return p.then(function(){var b=DB.batch();chunk.forEach(function(o){b.update(DB.collection("questions").doc(o.id),{usedMT:o.arr,upd:now});});return b.commit();});},Promise.resolve());
   }).then(function(){
-    syncQuestionCache();
+    return Promise.all([syncQuestionCache(),bumpQMeta(now,false)]);
+  }).then(function(){
     alert((isEdit?"মডেল টেস্ট আপডেট করা হয়েছে!":"মডেল টেস্ট সফলভাবে তৈরি ও লাইভ করা হয়েছে!")+" ("+finalIds.length+"টি প্রশ্ন)");
     V.admMT=true;V.admMTCreate=false;V.mtForm={custom:{},picked:{},exUsed:true,selTopics:{},subjOrder:[],customAuto:{},status:"active",pickDiff:""};render();
   }).catch(function(err){if(btn)btn.disabled=false;alert("সমস্যা: "+err.message);});
@@ -2150,10 +3037,10 @@ function releaseMTQuestions(mtId){
       });
       return b.commit();
     });
-  },Promise.resolve()).then(function(){return syncQuestionCache();});
+  },Promise.resolve()).then(function(){return Promise.all([syncQuestionCache(),bumpQMeta(now,false)]);});
 }
 function releaseAllMT(mtId){var mt=MT_LIST.filter(function(x){return x.id===mtId;})[0];if(!mt||!confirm("মডেল টেস্ট '"+mt.title+"'-এর সব প্রশ্ন কি নতুন মডেল টেস্টের জন্য উন্মুক্ত (Release) করবেন?"))return;releaseMTQuestions(mtId).then(function(){alert("সব প্রশ্ন রিলিজ করা হয়েছে।");render();}).catch(function(err){alert("সমস্যা: "+err.message);});}
-function toggleOneQRelease(mtId,qid,lock){var cur=BY[qid];if(!cur)return;var arr=(cur.usedMT||[]).filter(function(x){return x!==mtId;});if(lock)arr.push(mtId);cur.usedMT=arr;if(RAW[qid])RAW[qid].usedMT=arr;DB.collection("questions").doc(qid).update({usedMT:arr,upd:nextUpd()}).then(function(){syncQuestionCache();render();}).catch(function(err){alert("সমস্যা: "+err.message);});}
+function toggleOneQRelease(mtId,qid,lock){var cur=BY[qid];if(!cur)return;var now=nextUpd(),arr=(cur.usedMT||[]).filter(function(x){return x!==mtId;});if(lock)arr.push(mtId);cur.usedMT=arr;if(RAW[qid])RAW[qid].usedMT=arr;DB.collection("questions").doc(qid).update({usedMT:arr,upd:now}).then(function(){syncQuestionCache();bumpQMeta(now,false);render();}).catch(function(err){alert("সমস্যা: "+err.message);});}
 function deleteModelTest(mtId){
   if(!confirm("এই মডেল টেস্টটি মুছে ফেলবেন? (এর প্রশ্নগুলোও রিলিজ হয়ে যাবে)"))return;
   releaseMTQuestions(mtId).then(function(){
@@ -2165,7 +3052,29 @@ function deleteModelTest(mtId){
 }
 function showMTLeaderboard(mtId){
   navPush(function(){V.screen="mtlb";V.mtLBId=mtId;V.mtLBLoading=true;});
-  DB.collection("modelTests").doc(mtId).collection("scores").orderBy("sc","desc").get().then(function(snap){V.mtLBScores=[];snap.forEach(function(d){V.mtLBScores.push(d.data());});V.mtLBLoading=false;render();}).catch(function(err){V.mtLBLoading=false;alert(err.message);render();});
+  var mt=MT_LIST.filter(function(x){return x.id===mtId;})[0],scRef=DB.collection("modelTests").doc(mtId).collection("scores");
+  scRef.orderBy("sc","desc").get().then(function(snap){
+    var list=[];snap.forEach(function(d){list.push(d.data());});
+    if(ADMIN&&mt&&(QMETA.scoreVer||0)>(mt.scoreVer||0)&&list.length&&Q.length){
+      return Promise.all(list.map(function(sc){
+        return DB.collection("users").doc(sc.uid).collection("attempts").doc("ex_"+mtId).get().then(function(attSn){
+          if(!attSn.exists)return sc;
+          var ex=attSn.data();if(!ex||ex.deletedAt)return null;
+          var nr=computeResultStats(ex),updSc={uid:sc.uid,email:sc.email||"",c:nr.c,w:nr.w,sk:nr.sk,sc:nr.sc,finishedAt:sc.finishedAt||ex.finishedAt||ex.at};
+          if(!sameRes(ex.r,nr)){
+            DB.collection("users").doc(sc.uid).collection("attempts").doc(ex.id).update({r:nr}).catch(function(){});
+            scRef.doc(sc.uid).set(updSc).catch(function(){});
+          }
+          return updSc;
+        }).catch(function(){return sc;});
+      })).then(function(synced){
+        DB.collection("modelTests").doc(mtId).update({scoreVer:QMETA.scoreVer}).catch(function(){});
+        return synced.filter(Boolean).sort(function(a,b){return (b.sc||0)-(a.sc||0);});
+      });
+    }
+    return list;
+  }).then(function(finalList){V.mtLBScores=finalList;V.mtLBLoading=false;render();})
+    .catch(function(err){V.mtLBLoading=false;alert(err.message);render();});
 }
 function mtLeaderboardView(){
   var mt=MT_LIST.filter(function(x){return x.id===V.mtLBId;})[0],h='<button class="btn alt" data-act="mtlb-back" style="margin:0 0 10px">← ফিরে যান</button><h1>মেরিট লিস্ট: '+esc(mt?mt.title:"মডেল টেস্ট")+'</h1>';
@@ -2176,8 +3085,9 @@ function mtLeaderboardView(){
   return h+'</table>';
 }
 function topicTree(){
+  var totNotif=(V.pendingCnt||0)+(V.mtRestCnt||0);
   var h='<h1>ড্যাশবোর্ড</h1><p class="meta">মোট '+bn(Q.length)+'টি প্রশ্ন (ডেটাবেসে '+bn(dbCount())+'টি)।</p>';
-  h+='<div class="panel"><button class="btn" data-act="adm-mt" style="margin-top:0">🏆 লাইভ মডেল টেস্ট ম্যানেজমেন্ট</button><button class="btn alt" data-act="adm-topics">📚 টপিক লিস্ট ম্যানেজার</button><button class="btn alt" data-act="adm-reqs">সংশোধন অনুরোধ (<span id="adm-notif-cnt">'+bn(V.pendingCnt||0)+'</span>)</button><button class="btn alt" data-act="usagelog-open">📋 ব্যবহার লগ</button><button class="btn alt" data-act="hist-open">📁 ইমপোর্ট ইতিহাস</button><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn alt" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
+  h+='<div class="panel"><button class="btn" data-act="adm-mt" style="margin-top:0">🏆 লাইভ মডেল টেস্ট ম্যানেজমেন্ট</button><button class="btn alt" data-act="adm-topics">📚 টপিক লিস্ট ম্যানেজার</button><button class="btn alt" data-act="adm-reqs">অনুরোধ ও রিস্টোর (<span id="adm-notif-cnt">'+bn(totNotif)+'</span>)</button><button class="btn alt" data-act="usagelog-open">📋 ব্যবহার লগ</button><button class="btn alt" data-act="hist-open">📁 ইমপোর্ট ইতিহাস ও ট্র্যাশ</button><button class="btn alt" id="adm-undo">↶ আনডু</button><button class="btn alt" id="adm-redo">↷ আবার করুন</button><button class="btn alt" id="adm-new">+ নতুন প্রশ্ন যোগ করুন</button></div>';
   h+='<div class="panel"><div class="row" style="margin-bottom:4px"><label><b>সব টপিক থেকে প্রশ্ন খুঁজুন</b></label></div><input type="text" id="adm-all-q" placeholder="প্রশ্ন, অপশন, প্রতিষ্ঠান বা টপিক লিখুন…" value="'+esc(V.admAllQ||"")+'"></div><div id="adm-all-res"></div>';
   var T=groupTree(Q);
   Object.keys(T).forEach(function(s){
@@ -2204,52 +3114,15 @@ function topicView(){
   });
   return h;
 }
-function loadHist(){
-  V.histLoading=true;
-  DB.collection("adminLog").orderBy("at","desc").limit(80).get().then(function(snap){
-    V.histList=[];snap.forEach(function(d){var x=d.data();if(/ইমপোর্ট/.test(x.label||""))V.histList.push({fid:d.id,at:x.at||0,label:x.label||"",changes:x.changes||[]});});
-    V.histLoading=false;render();
-  }).catch(function(err){V.histLoading=false;V.histErr=err.message;render();});
-}
-function histView(){
-  var h='<button class="btn alt sm" data-act="hist-back" style="margin:0 0 10px">← অ্যাডমিন ড্যাশবোর্ড</button>';
-  if(!V.histList){if(!V.histLoading)loadHist();return h+'<p class="meta">লোড হচ্ছে…</p>';}
-  if(V.histErr)h+='<div class="panel" style="color:var(--bad)">'+esc(V.histErr)+'</div>';
-  var f=V.histList.filter(function(x){return x.fid===V.histFolder;})[0];
-  if(!f){
-    h+='<h1>ইমপোর্ট ইতিহাস</h1><p class="meta">প্রতিটা ইমপোর্টের জন্য একটা ফোল্ডার। ফোল্ডার খুললে ওই সময়ের প্রশ্নগুলো দেখাবে।</p>';
-    if(!V.histList.length)h+='<div class="panel meta">এখনো কোনো ইমপোর্ট নেই।</div>';
-    V.histList.forEach(function(x){h+='<button class="card" data-act="hist-folder" data-fid="'+esc(x.fid)+'" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer;margin-bottom:8px"><b>📁 '+fmt(x.at)+'</b><div class="meta">'+esc(x.label)+' · '+bn(x.changes.length)+'টি প্রশ্ন</div></button>';});
-    return h;
-  }
-  var q=(V.histQ||"").trim().toLowerCase(),items=f.changes.map(function(c){return {id:c.id,q:(c.after&&c.after.q)||(BY[c.id]&&BY[c.id].q)||"",x:BY[c.id]||c.after||{}};})
-    .filter(function(it){return !q||(it.q+" "+((it.x.o)||[]).join(" ")+" "+it.id+" "+(it.x.i||"")+" "+(it.x.y||"")).toLowerCase().indexOf(q)>=0;});
-  h+='<h1>📁 '+fmt(f.at)+'</h1><p class="meta">'+esc(f.label)+' · মোট '+bn(f.changes.length)+'টি · দেখাচ্ছে '+bn(items.length)+'টি</p><div class="panel"><div class="row"><label>খুঁজুন</label><input type="text" data-histq="1" value="'+esc(V.histQ||"")+'"></div></div>';
-  items.slice(0,100).forEach(function(it){h+='<div class="card"><div class="meta" style="margin-bottom:4px">আইডি: '+esc(it.id)+' · সোর্স: '+(it.x.i?esc(it.x.i)+(it.x.y?' '+esc(it.x.y):''):'নেই')+'</div><p class="q" style="font-size:16px;margin-bottom:6px">'+esc(it.q)+'</p><button class="btn alt sm" data-act="edit" data-qid="'+esc(it.id)+'" style="margin:0">এডিট</button></div>';});
-  return h;
-}
-function adminView(){
-  if(V.imp)return impView();
-  if(V.admTopics)return admTopicsView();
-  if(V.admLog)return admUsageLogView();
-  if(V.admHist)return histView();
-  if(V.admPickKey)return admMTPickView();
-  if(V.admMTCreate)return admMTFormView();
-  if(V.admMTView)return admMTDetailView();
-  if(V.admMT)return admMTView();
-  if(V.admReqs)return admReqsView();
-  if(V.adm&&V.adm.key)return topicView();
-  return topicTree();
-}
 
-/* ===== ১৪. ব্যবহারকারী মনিটরিং ===== */
+/* ===== ১৪. ব্যবহারকারী মনিটরিং, ছাত্রের ট্র্যাশ ও পূর্ণ ব্যাকআপ ===== */
 function isLive(u){var d=u.data||{};return d.online!==false&&d.lastActive&&(Date.now()-d.lastActive)<120000;}
 function stopUsersWatch(){if(usrUnsub){usrUnsub();usrUnsub=null;}}
 function watchUsers(){
   if(usrUnsub||!DB)return;V.usrLoading=true;
   usrUnsub=DB.collection("users").onSnapshot(function(snap){
     V.usrList=[];snap.forEach(function(d){V.usrList.push({uid:d.id,data:d.data()||{}});});V.usrLoading=false;V.usrErr="";
-    if(V.tab==="users"&&!V.usrSel&&!V.screen&&!V.edit)renderUserList();else if(V.tab==="users"&&!V.edit)render();
+    if(V.tab==="users"&&!V.usrSel&&!V.screen&&!V.edit)renderUserList();else if(V.tab==="users"&&!V.edit)safeRender();
   },function(err){V.usrLoading=false;V.usrErr="লোড হয়নি: "+err.message;render();});
 }
 function stOf(u){var st=normalize(u.data.state),del=(u.data.adminDeleted||[]).concat(u.data.userDeleted||[]);if(del.length)st.exams=st.exams.filter(function(x){return del.indexOf(x.id)<0;});return st;}
@@ -2268,25 +3141,68 @@ function renderUserList(){
   box.innerHTML=h;trDom(box);
 }
 function fullBackup(){
-  var out={kind:"quiz-full-backup",at:Date.now(),users:[],modelTests:[]};
-  return DB.collection("users").get().then(function(us){us.forEach(function(d){out.users.push({uid:d.id,data:d.data()});});return DB.collection("modelTests").get();})
-    .then(function(ms){var jobs=[];ms.forEach(function(d){var t={id:d.id,data:d.data(),scores:[]};out.modelTests.push(t);jobs.push(DB.collection("modelTests").doc(d.id).collection("scores").get().then(function(ss){ss.forEach(function(s){t.scores.push({id:s.id,data:s.data()});});}));});return Promise.all(jobs);})
-    .then(function(){var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:"application/json"}));a.download="quiz-full-backup-"+new Date().toISOString().slice(0,10)+".json";a.click();alert("ব্যাকআপ তৈরি: "+out.users.length+" জন ব্যবহারকারী, "+out.modelTests.length+"টি মডেল টেস্ট");})
-    .catch(function(err){alert("ব্যাকআপ হয়নি: "+err.message);});
+  var out={kind:"quiz-full-backup-v2",at:Date.now(),users:[],modelTests:[],importBatches:[],mtRestoreRequests:[],appConfig:{}};
+  return DB.collection("users").get().then(function(us){
+    var jobs=[];
+    us.forEach(function(d){
+      var uObj={uid:d.id,data:d.data(),attempts:[],drafts:[]};out.users.push(uObj);
+      jobs.push(DB.collection("users").doc(d.id).collection("attempts").get().then(function(as){as.forEach(function(a){uObj.attempts.push({id:a.id,data:a.data()});});}));
+      jobs.push(DB.collection("users").doc(d.id).collection("drafts").get().then(function(ds){ds.forEach(function(dr){uObj.drafts.push({id:dr.id,data:dr.data()});});}));
+    });
+    return Promise.all(jobs);
+  }).then(function(){return DB.collection("modelTests").get();}).then(function(ms){
+    var jobs=[];
+    ms.forEach(function(d){
+      var t={id:d.id,data:d.data(),scores:[]};out.modelTests.push(t);
+      jobs.push(DB.collection("modelTests").doc(d.id).collection("scores").get().then(function(ss){ss.forEach(function(s){t.scores.push({id:s.id,data:s.data()});});}));
+    });
+    return Promise.all(jobs);
+  }).then(function(){return DB.collection("importBatches").get();}).then(function(ibs){
+    var jobs=[];
+    ibs.forEach(function(d){
+      var ib={id:d.id,data:d.data(),chunks:[]};out.importBatches.push(ib);
+      jobs.push(DB.collection("importBatches").doc(d.id).collection("chunks").get().then(function(cs){cs.forEach(function(c){ib.chunks.push({id:c.id,data:c.data()});});}));
+    });
+    return Promise.all(jobs);
+  }).then(function(){return DB.collection("mtRestoreRequests").get();}).then(function(rs){
+    rs.forEach(function(d){out.mtRestoreRequests.push({id:d.id,data:d.data()});});
+    return Promise.all([DB.collection("appConfig").doc("topics").get(),DB.collection("appConfig").doc("qMeta").get()]);
+  }).then(function(cf){
+    if(cf[0].exists)out.appConfig.topics=cf[0].data();
+    if(cf[1].exists)out.appConfig.qMeta=cf[1].data();
+    var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:"application/json"}));a.download="quiz-full-backup-"+new Date().toISOString().slice(0,10)+".json";a.click();
+    var totAtt=out.users.reduce(function(n,u){return n+u.attempts.length;},0);
+    alert("সম্পূর্ণ ব্যাকআপ তৈরি: "+out.users.length+" জন ব্যবহারকারী, "+totAtt+"টি পরীক্ষা, "+out.modelTests.length+"টি মডেল টেস্ট, "+out.importBatches.length+"টি ইমপোর্ট ব্যাচ");
+  }).catch(function(err){alert("ব্যাকআপ হয়নি: "+err.message);});
 }
 function fullRestore(){
   var f=document.getElementById("fullfile").files[0];if(!f){alert("আগে ব্যাকআপ ফাইল বাছুন");return;}
   var rd=new FileReader();
   rd.onload=function(){
     var obj;try{obj=JSON.parse(rd.result);}catch(err){alert("ফাইল ঠিক নেই: "+err.message);return;}
-    if(!obj||obj.kind!=="quiz-full-backup"){alert("এটি সম্পূর্ণ ব্যাকআপ ফাইল নয়");return;}
-    var scores=0;obj.modelTests.forEach(function(t){scores+=t.scores.length;});
-    if(!confirm("ফাইল থেকে ফেরানো হবে:\n"+obj.users.length+" জন ব্যবহারকারীর অগ্রগতি (বর্তমান অগ্রগতি বদলে যাবে)\n"+obj.modelTests.length+"টি মডেল টেস্ট ও "+scores+"টি স্কোর\n\nচালিয়ে যাবেন?"))return;
-    var ops=[];obj.users.forEach(function(u){ops.push({ref:DB.collection("users").doc(u.uid),data:u.data});});
-    obj.modelTests.forEach(function(t){ops.push({ref:DB.collection("modelTests").doc(t.id),data:t.data});t.scores.forEach(function(s){ops.push({ref:DB.collection("modelTests").doc(t.id).collection("scores").doc(s.id),data:s.data});});});
+    if(!obj||(obj.kind!=="quiz-full-backup"&&obj.kind!=="quiz-full-backup-v2")){alert("এটি সম্পূর্ণ ব্যাকআপ ফাইল নয়");return;}
+    var scores=0,atts=0;(obj.modelTests||[]).forEach(function(t){scores+=(t.scores||[]).length;});(obj.users||[]).forEach(function(u){atts+=(u.attempts||[]).length;});
+    if(!confirm("ফাইল থেকে ফেরানো হবে:\n"+(obj.users||[]).length+" জন ব্যবহারকারীর অগ্রগতি ও "+atts+"টি পরীক্ষা\n"+(obj.modelTests||[]).length+"টি মডেল টেস্ট ও "+scores+"টি স্কোর\n\nচালিয়ে যাবেন?"))return;
+    var ops=[];
+    (obj.users||[]).forEach(function(u){
+      var uRef=DB.collection("users").doc(u.uid);ops.push({ref:uRef,data:u.data});
+      (u.attempts||[]).forEach(function(a){ops.push({ref:uRef.collection("attempts").doc(a.id),data:a.data});});
+      (u.drafts||[]).forEach(function(dr){ops.push({ref:uRef.collection("drafts").doc(dr.id),data:dr.data});});
+    });
+    (obj.modelTests||[]).forEach(function(t){
+      var mRef=DB.collection("modelTests").doc(t.id);ops.push({ref:mRef,data:t.data});
+      (t.scores||[]).forEach(function(s){ops.push({ref:mRef.collection("scores").doc(s.id),data:s.data});});
+    });
+    (obj.importBatches||[]).forEach(function(ib){
+      var ibRef=DB.collection("importBatches").doc(ib.id);ops.push({ref:ibRef,data:ib.data});
+      (ib.chunks||[]).forEach(function(c){ops.push({ref:ibRef.collection("chunks").doc(c.id),data:c.data});});
+    });
+    (obj.mtRestoreRequests||[]).forEach(function(r){ops.push({ref:DB.collection("mtRestoreRequests").doc(r.id),data:r.data});});
+    if(obj.appConfig&&obj.appConfig.topics)ops.push({ref:DB.collection("appConfig").doc("topics"),data:obj.appConfig.topics});
+    if(obj.appConfig&&obj.appConfig.qMeta)ops.push({ref:DB.collection("appConfig").doc("qMeta"),data:obj.appConfig.qMeta});
     var chunks=[];for(var i=0;i<ops.length;i+=400)chunks.push(ops.slice(i,i+400));
     chunks.reduce(function(p,c){return p.then(function(){var b=DB.batch();c.forEach(function(o){b.set(o.ref,o.data);});return b.commit();});},Promise.resolve())
-      .then(function(){V.usrList=null;alert("ফেরানো হয়েছে: "+ops.length+"টি লেখা");render();}).catch(function(err){alert("ফেরানো হয়নি: "+err.message);});
+      .then(function(){V.usrList=null;alert("ফেরানো হয়েছে: "+ops.length+"টি ডকুমেন্ট");render();}).catch(function(err){alert("ফেরানো হয়নি: "+err.message);});
   };
   rd.readAsText(f);
 }
@@ -2294,21 +3210,49 @@ function usrView(){
   if(V.usrSel)return usrDetail();
   if(!V.usrList){if(!V.usrLoading)watchUsers();return '<h1>ব্যবহারকারী</h1><p class="meta">লোড হচ্ছে…</p>';}
   var h='<h1>ব্যবহারকারী</h1><div class="panel"><div class="row" style="margin-bottom:4px"><label>খুঁজুন (ইমেইল)</label></div><input type="text" id="usr-q" placeholder="ইমেইল লিখে খুঁজুন…" value="'+esc(V.usrQ||"")+'"></div>';
-  h+='<div class="panel"><div class="btn-row"><button class="btn alt sm" data-act="fullbk">⬇ সম্পূর্ণ ব্যাকআপ (অগ্রগতি + মডেল টেস্ট)</button></div><div class="row" style="margin-top:8px"><input type="file" id="fullfile" accept=".json,application/json"><button class="btn alt sm" data-act="fullimp">⬆ ব্যাকআপ থেকে ফেরান</button></div></div>';
+  h+='<div class="panel"><div class="btn-row"><button class="btn alt sm" data-act="fullbk">⬇ সম্পূর্ণ ব্যাকআপ (পরীক্ষা + অগ্রগতি + মডেল টেস্ট)</button></div><div class="row" style="margin-top:8px"><input type="file" id="fullfile" accept=".json,application/json"><button class="btn alt sm" data-act="fullimp">⬆ ব্যাকআপ থেকে ফেরান</button></div></div>';
   if(V.usrErr)h+='<div class="panel" style="color:var(--bad)">'+esc(V.usrErr)+'</div>';
   return h+'<div id="usr-list-res"></div>';
 }
+function usrTrashView(){
+  var u=(V.usrList||[]).filter(function(x){return x.uid===V.usrSel;})[0];
+  if(!u)return '<button class="btn alt" data-act="utrash-back">← ফিরে যান</button><p class="meta">ব্যবহারকারী পাওয়া যায়নি।</p>';
+  if(!V.uatt.trashLoaded&&!V.uatt.trashLoading)loadUserTrash(u.uid);
+  var h='<button class="btn alt" data-act="utrash-back" style="margin:0 0 10px">← ছাত্রের তালিকায় ফিরুন</button><h1>🗑️ '+esc(userName(u))+' — ট্র্যাশ (৭ দিন)</h1>';
+  if(V.uatt.trashLoading&&!V.uatt.trashed.length)return h+'<p class="meta">লোড হচ্ছে…</p>';
+  var list=V.uatt.trashed||[];
+  if(!list.length)return h+'<div class="panel meta">ছাত্রের ট্র্যাশ ফাঁকা আছে।</div>';
+  list.forEach(function(x){
+    var dl=daysLeft(x.expireAt),byTxt=x.deletedBy==="admin"?"অ্যাডমিন দ্বারা ডিলিটেড":"ছাত্র ডিলিট করেছে",r=x.r||computeResultStats(x);
+    h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><b>'+esc(x.name)+'</b><span class="warn-badge">বাকি '+bn(dl)+' দিন</span></div><div class="meta" style="margin:4px 0 6px">'+(x.mtId?'🏆 মডেল টেস্ট':'📝 সাধারণ পরীক্ষা')+' · '+byTxt+' · '+fmt(x.deletedAt)+'<br>নম্বর '+bn((r.sc||0).toFixed(2))+'/'+bn(r.n)+' (সঠিক '+bn(r.c)+', ভুল '+bn(r.w)+')</div><div class="btn-row"><button class="btn sm" data-act="utrash-restore" data-exid="'+x.id+'">↺ ফিরিয়ে আনুন</button><button class="btn alt sm" data-act="utrash-purge" data-exid="'+x.id+'" style="color:var(--bad)">স্থায়ীভাবে মুছুন</button></div></div>';
+  });
+  return h;
+}
 function usrDetail(){
   if(V.usrExam)return usrExamView();
+  if(V.usrTrashOpen)return usrTrashView();
   var u=(V.usrList||[]).filter(function(x){return x.uid===V.usrSel;})[0];
   if(!u)return '<p class="meta">ব্যবহারকারী পাওয়া যায়নি।</p><button class="btn alt" data-act="usrback">ফিরে যান</button>';
   if(V.uatt.uid!==u.uid&&!V.uatt.loading)loadUserAttempts(u.uid,true);
+  if((QMETA.scoreVer||0)>(u.data.lastScoreSync||0)&&!V.uatt.syncing&&Q.length){
+    V.uatt.syncing=true;
+    recomputeUserProgressByUid(u.uid,QMETA.scoreVer).then(function(res){
+      V.uatt.syncing=false;
+      if(res&&u){
+        u.data.state=Object.assign({},u.data.state||{},res.prog);
+        u.data.lastScoreSync=res.scoreVer;
+        if(V.uatt.uid===u.uid){V.uatt.items=res.active.sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});V.uatt.hasMore=false;}
+        safeRender();
+      }
+    }).catch(function(){V.uatt.syncing=false;});
+  }
   var st=stOf(u),live=isLive(u),tot=0,right=0;
   Object.keys(st.st).forEach(function(id){var s=st.st[id];if(s){tot+=s[0]+s[1];right+=s[0];}});
   var acc=tot?Math.round(right/tot*100):0,wrongAll=Object.keys(st.wrong).filter(function(id){return BY[id];}).map(function(id){return BY[id];}),seen=Object.keys(st.seen).filter(function(id){return BY[id];}).length;
   var h='<button class="btn alt" data-act="usrback" style="margin:0 0 10px">← সব ব্যবহারকারী</button><h1 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+esc(userName(u))+(live?' <span class="live-badge"><i class="live-dot"></i> লাইভ</span>':'')+'</h1>';
   h+='<div class="panel"><div class="total">'+bn(seen)+' / '+bn(Q.length)+'</div><div class="meta">প্রশ্ন দেওয়া হয়েছে · মোট নির্ভুলতা '+bn(acc)+'% · বর্তমানে ভুল '+bn(wrongAll.length)+'টি</div></div>';
   h+='<button class="card" data-act="uwrongopen" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer"><b>বর্তমান ভুল প্রশ্ন</b> ('+bn(wrongAll.length)+'টি)<div class="meta">ক্লিক করে ভুল প্রশ্ন দেখুন →</div></button>';
+  h+='<button class="card" data-act="utrash-open" style="display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer"><b>🗑️ ছাত্রের ট্র্যাশ (৭ দিন)</b><div class="meta">ডিলিট করা পরীক্ষা ও মডেল টেস্ট দেখুন বা ফিরিয়ে আনুন →</div></button>';
   h+='<h2>পরীক্ষার ইতিহাস</h2>';
   if(V.uatt.err)h+='<div class="panel" style="color:var(--bad)">লোড হয়নি: '+esc(V.uatt.err)+'</div>';
   var list=V.uatt.items||[];
@@ -2317,7 +3261,7 @@ function usrDetail(){
   list.forEach(function(x){
     var ok=x.ids.filter(function(id){return BY[id];}),c=0,w=0,exNeg=x.neg!=null?x.neg:NEG;
     ok.forEach(function(id){var a=(x.a||{})[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
-    h+='<div class="card"><b>'+esc(x.name)+'</b>'+(x.mtId?' <span class="off-badge">মডেল টেস্ট</span>':'')+'<div class="meta">'+fmt(x.finishedAt||x.at)+' · সঠিক '+bn(c)+', ভুল '+bn(w)+', নম্বর '+bn((c-w*exNeg).toFixed(2))+'/'+bn(ok.length)+'</div><button class="btn alt" data-act="uexam" data-exid="'+x.id+'" style="margin:0 0 6px">ফলাফল ও প্রশ্ন দেখুন</button><button class="btn alt" data-act="uexdel" data-exid="'+x.id+'" style="margin:0;color:var(--bad)">এই পরীক্ষা মুছুন</button></div>';
+    h+='<div class="card"><b>'+esc(x.name)+'</b>'+(x.mtId?' <span class="off-badge">মডেল টেস্ট</span>':'')+'<div class="meta">'+fmt(x.finishedAt||x.at)+' · সঠিক '+bn(c)+', ভুল '+bn(w)+', নম্বর '+bn((c-w*exNeg).toFixed(2))+'/'+bn(ok.length)+'</div><button class="btn alt" data-act="uexam" data-exid="'+x.id+'" style="margin:0 0 6px">ফলাফল ও প্রশ্ন দেখুন</button><button class="btn alt" data-act="uexdel" data-exid="'+x.id+'" style="margin:0;color:var(--bad)">🗑️ ট্র্যাশে পাঠান</button></div>';
   });
   if(V.uatt.hasMore)h+='<button class="btn alt" data-act="uattmore"'+(V.uatt.loading?' disabled':'')+'>'+(V.uatt.loading?'লোড হচ্ছে…':'আরও দেখুন')+'</button>';
   return h;
@@ -2359,13 +3303,16 @@ function usrExamView(){
 var TR_PAIRS=[
   ["পাঠানো প্রস্তাবগুলোর অবস্থা (Approved / Rejected) দেখুন →","View status of your sent requests (Approved / Rejected) →"],
   ["অংশ নেওয়া সব মডেল টেস্টের ইতিহাস, ফলাফল ও মেরিট লিস্ট দেখুন →","View history, results and merit lists of all model tests →"],
+  ["মুছে ফেলা পরীক্ষা ও মডেল টেস্ট এখান থেকে ফিরিয়ে আনুন →","Restore deleted exams and model tests from here →"],
+  ["মুছে ফেলা পরীক্ষা ও মডেল টেস্ট এখানে ৭ দিন জমা থাকবে। ৭ দিন পর স্থায়ীভাবে মুছে যাবে।","Deleted exams & model tests stay here for 7 days, then get permanently removed."],
+  ["আপনার উত্তর ও বাকি সময়","Your answers and remaining time"],
+  ["নিরাপদে সেভ করা হয়েছে। কাজ শেষে আবার শুরু করতে পারবেন।","have been safely saved. You can resume when ready."],
   ["প্রশ্ন, অপশন, প্রতিষ্ঠান বা ব্যাখ্যায় ভুল থাকলে ঠিক করে অ্যাডমিনের কাছে পাঠান।","Fix mistakes in question, options, institution, or explanation and send to admin."],
   ["প্রতিটি বিষয়ের পাশে চাইলে আলাদা প্রশ্ন সংখ্যা (অটো/কাস্টম) লিখতে পারেন।","You can also enter a custom count (Auto/Custom) beside each subject."],
   ["বিষয় ও টপিক বেছে নিন। যে টপিকে মিলবে না তা ধূসর থাকবে।","Choose subjects and topics. Topics with 0 matches are greyed out."],
   ["আপনি এখনো কোনো সংশোধন প্রস্তাব পাঠাননি।","You haven't sent any edit requests yet."],
   ["প্রস্তাবিত (এডিট করে অনুমোদন করুন):","Proposed (Edit & Approve):"],
   ["উত্তর সেভ হয়েছে। ফলাফল শেষে দেখতে পারবেন।","Answer saved. You can see the result at the end."],
-  ["জমা দেওয়া পরীক্ষা ৭ দিন পর মুছতে পারবেন","Submitted exams can be deleted after 7 days"],
   ["প্রশ্ন, অপশন, প্রতিষ্ঠান বা টপিক লিখে খুঁজুন…","Search by question, option, source, or topic…"],
   ["আগে থেকে অ্যাকাউন্ট আছে, লগইন করুন","Already have an account? Log in"],
   ["ডেটাবেস থেকে প্রশ্ন লোড হয়নি বা কোনো প্রশ্ন নেই।","No questions loaded from database."],
@@ -2387,6 +3334,8 @@ var TR_PAIRS=[
   ["এই ফিল্টারে কোনো প্রশ্ন নেই।","No questions for this filter."],
   ["এখনো কোনো সাধারণ পরীক্ষা শেষ হয়নি।","No regular exam finished yet."],
   ["আপনি এখনো কোনো মডেল টেস্ট জমা দেননি।","You haven't submitted any model test yet."],
+  ["ফিরিয়ে আনার অনুরোধ অ্যাডমিনের অনুমোদনের অপেক্ষায় আছে।","Restore request is pending admin approval."],
+  ["ফিরিয়ে আনার অনুরোধ পাঠান","Request Restore"],
   ["নির্বাচিতগুলো উত্তরসহ দেখুন","View selected with answers"],
   ["এগুলো দিয়ে পরীক্ষা শুরু করুন","Start exam with these"],
   ["পরীক্ষা দিন (প্রথম ৪০টি)","Take exam (First 40)"],
@@ -2409,6 +3358,16 @@ var TR_PAIRS=[
   ["মডেল টেস্ট ইতিহাস","Model Test History"],
   ["সাধারণ পরীক্ষার ইতিহাস","Regular Exam History"],
   ["← পরীক্ষার তালিকায় ফিরুন","← Back to Exams"],
+  ["ট্র্যাশ (৭ দিন)","Trash (7 days)"],
+  ["ট্র্যাশ ফাঁকা আছে।","Trash is empty."],
+  ["ট্র্যাশে পাঠান","Move to Trash"],
+  ["ফিরিয়ে আনুন","Restore"],
+  ["পরীক্ষা বিরতিতে আছে","Exam Paused"],
+  ["পরীক্ষা পুনরায় শুরু করুন","Resume Exam"],
+  ["চালু করুন","Resume"],
+  ["বিরতি","Pause"],
+  ["অ্যাডমিন দ্বারা ডিলিটেড","Deleted by admin"],
+  ["আপনি ডিলিট করেছেন","Deleted by you"],
   ["টপিক লিস্ট ম্যানেজার","Topic List Manager"],
   ["এই রাউন্ডে বাকি:","Left in this round:"],
   ["রাউন্ড রিসেট","Reset round"],
@@ -2436,6 +3395,7 @@ var TR_PAIRS=[
   ["সংশোধন প্রস্তাব","Suggest edit"],
   ["অনুমোদন ও সেভ","Approve & Save"],
   ["কোন প্রশ্ন আসবে","Which questions"],
+  ["অনুরোধ ও রিস্টোর","Requests & Restore"],
   ["সংশোধন অনুরোধ","Edit requests"],
   ["পরীক্ষার ইতিহাস","Exam history"],
   ["সর্বশেষ ইমপোর্ট","Latest import"],
@@ -2491,6 +3451,8 @@ var TR_PAIRS=[
   ["নতুন আগে","Newest first"],
   ["মূল ক্রম","Original order"],
   ["দিন বাকি","days left"],
+  ["বাকি","Left"],
+  ["দিন","days"],
   ["ড্যাশবোর্ড","Dashboard"],
   ["সবগুলো","All"],
   ["অগ্রগতি","Progress"],
@@ -2519,7 +3481,6 @@ var TR_PAIRS=[
   ["সর্বশেষ:","Last:"],
   ["ক্রম","Order"],
   ["সঠিক","Correct"],
-  ["বাকি","Remaining"],
   ["লগইন","Log in"],
   ["অপশন","Option"],
   ["টপিক","Topic"],
@@ -2549,8 +3510,9 @@ var TR_PAIRS=[
   ["সেশন শুরু","Session start"],
   ["পরীক্ষা শুরু","Exam start"],
   ["পরীক্ষা জমা","Exam finished"],
-  ["পরীক্ষা মোছা","Exam deleted"],
-  ["অ্যাডমিন দ্বারা মোছা","Deleted by admin"],
+  ["পরীক্ষা ট্র্যাশে","Moved to trash"],
+  ["ট্র্যাশ থেকে রিস্টোর","Restored from trash"],
+  ["অ্যাডমিন ট্র্যাশে পাঠিয়েছে","Trashed by admin"],
   ["লগআউট","Logout"],
   ["মিলেছে","matched"],
   ["সর্বোচ্চ","Max"]
@@ -2596,12 +3558,85 @@ function render(){
   if(V.edit&&ADMIN)checkAdminDup();
   if(V.tab==="admin"&&ADMIN&&V.admReqs&&!V.reqRev&&V.reqTab==="history"&&!V.reqHist.loaded&&!V.reqHist.loading)loadReqHist(true);
   nav();trDom(document.getElementById("nav"));
-  var curV=V.admPickKey?("pick:"+V.admPickKey):(V.admMTCreate&&V.tab==="admin"?"mtform":(V.admLog&&V.tab==="admin"?"ulog":(V.admTopics&&V.tab==="admin"?"topics":"")));
+  var curV=V.admPickKey?("pick:"+V.admPickKey):(V.admMTCreate&&V.tab==="admin"?"mtform":(V.admLog&&V.tab==="admin"?"ulog":(V.admTopics&&V.tab==="admin"?"topics":(V.admHist&&V.tab==="admin"?"hist":""))));
   app.scrollTop=(s==="exam"||(curV&&curV===_lastV))?y:0;
   _lastV=curV;syncExamTimer();
 }
 
-/* ===== ১৬. ইভেন্ট লিসনার ও বুট ===== */
+/* ===== ১৬. ইভেন্ট লিসনার, লাইভ-ক্যাশ সিঙ্ক গার্ড ও বুট ===== */
+/* রিমোট ডেটা পরিবর্তন ও প্রথম অফলাইন বুট রিকভারির জন্য অতিরিক্ত সিঙ্ক গার্ড */
+var _origWatchUserDoc=watchUserDoc;
+watchUserDoc=function(){
+  if(userDocUnsub||!UID||!DB)return;
+  var u=UID;
+  userDocUnsub=DB.collection("users").doc(u).onSnapshot(function(sn){
+    if(UID!==u||!sn.exists||sn.metadata.hasPendingWrites)return;
+    var d=sn.data()||{},srv=normalize(d.state),changed=false,listStale=false;
+    var fq=readFavQueue(u);
+    var newFav=Object.assign({},srv.fav);
+    Object.keys(fq.fav).forEach(function(k){if(fq.fav[k])newFav[k]=1;else delete newFav[k];});
+    if(JSON.stringify(newFav)!==JSON.stringify(S.fav)){S.fav=newFav;changed=true;}
+    var newFR=Object.assign({},srv.favRound);
+    Object.keys(fq.favRound).forEach(function(k){if(fq.favRound[k])newFR[k]=1;else delete newFR[k];});
+    if(JSON.stringify(newFR)!==JSON.stringify(S.favRound)){S.favRound=newFR;changed=true;}
+    if(!prefsTimer&&!prefsDirty){
+      if(srv.lang&&srv.lang!==S.lang){S.lang=srv.lang;changed=true;}
+      if(srv.theme&&srv.theme!==S.theme){S.theme=srv.theme;applyTheme();changed=true;}
+    }
+    S.lastScoreSync=Math.max(S.lastScoreSync||0,d.lastScoreSync||0);
+    S._adminDeleted=d.adminDeleted||[];S._userDeleted=d.userDeleted||[];
+    var delAll=S._adminDeleted.concat(S._userDeleted);
+    var srvRun=extractServerRunning(d).filter(function(x){return delAll.indexOf(x.id)<0;});
+    var localRunMap={};S.exams.forEach(function(x){if(x.status!=="done")localRunMap[x.id]=x;});
+    var mergedList=[];
+    srvRun.forEach(function(sx){
+      var lx=localRunMap[sx.id];
+      var m=lx?mergeExamObjects(lx,sx):sx;
+      if(V.ex&&V.ex.id===m.id&&V.ex.status!=="done"){
+        var beforeLen=Object.keys(V.ex.a||{}).length;
+        V.ex=Object.assign(V.ex,m);saveRunLocal(V.ex);
+        if(Object.keys(V.ex.a||{}).length!==beforeLen)changed=true;
+      }
+      mergedList.push(m);delete localRunMap[sx.id];
+    });
+    Object.keys(localRunMap).forEach(function(id){
+      if(delAll.indexOf(id)>=0){removeRunLocal(id);return;}
+      mergedList.push(localRunMap[id]);
+    });
+    S.exams=mergedList;
+    if(!finishingCount&&!pendingTx.length&&!recomputingMine){
+      if(JSON.stringify(srv.wrong)!==JSON.stringify(S.wrong)||JSON.stringify(srv.seen)!==JSON.stringify(S.seen)||JSON.stringify(srv.hist)!==JSON.stringify(S.hist)){
+        S.seen=srv.seen;S.wrong=srv.wrong;S.st=srv.st;S.hist=srv.hist;
+        changed=true;listStale=true;
+      }
+    }
+    if(listStale){
+      V.att.loaded=false;V.mtAtt.loaded=false;V.trash.loaded=false;V.mtAttended={};
+      var act=activeModelTest();if(act)checkMTAttendance(act);
+    }
+    saveStateCache();
+    if(QMETA.scoreVer>(S.lastScoreSync||0)&&!recomputingMine&&Q.length&&STATE_OK)recomputeMyProgressAndScores(QMETA.scoreVer);
+    if(changed&&!V.edit){
+      if(V.screen!=="exam")safeRender();
+    }
+  },function(err){console.warn(err);});
+};
+
+var _origRetryAll=retryAll;
+retryAll=function(){
+  if(UID&&DB&&!Q.length&&!loadingQNow){
+    loadingQNow=true;
+    loadQuestions().then(function(){
+      loadingQNow=false;QERR="";mergeLocalRunningExams();
+      _origRetryAll();
+      if(STATE_OK&&QMETA.scoreVer>(S.lastScoreSync||0))recomputeMyProgressAndScores(QMETA.scoreVer);
+      safeRender();
+    }).catch(function(){loadingQNow=false;_origRetryAll();});
+    return;
+  }
+  _origRetryAll();
+};
+
 document.addEventListener("click",function(e){if(!e.target.closest(".sugg-wrap"))closeSuggs();});
 app.addEventListener("focusin",function(e){
   var t=e.target;if(t.id==="a_s")showSugg("s","");else if(t.id==="a_t")showSugg("t","");else if(t.id==="a_src")showSugg("i","");
@@ -2666,31 +3701,35 @@ app.addEventListener("click",function(e){
     });
     return;
   }
+  if(t.dataset.act==="expause")return pauseExam(true);
+  if(t.dataset.act==="exresume")return pauseExam(false);
   if(t.dataset.act==="favdiff"){V.favDiffFilter=t.dataset.f;return render();}
   if(t.dataset.act==="fav-reset-round"){
     var fDiffR=V.favDiffFilter||"fav";if(fDiffR==="all")fDiffR="fav";
     var mR=Q.filter(function(x){return matchFav(x,fDiffR);});
     S.favRound=S.favRound||{};
-    mR.forEach(function(x){delete S.favRound[x.id];});
-    savePrefs(false);
+    mR.forEach(function(x){delete S.favRound[x.id];queueFavChange("favRound",x.id,0);});
+    flushPendingFavs(false);
     var yr0=app.scrollTop;render();app.scrollTop=yr0;return;
   }
   if(t.dataset.act==="reqedit"){navPush(function(){V.reqId=t.dataset.qid;V.screen="reqedit";});return;}
   if(t.dataset.act==="myreqs"){navPush(function(){V.screen="myreqs";loadMyReqs();});return;}
-  if(t.dataset.act==="myreqs-back"||t.dataset.act==="mtlb-back"||t.dataset.act==="reqs-back"||t.dataset.act==="usrback"||t.dataset.act==="uwrongback"||t.dataset.act==="ubackexam"||t.dataset.act==="wrongback"||t.dataset.act==="back"||t.dataset.act==="mt-back"||t.dataset.act==="ulog-back"||t.dataset.act==="topics-back"||t.dataset.act==="mt-folder-back"){return stepBack();}
+  if(t.dataset.act==="myreqs-back"||t.dataset.act==="mtlb-back"||t.dataset.act==="reqs-back"||t.dataset.act==="usrback"||t.dataset.act==="uwrongback"||t.dataset.act==="ubackexam"||t.dataset.act==="wrongback"||t.dataset.act==="back"||t.dataset.act==="mt-back"||t.dataset.act==="ulog-back"||t.dataset.act==="topics-back"||t.dataset.act==="mt-folder-back"||t.dataset.act==="trash-back"||t.dataset.act==="utrash-back"){return stepBack();}
   if(t.dataset.act==="weak-prac"){
     var kp=t.dataset.key.split("||"),cands=Q.filter(function(x){return x.s===kp[0]&&x.t===kp[1];});
     var pick=shuffle(cands.filter(function(x){return !!S.wrong[x.id];})).concat(shuffle(cands.filter(function(x){return !S.wrong[x.id]&&!S.seen[x.id];})),shuffle(cands.filter(function(x){return !S.wrong[x.id]&&!!S.seen[x.id];}))).slice(0,15).map(function(x){return x.id;});
     if(pick.length)return begin(pick,"দুর্বল টপিক: "+tlabel(kp[1]));
     return;
   }
-  if(t.dataset.act==="go-reqs"){navPush(function(){V.tab="admin";V.screen=null;V.edit=null;V.adm=null;V.admReqs=true;V.reqRev=null;V.reqTab="pending";V.reqSel={};loadPendingCount();});return;}
-  if(t.dataset.act==="adm-reqs"){navPush(function(){V.admReqs=true;V.reqRev=null;V.reqTab="pending";V.reqSel={};loadPendingCount();});return;}
+  if(t.dataset.act==="go-reqs"){navPush(function(){V.tab="admin";V.screen=null;V.edit=null;V.adm=null;V.admReqs=true;V.reqRev=null;V.reqTab="pending";V.reqSel={};loadPendingCount();watchMTRestoreReqs();});return;}
+  if(t.dataset.act==="adm-reqs"){navPush(function(){V.admReqs=true;V.reqRev=null;V.reqTab="pending";V.reqSel={};loadPendingCount();watchMTRestoreReqs();});return;}
   if(t.dataset.act==="req-approve")return approveReq(t.dataset.rid);
   if(t.dataset.act==="req-reject")return rejectReq(t.dataset.rid);
+  if(t.dataset.act==="mt-rest-app")return approveMTRestore(t.dataset.rid);
+  if(t.dataset.act==="mt-rest-rej")return rejectMTRestore(t.dataset.rid);
   if(t.dataset.act==="req-open"){var rid0=t.dataset.rid;navPush(function(){V.reqRev=rid0;V.reqEditOpen=false;});return;}
   if(t.dataset.act==="req-back")return stepBack();
-  if(t.dataset.act==="req-tab"){V.reqTab=t.dataset.rtab==="history"?"history":"pending";if(V.reqTab==="history")V.reqHist.loaded=false;render();return;}
+  if(t.dataset.act==="req-tab"){V.reqTab=t.dataset.rtab||"pending";if(V.reqTab==="history")V.reqHist.loaded=false;render();return;}
   if(t.dataset.act==="req-filter"){V.reqF=t.dataset.f||"all";render();return;}
   if(t.dataset.act==="req-hf"){V.reqHistF=t.dataset.f||"all";render();return;}
   if(t.dataset.act==="req-showall"){V.reqShowAll=!V.reqShowAll;var yr1=app.scrollTop;render();app.scrollTop=yr1;return;}
@@ -2739,52 +3778,102 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="htogans"){var qid=t.dataset.qid;V.homeShowAns[qid]=!V.homeShowAns[qid];return renderHomeSearch();}
   if(t.dataset.act==="mt-folder-open"){navPush(function(){V.mtFolderOpen=true;});return;}
   if(t.dataset.act==="mt-folder-more"){V.mtAtt.showN=(V.mtAtt.showN||MT_PAGE)+MT_PAGE;return render();}
+  if(t.dataset.act==="trash-open"){navPush(function(){V.trashOpen=true;V.trash.loaded=false;});return;}
+  if(t.dataset.act==="trash-restore"){
+    var exR=V.trash.items.filter(function(x){return x.id===t.dataset.exid;})[0];
+    if(!exR||exR.mtId)return;
+    t.disabled=true;
+    restoreAttemptFromTrash(UID,exR).then(function(res){
+      logUsage("exam_restore",{id:exR.id,name:exR.name});
+      S.seen=res.prog.seen;S.wrong=res.prog.wrong;S.st=res.prog.st;S.hist=res.prog.hist;
+      V.trash.items=V.trash.items.filter(function(x){return x.id!==exR.id;});
+      V.att.loaded=false;saveStateCache();
+      alert(S.lang==="bn"?"পরীক্ষাটি সফলভাবে ফিরিয়ে আনা হয়েছে!":"Exam restored successfully!");
+      render();
+    }).catch(function(err){t.disabled=false;alert("ফিরিয়ে আনা যায়নি: "+err.message);});
+    return;
+  }
+  if(t.dataset.act==="mt-req-restore"){
+    var exM=V.trash.items.filter(function(x){return x.id===t.dataset.exid;})[0];
+    if(exM)requestMTRestore(exM);
+    return;
+  }
   if(t.dataset.act==="attmore"){loadMoreAttempts(false);return;}
   if(t.dataset.act==="uattmore"){loadUserAttempts(V.usrSel,false);return;}
   if(t.dataset.act==="resume"||t.dataset.act==="exres"){
     var ex=S.exams.filter(function(x){return x.id===t.dataset.exid;})[0]||V.att.items.filter(function(x){return x.id===t.dataset.exid;})[0]||V.mtAtt.items.filter(function(x){return x.id===t.dataset.exid;})[0]||(V.justDone&&V.justDone[t.dataset.exid]);
     if(!ex)return;
-    navPush(function(){V.ex=ex;V.title=ex.name;V.filter="all";V.screen=(t.dataset.act==="resume"&&ex.status!=="done")?"exam":"result";});
+    navPush(function(){V.ex=ex;V.exPaused=false;V.title=ex.name;V.filter="all";V.screen=(t.dataset.act==="resume"&&ex.status!=="done")?"exam":"result";});
     return;
   }
   if(t.dataset.act==="exdel"){
     var exId=t.dataset.exid,tgt=S.exams.filter(function(x){return x.id===exId;})[0]||V.att.items.filter(function(x){return x.id===exId;})[0]||V.mtAtt.items.filter(function(x){return x.id===exId;})[0]||(V.justDone&&V.justDone[exId]);
     if(!tgt)return;
-    if(tgt.status==="done"&&(Date.now()-(tgt.finishedAt||tgt.at))<7*864e5){alert(S.lang==="bn"?"জমা দেওয়া পরীক্ষা ৭ দিনের মধ্যে মোছা যায় না।":"A submitted exam cannot be deleted within 7 days.");return;}
-    if(!confirm("এই পরীক্ষাটি মুছে ফেলবেন?"))return;
-    logUsage("exam_delete",{id:tgt.id,name:tgt.name});
     if(tgt.status!=="done"){
+      if(!confirm("এই চলমান পরীক্ষাটি বাতিল করবেন?"))return;
       S._userDeleted=S._userDeleted||[];if(S._userDeleted.indexOf(exId)<0)S._userDeleted.push(exId);
       S._userDeleted=S._userDeleted.slice(-100);
       S.exams=S.exams.filter(function(x){return x.id!==exId;});removeRunLocal(exId);
       if(DB&&UID)DB.collection("users").doc(UID).collection("drafts").doc(exId).delete().catch(function(){});
-      if(V.ex&&V.ex.id===exId){V.ex=null;V.screen=null;}saveRunning(true);render();return;
+      if(V.ex&&V.ex.id===exId){V.ex=null;V.screen=null;}
+      removeRunExamFromServer(exId);render();return;
     }
-    if(V.justDone)delete V.justDone[exId];
-    V.att.items=V.att.items.filter(function(x){return x.id!==exId;});
-    V.mtAtt.items=V.mtAtt.items.filter(function(x){return x.id!==exId;});
-    if(tgt.mtId)V.mtAttended[tgt.mtId]=false;
-    if(V.ex&&V.ex.id===exId){V.ex=null;V.screen=null;}
-    syncAfterAttemptDelete(UID,tgt,false).then(function(res){
-      S.seen=res.prog.seen;S.wrong=res.prog.wrong;S.st=res.prog.st;S.hist=res.prog.hist;render();
-    }).catch(function(err){alert("মুছে ফেলা যায়নি: "+err.message);loadMoreAttempts(true);});
+    if(!confirm("এই পরীক্ষাটি ৭ দিনের জন্য ট্র্যাশে পাঠাবেন?\r\n(ট্র্যাশে থাকা অবস্থায় এর প্রোগ্রেস ও স্কোর হিসাব থেকে বাদ থাকবে; ৭ দিনের মধ্যে ফিরিয়ে আনা যাবে)"))return;
+    t.disabled=true;
+    moveAttemptToTrash(UID,tgt,"student").then(function(res){
+      logUsage("exam_delete",{id:tgt.id,name:tgt.name,mtId:tgt.mtId||null});
+      if(V.justDone)delete V.justDone[exId];
+      V.att.items=V.att.items.filter(function(x){return x.id!==exId;});
+      V.mtAtt.items=V.mtAtt.items.filter(function(x){return x.id!==exId;});
+      if(tgt.mtId)V.mtAttended[tgt.mtId]={trashed:true,ex:Object.assign({},tgt,{deletedAt:Date.now()})};
+      if(V.ex&&V.ex.id===exId){V.ex=null;V.screen=null;}
+      V.trash.loaded=false;
+      S.seen=res.prog.seen;S.wrong=res.prog.wrong;S.st=res.prog.st;S.hist=res.prog.hist;
+      saveStateCache();render();
+    }).catch(function(err){t.disabled=false;alert("ট্র্যাশে পাঠানো যায়নি: "+err.message);loadMoreAttempts(true);});
     return;
   }
-  if(t.dataset.act==="usr"){navPush(function(){V.usrSel=t.dataset.uid;});return;}
+  if(t.dataset.act==="usr"){navPush(function(){V.usrSel=t.dataset.uid;V.usrTrashOpen=false;});return;}
   if(t.dataset.act==="lang"){S.lang=(S.lang==="bn")?"en":"bn";savePrefs(false);return render();}
   if(t.dataset.act==="theme"){S.theme=(S.theme==="dark")?"light":(S.theme==="light"?"auto":"dark");applyTheme();savePrefs(false);return render();}
   if(t.dataset.act==="uwrongopen"){navPush(function(){V.usrTopic="";V.screen="uwrong";});return;}
+  if(t.dataset.act==="utrash-open"){navPush(function(){V.usrTrashOpen=true;V.uatt.trashLoaded=false;});return;}
   if(t.dataset.act==="uexdel"){
     var u2=(V.usrList||[]).filter(function(x){return x.uid===V.usrSel;})[0];if(!u2)return;
-    var st2=stOf(u2),ex2=V.uatt.items.filter(function(x){return x.id===t.dataset.exid;})[0]||st2.exams.filter(function(x){return x.id===t.dataset.exid;})[0];
-    if(!ex2||!confirm("এই পরীক্ষাটি ব্যবহারকারীর তালিকা থেকে মুছবেন?\r\n"+ex2.name))return;
-    syncAfterAttemptDelete(u2.uid,ex2,true).then(function(res){
+    var ex2=V.uatt.items.filter(function(x){return x.id===t.dataset.exid;})[0];
+    if(!ex2||!confirm("এই পরীক্ষাটি ৭ দিনের জন্য ছাত্রের ট্র্যাশে পাঠাবেন?\r\n"+ex2.name))return;
+    t.disabled=true;
+    moveAttemptToTrash(u2.uid,ex2,"admin").then(function(res){
       logUsage("admin_exam_delete",{uid:u2.uid,id:ex2.id,name:ex2.name});
       V.uatt.items=V.uatt.items.filter(function(x){return x.id!==ex2.id;});
-      u2.data.state=Object.assign({},u2.data.state||{},res.prog,{exams:res.exams});
-      u2.data.adminDeleted=(u2.data.adminDeleted||[]).concat([ex2.id]);
+      V.uatt.trashLoaded=false;
+      u2.data.state=Object.assign({},u2.data.state||{},res.prog);
       render();
-    }).catch(function(err){alert("মোছা যায়নি: "+err.message);});
+    }).catch(function(err){t.disabled=false;alert("সমস্যা: "+err.message);});
+    return;
+  }
+  if(t.dataset.act==="utrash-restore"){
+    var u3=(V.usrList||[]).filter(function(x){return x.uid===V.usrSel;})[0];if(!u3)return;
+    var exTr=(V.uatt.trashed||[]).filter(function(x){return x.id===t.dataset.exid;})[0];if(!exTr)return;
+    t.disabled=true;
+    restoreAttemptFromTrash(u3.uid,exTr).then(function(res){
+      V.uatt.trashed=(V.uatt.trashed||[]).filter(function(x){return x.id!==exTr.id;});
+      V.uatt.items=res.active.sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});
+      u3.data.state=Object.assign({},u3.data.state||{},res.prog);
+      alert("পরীক্ষাটি ছাত্রের ইতিহাসে ফিরিয়ে আনা হয়েছে।");render();
+    }).catch(function(err){t.disabled=false;alert("সমস্যা: "+err.message);});
+    return;
+  }
+  if(t.dataset.act==="utrash-purge"){
+    var u4=(V.usrList||[]).filter(function(x){return x.uid===V.usrSel;})[0];if(!u4)return;
+    var exPg=(V.uatt.trashed||[]).filter(function(x){return x.id===t.dataset.exid;})[0];
+    if(!exPg||!confirm("সতর্কতা: এটি স্থায়ীভাবে মুছলে আর কখনো ফিরিয়ে আনা যাবে না!\r\nএগিয়ে যাবেন?"))return;
+    t.disabled=true;
+    purgeAttempt(u4.uid,exPg,false).then(function(res){
+      V.uatt.trashed=(V.uatt.trashed||[]).filter(function(x){return x.id!==exPg.id;});
+      if(res)u4.data.state=Object.assign({},u4.data.state||{},res.prog);
+      render();
+    }).catch(function(err){t.disabled=false;alert("সমস্যা: "+err.message);});
     return;
   }
   if(t.dataset.act==="wrongopen"){navPush(function(){V.usrTopic="";V.screen="wrong";});return;}
@@ -2796,7 +3885,7 @@ app.addEventListener("click",function(e){
     var pick=t.dataset.act==="lock-all"?base:base.filter(function(x){return V.lockSel&&V.lockSel[x.id];});
     if(!pick.length){alert("কোনো প্রশ্ন বাছা হয়নি");return;}
     var val=t.dataset.v==="1";V.lockSel={};
-    return writeAll(pick.map(function(x){return Object.assign({},x,{lock:val});}),val?"তালা লাগানো (বাছাই)":"তালা খোলা (বাছাই)",true);
+    return writeAll(pick.map(function(x){return Object.assign({},x,{lock:val});}),val?"তালা লাগানো (বাছাই)":"তালা খোলা (বাছাই)",true,false);
   }
   if(t.dataset.act==="fullbk")return fullBackup();
   if(t.dataset.act==="fullimp")return fullRestore();
@@ -2805,10 +3894,30 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="impcancel"){V.imp=null;return render();}
   if(t.dataset.act==="lock")return admLock(t.dataset.qid);
   if(t.dataset.act==="topic"){navPush(function(){V.adm={key:t.dataset.key,sort:"new",text:""};});return;}
-  if(t.dataset.act==="hist-open"){navPush(function(){V.admHist=true;V.histFolder=null;V.histList=null;});return;}
-  if(t.dataset.act==="hist-back"){if(V.histFolder){V.histFolder=null;return render();}return stepBack();}
-  if(t.dataset.act==="hist-folder"){V.histFolder=t.dataset.fid;V.histQ="";return render();}
-  if(t.dataset.fav){var id=t.dataset.fav;if(S.fav[id])delete S.fav[id];else S.fav[id]=1;savePrefs(false);t.textContent=S.fav[id]?"★":"☆";return;}
+  if(t.dataset.act==="hist-open"){navPush(function(){V.admHist=true;V.histState=freshHist();});return;}
+  if(t.dataset.act==="hist-back"){if(V.histState.conflict){V.histState.conflict=null;return render();}if(V.histState.folder){V.histState.folder=null;return render();}return stepBack();}
+  if(t.dataset.act==="hist-folder"){V.histState.folder=t.dataset.fid;V.histState.q="";return render();}
+  if(t.dataset.act==="hist-mode"){V.histState.mode=t.dataset.m||"active";V.histState.folder=null;V.histState.conflict=null;if(V.histState.mode==="trash")V.histState.trashLoaded=false;return render();}
+  if(t.dataset.act==="hist-more")return loadHistActive(false);
+  if(t.dataset.act==="hist-trash")return trashImportBatch(t.dataset.fid,null);
+  if(t.dataset.act==="hist-restore")return restoreImportBatch(t.dataset.fid,null);
+  if(t.dataset.act==="hist-purge"){
+    var bidP=t.dataset.bid;if(!confirm("ইমপোর্টের এই রেকর্ডটি ট্র্যাশ থেকে স্থায়ীভাবে মুছবেন? (ডাটাবেসে প্রশ্নগুলোর বর্তমান অবস্থা অপরিবর্তিত থাকবে)"))return;
+    return purgeImportBatch(bidP,false).catch(function(err){alert("মুছা যায়নি: "+err.message);});
+  }
+  if(t.dataset.act==="hist-cf-safe"||t.dataset.act==="hist-cf-force"){
+    var cf=V.histState.conflict;if(!cf)return;
+    var md=t.dataset.act==="hist-cf-safe"?"safe":"force";
+    if(cf.action==="trash")return trashImportBatch(cf.fid,md);
+    return restoreImportBatch(cf.fid,md);
+  }
+  if(t.dataset.act==="hist-cf-cancel"){V.histState.conflict=null;return render();}
+  if(t.dataset.fav){
+    var id=t.dataset.fav;
+    if(S.fav[id]){delete S.fav[id];queueFavChange("fav",id,0);}
+    else{S.fav[id]=1;queueFavChange("fav",id,1);}
+    flushPendingFavs(false);t.textContent=S.fav[id]?"★":"☆";return;
+  }
   if(t.dataset.k!==undefined)return answer(t.dataset.id,+t.dataset.k);
   if(t.id==="start"){var p=pool(),ids=pickHomeIds(p);if(!ids.length)return;var nm=((document.getElementById("exname")||{}).value||"").trim();return begin(ids,nm||("পরীক্ষা – "+new Date().toLocaleDateString("en-GB")),{mode:V.cfg.mode||"subject"});}
   if(t.id==="quit")return finish(false);
@@ -2867,7 +3976,8 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="mt-join"){
     var mt=MT_LIST.filter(function(x){return x.id===t.dataset.mtid;})[0];if(!mt)return;
     var runMT=S.exams.filter(function(x){return x.mtId===mt.id&&x.status!=="done";})[0];
-    if(runMT){navPush(function(){V.ex=runMT;V.title=runMT.name;V.filter="all";V.screen="exam";});return;}
+    if(runMT){navPush(function(){V.ex=runMT;V.exPaused=false;V.title=runMT.name;V.filter="all";V.screen="exam";});return;}
+    if(V.mtAttended[mt.id]&&V.mtAttended[mt.id].trashed){alert("এই মডেল টেস্টটি আপনার ট্র্যাশে আছে। পুনরায় দিতে পারবেন না; ফিরিয়ে আনতে ট্র্যাশ থেকে রিস্টোর অনুরোধ পাঠান।");return;}
     if(hasAttendedMT(mt.id)){alert("আপনি ইতিমধ্যে এই মডেল টেস্টে অংশ নিয়েছেন।");return;}
     if(mt.endAt<=Date.now()){alert("মডেল টেস্টের সময় শেষ হয়ে গেছে।");return;}
     t.disabled=true;var exId="ex_"+mt.id;
@@ -2876,16 +3986,26 @@ app.addEventListener("click",function(e){
       DB.collection("users").doc(UID).get()
     ]).then(function(res){
       t.disabled=false;
-      if(!res[0].empty){var att0=res[0].docs[0].data();V.mtAttended[mt.id]=att0;alert("আপনি ইতিমধ্যে এই মডেল টেস্টে অংশ নিয়েছেন।");render();return;}
-      var srvSt=normalize((res[1].data()||{}).state);
-      var srvRun=srvSt.exams.filter(function(x){return x.id===exId&&x.status!=="done";})[0];
+      if(!res[0].empty){
+        var att0=res[0].docs[0].data();
+        if(att0&&att0.deletedAt){
+          V.mtAttended[mt.id]={trashed:true,ex:att0};
+          alert("এই মডেল টেস্টটি আপনার ট্র্যাশে আছে। পুনরায় দিতে পারবেন না; ফিরিয়ে আনতে ট্র্যাশ থেকে রিস্টোর অনুরোধ পাঠান।");
+        }else{
+          V.mtAttended[mt.id]=att0;
+          alert("আপনি ইতিমধ্যে এই মডেল টেস্টে অংশ নিয়েছেন।");
+        }
+        render();return;
+      }
+      var srvRuns=extractServerRunning(res[1].data()||{});
+      var srvRun=srvRuns.filter(function(x){return x.id===exId&&x.status!=="done";})[0];
       if(srvRun){
         var remW=Math.max(0,Math.floor((mt.endAt-Date.now())/1000));
         S.exams=runningExamsOnly(S.exams).filter(function(x){return x.id!==exId;}).concat([srvRun]);
         loadDrafts().then(function(){
           if(srvRun.left==null||remW<srvRun.left)srvRun.left=remW;
           if(srvRun.left<=0){alert("মডেল টেস্টের সময় শেষ হয়ে গেছে।");V.ex=srvRun;finish(true);return;}
-          navPush(function(){V.ex=srvRun;V.title=srvRun.name;V.filter="all";V.screen="exam";});
+          navPush(function(){V.ex=srvRun;V.exPaused=false;V.title=srvRun.name;V.filter="all";V.screen="exam";});
         });
         return;
       }
@@ -2917,7 +4037,7 @@ app.addEventListener("change",function(e){
     submitDiffProposal(qItem,newVal,t);
     return;
   }
-  if(t.dataset.histq!==undefined){V.histQ=t.value;return render();}
+  if(t.dataset.histq!==undefined){V.histState.q=t.value;return render();}
   if(t.id==="ulog-type"){V.ulog.type=t.value;return renderUsageLogList();}
   if(t.dataset.impmap!==undefined){if(V.imp){V.imp.topicMap=V.imp.topicMap||{};V.imp.topicMap[t.dataset.impmap]=t.value;}var ym3=app.scrollTop;render();app.scrollTop=ym3;return;}
   if(t.dataset.impnew!==undefined){V.imp.items[+t.dataset.i].skipNew=(t.value==="skip");var yn=app.scrollTop;render();app.scrollTop=yn;return;}
@@ -2965,6 +4085,10 @@ app.addEventListener("input",function(e){
   else if(t.id==="adm-all-q"){V.admAllQ=t.value;renderAdmSearch();}
   else if(t.id==="usr-q"){V.usrQ=t.value;renderUserList();}
   else if(t.id==="ulog-q"){V.ulog.q=t.value;renderUsageLogList();}
+  else if(t.dataset.histq!==undefined){
+    V.histState.q=t.value;var sy=app.scrollTop;render();app.scrollTop=sy;
+    var hEl=document.querySelector("[data-histq]");if(hEl){hEl.focus();hEl.setSelectionRange(hEl.value.length,hEl.value.length);}
+  }
   else if(t.id==="mt-pick-id"){V.admPickId=t.value;var lst0=document.getElementById("mt-pick-list");if(lst0){lst0.innerHTML=admMTPickListHtml();trDom(lst0);}}
   else if(t.id==="mt-pick-srch"){V.admPickQ=t.value;var lst=document.getElementById("mt-pick-list");if(lst){lst.innerHTML=admMTPickListHtml();trDom(lst);}}
   else if(t.dataset.imppfx!==undefined){
@@ -3011,7 +4135,11 @@ document.getElementById("nav").addEventListener("click",function(e){var t=e.targ
 app.addEventListener("click",function(e){
   var b=e.target.closest&&e.target.closest("#retryQ");if(!b||!DB)return;
   b.disabled=true;b.textContent="লোড হচ্ছে…";
-  loadQuestions().then(function(){QERR="";mergeLocalRunningExams();return loadTopicConfig();}).catch(function(err){QERR=(err&&err.message)||"error";}).then(function(){render();});
+  loadQuestions().then(function(){
+    QERR="";mergeLocalRunningExams();
+    if(STATE_OK&&QMETA.scoreVer>(S.lastScoreSync||0))recomputeMyProgressAndScores(QMETA.scoreVer);
+    return loadTopicConfig();
+  }).catch(function(err){QERR=(err&&err.message)||"error";}).then(function(){render();});
 });
 boot();
 </script>
