@@ -72,6 +72,7 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent)}
 .off-badge{display:inline-block;font-size:12px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:999px;vertical-align:middle}
 .warn-badge{display:inline-block;font-size:12px;font-weight:700;color:var(--warn);background:var(--warnbg);padding:2px 9px;border-radius:999px;vertical-align:middle}
 .pause-box{background:var(--warnbg);border:1.5px solid var(--warn);border-radius:12px;padding:18px 16px;text-align:center;margin:16px 0}
+.rev-box{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin:4px 0 8px}
 .diff-box{background:var(--bg);border-radius:10px;padding:8px 10px;font-size:14px;margin-top:6px;border-left:3px solid var(--muted)}
 .edit-box{background:var(--bg);border-radius:10px;padding:10px;margin-top:8px;border-left:3px solid var(--ok)}
 .sugg-wrap{position:relative}
@@ -145,12 +146,12 @@ var ID_PFX=[["বাংলা","B"],["bangla","B"],["english","E"],["ইংর�
 var IMP_FIELDS=["s","t","q","o","a","i","y","bn","e","ex","rule","explText","diff","v"];
 var Q=[],RAW={},BY={},insts=[],MT_LIST=[],TOPIC_LIST=[],QERR="";
 var QMETA={qUpd:0,scoreVer:0};
-var UID=null,DB=null,booted=false;
+var UID=null,DB=null,booted=false,draftsReady=false;
 var prefsTimer=null,favTimer=null,runSaveTimer=null,draftTimer=null,hbTimer=null,retryT=null,exTimer=null,exPingTick=0;
 var usrUnsub=null,reqUnsub=null,mtUnsub=null,userDocUnsub=null,qMetaUnsub=null,topicsUnsub=null,activeAttUnsub=null,mtRestUnsub=null;
 var STATE_OK=false,saveFailing=false,finishingCount=0,pendingTx=[],APPLIED=[],prefsDirty=false,runDirty=false,recomputingMine=false,loadingQNow=false;
-var DEFAULT_CFG={topics:{},subN:{},pool:"new",inst:"",mcq:"",n:10,order:"rand",mode:"subject",showTopic:false,reveal:"instant",timer:true,favPool:"round",favN:20,favOrder:"rand",favMode:"subject",favSubN:{}};
-var S={seen:{},wrong:{},fav:{},favRound:{},st:{},hist:[],exams:[],lang:"en",theme:"auto",cfg:null,lastScoreSync:0};
+var DEFAULT_CFG={topics:{},subN:{},pool:"new",inst:"",mcq:"",n:10,order:"rand",mode:"subject",showTopic:false,reveal:"instant",timer:true,favPool:"round",favRevId:"1",favN:20,favOrder:"rand",favMode:"subject",favSubN:{}};
+var S={seen:{},wrong:{},fav:{},favRound:{},favRevs:{},favRevSt:{},st:{},hist:[],exams:[],lang:"en",theme:"auto",cfg:null,lastScoreSync:0};
 var V_AUTH={mode:"login",msg:"",ok:false};
 var app=document.getElementById("app");
 
@@ -158,7 +159,7 @@ function freshAtt(){return {items:[],lastDoc:null,hasMore:false,loading:false,lo
 function freshTrash(){return {items:[],loading:false,loaded:false,err:""};}
 function freshUserAtt(){return {uid:"",items:[],trashed:[],lastDoc:null,hasMore:false,loading:false,loaded:false,err:"",trashLoaded:false,trashLoading:false};}
 function freshMtAtt(){return {items:[],loading:false,loaded:false,err:"",showN:MT_PAGE};}
-function freshHist(){return {items:[],trash:[],hasMore:false,loading:false,loaded:false,trashLoaded:false,trashLoading:false,err:"",batchCursor:null,legacyCursor:null,legacyDone:false,mode:"active",folder:null,q:"",conflict:null,busy:false};}
+function freshHist(){return {items:[],trash:[],hasMore:false,loading:false,loaded:false,trashLoaded:false,trashLoading:false,err:"",batchCursor:null,legacyCursor:null,batchDone:false,legacyDone:false,mode:"active",folder:null,q:"",conflict:null,busy:false};}
 function freshV(){
   return {
     tab:"home",screen:null,cfg:Object.assign({},DEFAULT_CFG,{topics:{},subN:{},favSubN:{}}),
@@ -191,8 +192,8 @@ function fmtSec(sec){sec=Math.max(0,Math.floor(sec||0));var m=Math.floor(sec/60)
 function toLocalInput(ms){var d=new Date(ms),p=function(n){return (n<10?"0":"")+n;};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes());}
 function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t;}return a;}
 function clean(x){var c=JSON.parse(JSON.stringify(x));delete c.id;delete c._finishing;delete c.dirtyCount;delete c.pendingFinish;Object.keys(c).forEach(function(k){if(c[k]===""||c[k]===null||(Array.isArray(c[k])&&!c[k].length))delete c[k];});return c;}
-function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},favRound:d.favRound||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[],runMap:d.runMap||{},lang:d.lang||"en",theme:d.theme||"auto",cfg:d.cfg||null,lastScoreSync:d.lastScoreSync||0};}
-function applyCfgFromState(){var src=S.cfg||{};V.cfg=Object.assign({},DEFAULT_CFG,src,{topics:Object.assign({},src.topics||{}),subN:Object.assign({},src.subN||{}),favSubN:Object.assign({},src.favSubN||{})});}
+function normalize(d){d=d||{};return {seen:d.seen||{},wrong:d.wrong||{},fav:d.fav||{},favRound:d.favRound||{},favRevs:d.favRevs||{},favRevSt:d.favRevSt||{},st:d.st||{},hist:d.hist||[],exams:d.exams||[],runMap:d.runMap||{},lang:d.lang||"en",theme:d.theme||"auto",cfg:d.cfg||null,lastScoreSync:d.lastScoreSync||0};}
+function applyCfgFromState(){var src=S.cfg||{};V.cfg=Object.assign({},DEFAULT_CFG,src,{topics:Object.assign({},src.topics||{}),subN:Object.assign({},src.subN||{}),favSubN:Object.assign({},src.favSubN||{})});if(!V.cfg.favRevId)V.cfg.favRevId="1";}
 function applyTheme(){var t=S.theme||"auto";if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);else document.documentElement.removeAttribute("data-theme");}
 function gv(id){var el=document.getElementById(id);return el?el.value.trim():"";}
 function mkFP(seg){
@@ -202,6 +203,28 @@ function mkFP(seg){
   return new firebase.firestore.FieldPath(seg[0],seg[1],seg[2],seg[3]);
 }
 function daysLeft(expireAt){return Math.max(0,Math.ceil(((expireAt||0)-Date.now())/864e5));}
+
+/* ===== Favorite Revision হেল্পার (Revision 1, 2, 3...) ===== */
+function curFavRevId(){var r=String((V.cfg&&V.cfg.favRevId)||"1").replace(/[^0-9]/g,"");return r||"1";}
+function getFavRevMap(revId){
+  revId=String(revId||curFavRevId());
+  if(revId==="1"){S.favRound=S.favRound||{};return S.favRound;}
+  S.favRevs=S.favRevs||{};S.favRevs[revId]=S.favRevs[revId]||{};
+  return S.favRevs[revId];
+}
+function setFavRevSeen(revId,qid,on){
+  revId=String(revId||curFavRevId());
+  var m=getFavRevMap(revId);
+  if(on){m[qid]=1;queueFavChange(revId==="1"?"favRound":"favRevs",qid,1,revId);}
+  else{delete m[qid];queueFavChange(revId==="1"?"favRound":"favRevs",qid,0,revId);}
+}
+function availableFavRevs(){
+  var set={"1":1,"2":1};
+  Object.keys(S.favRevs||{}).forEach(function(k){if(/^\d+$/.test(k))set[k]=1;});
+  Object.keys(S.favRevSt||{}).forEach(function(k){if(/^\d+$/.test(k))set[k]=1;});
+  var cur=curFavRevId();if(/^\d+$/.test(cur))set[cur]=1;
+  return Object.keys(set).sort(function(a,b){return (+a)-(+b);});
+}
 
 /* ===== ২. LocalStorage ক্যাশ, পেন্ডিং কিউ ও চলমান পরীক্ষা ===== */
 function runKey(uid){return "corui_run_"+uid;}
@@ -224,20 +247,39 @@ function saveRunLocal(ex){
 function removeRunLocal(exId){if(!UID||!exId)return;var store=readRunLocal(UID);if(store.exams[exId]){delete store.exams[exId];writeRunLocal(UID,store);}}
 
 function readFavQueue(uid){
-  if(!uid)return {fav:{},favRound:{}};
-  try{var raw=localStorage.getItem(favQKey(uid));if(!raw)return {fav:{},favRound:{}};var p=JSON.parse(raw);return {fav:p.fav||{},favRound:p.favRound||{}};}catch(e){return {fav:{},favRound:{}};}
+  if(!uid)return {fav:{},favRound:{},favRevs:{}};
+  try{var raw=localStorage.getItem(favQKey(uid));if(!raw)return {fav:{},favRound:{},favRevs:{}};var p=JSON.parse(raw);return {fav:p.fav||{},favRound:p.favRound||{},favRevs:p.favRevs||{}};}catch(e){return {fav:{},favRound:{},favRevs:{}};}
 }
 function writeFavQueue(uid,qObj){
   if(!uid)return;
   try{
-    if(!Object.keys(qObj.fav||{}).length&&!Object.keys(qObj.favRound||{}).length)localStorage.removeItem(favQKey(uid));
+    var hasRevs=Object.keys(qObj.favRevs||{}).some(function(r){return Object.keys(qObj.favRevs[r]||{}).length>0;});
+    if(!Object.keys(qObj.fav||{}).length&&!Object.keys(qObj.favRound||{}).length&&!hasRevs)localStorage.removeItem(favQKey(uid));
     else localStorage.setItem(favQKey(uid),JSON.stringify(qObj));
   }catch(e){}
 }
-function queueFavChange(kind,qid,val){
+function queueFavChange(kind,qid,val,revId){
   if(!UID||!qid)return;
-  var q=readFavQueue(UID);q[kind]=q[kind]||{};q[kind][qid]=val?1:0;writeFavQueue(UID,q);
+  var q=readFavQueue(UID);
+  if(kind==="favRevs"){
+    revId=String(revId||"2");
+    q.favRevs=q.favRevs||{};q.favRevs[revId]=q.favRevs[revId]||{};q.favRevs[revId][qid]=val?1:0;
+  }else{
+    q[kind]=q[kind]||{};q[kind][qid]=val?1:0;
+  }
+  writeFavQueue(UID,q);
   saveStateCache();
+}
+function applyFavQueueToState(st,uid){
+  var fq=readFavQueue(uid);
+  Object.keys(fq.fav).forEach(function(k){if(fq.fav[k])st.fav[k]=1;else delete st.fav[k];});
+  Object.keys(fq.favRound).forEach(function(k){if(fq.favRound[k])st.favRound[k]=1;else delete st.favRound[k];});
+  st.favRevs=st.favRevs||{};
+  Object.keys(fq.favRevs||{}).forEach(function(rid){
+    st.favRevs[rid]=st.favRevs[rid]||{};
+    var rm=fq.favRevs[rid]||{};
+    Object.keys(rm).forEach(function(k){if(rm[k])st.favRevs[rid][k]=1;else delete st.favRevs[rid][k];});
+  });
 }
 
 function saveStateCache(){
@@ -246,7 +288,7 @@ function saveStateCache(){
     var attCache=(V.att&&V.att.items?V.att.items.slice(0,12):[]).concat(V.mtAtt&&V.mtAtt.items?V.mtAtt.items.slice(0,8):[]);
     var payload={
       at:Date.now(),
-      state:{seen:S.seen,wrong:S.wrong,fav:S.fav,favRound:S.favRound,st:S.st,hist:S.hist,lang:S.lang,theme:S.theme,cfg:S.cfg,lastScoreSync:S.lastScoreSync||0},
+      state:{seen:S.seen,wrong:S.wrong,fav:S.fav,favRound:S.favRound,favRevs:S.favRevs,favRevSt:S.favRevSt,st:S.st,hist:S.hist,lang:S.lang,theme:S.theme,cfg:S.cfg,lastScoreSync:S.lastScoreSync||0},
       attCache:attCache
     };
     localStorage.setItem(cacheKey(UID),JSON.stringify(payload));
@@ -258,9 +300,7 @@ function loadStateCache(uid){
     var raw=localStorage.getItem(cacheKey(uid));if(!raw)return false;
     var p=JSON.parse(raw);if(!p||!p.state)return false;
     S=normalize(p.state);
-    var fq=readFavQueue(uid);
-    Object.keys(fq.fav).forEach(function(k){if(fq.fav[k])S.fav[k]=1;else delete S.fav[k];});
-    Object.keys(fq.favRound).forEach(function(k){if(fq.favRound[k])S.favRound[k]=1;else delete S.favRound[k];});
+    applyFavQueueToState(S,uid);
     applyCfgFromState();applyTheme();
     if(Array.isArray(p.attCache)&&p.attCache.length&&!V.att.loaded){
       V.att.items=p.attCache.filter(function(x){return x&&!x.mtId&&!x.deletedAt;});
@@ -305,13 +345,17 @@ function mergeExamObjects(loc,srv){
   return out;
 }
 
-/* ===== ৩. Firebase সিঙ্ক (Atomic Fav, runMap, qMeta/Topics রিয়েল-টাইম) ===== */
+/* ===== ৩. Firebase সিঙ্ক (Atomic Fav/Revs চাঙ্কড, runMap, qMeta/Topics রিয়েল-টাইম) ===== */
 function saveBar(msg){
   var el=document.getElementById("savebar");if(!msg){if(el)el.remove();return;}
   if(!el){el=document.createElement("div");el.id="savebar";el.style.cssText="position:fixed;top:0;left:0;right:0;z-index:99;background:#b3261e;color:#fff;padding:8px 12px;text-align:center;font-size:14px";document.body.appendChild(el);}
   el.textContent=msg;
 }
-function hasFavPending(){var fq=readFavQueue(UID);return Object.keys(fq.fav).length>0||Object.keys(fq.favRound).length>0;}
+function hasFavPending(){
+  var fq=readFavQueue(UID);
+  var hasRevs=Object.keys(fq.favRevs||{}).some(function(r){return Object.keys(fq.favRevs[r]||{}).length>0;});
+  return Object.keys(fq.fav).length>0||Object.keys(fq.favRound).length>0||hasRevs;
+}
 function checkSaveClear(){if(!saveFailing&&!pendingTx.length&&!hasFavPending()&&STATE_OK)saveBar("");}
 function saveFail(on,customMsg){
   saveFailing=on;
@@ -339,20 +383,32 @@ function flushPendingFavs(immediate){
   var u=UID;
   var run=function(){
     favTimer=null;
-    var snapQ=readFavQueue(u),ops=[];
-    var delV=firebase.firestore.FieldValue.delete();
-    Object.keys(snapQ.fav).forEach(function(qid){ops.push({path:["state","fav",qid],val:snapQ.fav[qid]?1:delV});});
-    Object.keys(snapQ.favRound).forEach(function(qid){ops.push({path:["state","favRound",qid],val:snapQ.favRound[qid]?1:delV});});
+    var snapQ=readFavQueue(u),ops=[],delV=firebase.firestore.FieldValue.delete();
+    Object.keys(snapQ.fav).forEach(function(qid){ops.push({kind:"fav",qid:qid,val:snapQ.fav[qid]?1:0,path:["state","fav",qid],fval:snapQ.fav[qid]?1:delV});});
+    Object.keys(snapQ.favRound).forEach(function(qid){ops.push({kind:"favRound",qid:qid,val:snapQ.favRound[qid]?1:0,path:["state","favRound",qid],fval:snapQ.favRound[qid]?1:delV});});
+    Object.keys(snapQ.favRevs||{}).forEach(function(rid){
+      var rm=snapQ.favRevs[rid]||{};
+      Object.keys(rm).forEach(function(qid){ops.push({kind:"favRevs",rid:rid,qid:qid,val:rm[qid]?1:0,path:["state","favRevs",rid,qid],fval:rm[qid]?1:delV});});
+    });
     if(!ops.length)return Promise.resolve();
-    ops.push({path:["updated"],val:Date.now()});
-    ops.push({path:["lastActive"],val:Date.now()});
-    return patchUserFields(u,ops).then(function(){
-      if(UID!==u)return;
-      var curQ=readFavQueue(u);
-      Object.keys(snapQ.fav).forEach(function(k){if(curQ.fav[k]===snapQ.fav[k])delete curQ.fav[k];});
-      Object.keys(snapQ.favRound).forEach(function(k){if(curQ.favRound[k]===snapQ.favRound[k])delete curQ.favRound[k];});
-      writeFavQueue(u,curQ);
-      if(!prefsDirty&&!runDirty)saveFail(false);
+    var chunks=[];for(var i=0;i<ops.length;i+=200)chunks.push(ops.slice(i,i+200));
+    return chunks.reduce(function(p,chunk,ci){
+      return p.then(function(){
+        var pOps=chunk.map(function(o){return {path:o.path,val:o.fval};});
+        if(ci===chunks.length-1){pOps.push({path:["updated"],val:Date.now()});pOps.push({path:["lastActive"],val:Date.now()});}
+        return patchUserFields(u,pOps).then(function(){
+          if(UID!==u)return;
+          var curQ=readFavQueue(u);
+          chunk.forEach(function(o){
+            if(o.kind==="favRevs"){
+              if(curQ.favRevs&&curQ.favRevs[o.rid]&&curQ.favRevs[o.rid][o.qid]===o.val)delete curQ.favRevs[o.rid][o.qid];
+            }else if(curQ[o.kind]&&curQ[o.kind][o.qid]===o.val)delete curQ[o.kind][o.qid];
+          });
+          writeFavQueue(u,curQ);
+        });
+      });
+    },Promise.resolve()).then(function(){
+      if(UID===u&&!prefsDirty&&!runDirty&&!hasFavPending())saveFail(false);
     }).catch(function(err){console.warn(err);saveFail(true);});
   };
   clearTimeout(favTimer);favTimer=null;
@@ -430,6 +486,19 @@ function flushPendingRunningExams(){
 
 function retryAll(){
   if(!UID||!DB)return;
+  if(V.att&&V.att.err){V.att.loaded=false;V.att.err="";}
+  if(V.mtAtt&&V.mtAtt.err){V.mtAtt.loaded=false;V.mtAtt.err="";}
+  if(V.trash&&V.trash.err){V.trash.loaded=false;V.trash.err="";}
+  if(!Q.length&&!loadingQNow){
+    loadingQNow=true;
+    loadQuestions().then(function(){
+      loadingQNow=false;QERR="";mergeLocalRunningExams();
+      retryAll();
+      if(STATE_OK&&QMETA.scoreVer>(S.lastScoreSync||0))recomputeMyProgressAndScores(QMETA.scoreVer);
+      safeRender();
+    }).catch(function(){loadingQNow=false;});
+    return;
+  }
   if(!STATE_OK){
     loadUserDoc().then(function(){
       if(!STATE_OK)return;
@@ -453,7 +522,7 @@ function retryAll(){
     }else txProgress(p.mut,p.key);
   });
 }
-window.addEventListener("online",function(){if(!STATE_OK||saveFailing||pendingTx.length||hasFavPending())retryAll();});
+window.addEventListener("online",function(){if(!STATE_OK||saveFailing||pendingTx.length||hasFavPending()||!Q.length||(V.att&&V.att.err)||(V.mtAtt&&V.mtAtt.err)||(V.trash&&V.trash.err))retryAll();});
 
 function pingPresence(isOnline){if(!UID||!DB)return Promise.resolve();return DB.collection("users").doc(UID).set({lastActive:Date.now(),online:!!isOnline,email:((firebase.auth().currentUser)||{}).email||""},{merge:true}).catch(function(){});}
 function startPresence(){stopPresence();pingPresence(true);hbTimer=setInterval(function(){if(document.visibilityState==="visible")pingPresence(true);},45000);}
@@ -479,6 +548,7 @@ function saveDraft(e,immediate){
   return Promise.resolve();
 }
 function loadDrafts(){
+  draftsReady=false;
   var run=S.exams.filter(function(x){return x.lock&&x.status!=="done";});
   return Promise.all(run.map(function(x){
     return DB.collection("users").doc(UID).collection("drafts").doc(x.id).get().then(function(sn){
@@ -489,7 +559,7 @@ function loadDrafts(){
       if(dt.updated&&(!x.updatedAt||dt.updated>x.updatedAt))x.updatedAt=dt.updated;
       saveRunLocal(x);
     }).catch(function(){});
-  }));
+  })).then(function(r){draftsReady=true;return r;},function(e){draftsReady=true;throw e;});
 }
 
 function stopLiveSync(){
@@ -530,7 +600,7 @@ function watchUserDoc(){
   var u=UID;
   userDocUnsub=DB.collection("users").doc(u).onSnapshot(function(sn){
     if(UID!==u||!sn.exists||sn.metadata.hasPendingWrites)return;
-    var d=sn.data()||{},srv=normalize(d.state),changed=false;
+    var d=sn.data()||{},srv=normalize(d.state),changed=false,listStale=false;
     var fq=readFavQueue(u);
     var newFav=Object.assign({},srv.fav);
     Object.keys(fq.fav).forEach(function(k){if(fq.fav[k])newFav[k]=1;else delete newFav[k];});
@@ -538,6 +608,13 @@ function watchUserDoc(){
     var newFR=Object.assign({},srv.favRound);
     Object.keys(fq.favRound).forEach(function(k){if(fq.favRound[k])newFR[k]=1;else delete newFR[k];});
     if(JSON.stringify(newFR)!==JSON.stringify(S.favRound)){S.favRound=newFR;changed=true;}
+    var newFRevs=JSON.parse(JSON.stringify(srv.favRevs||{}));
+    Object.keys(fq.favRevs||{}).forEach(function(rid){
+      newFRevs[rid]=newFRevs[rid]||{};
+      var rm=fq.favRevs[rid]||{};
+      Object.keys(rm).forEach(function(k){if(rm[k])newFRevs[rid][k]=1;else delete newFRevs[rid][k];});
+    });
+    if(JSON.stringify(newFRevs)!==JSON.stringify(S.favRevs||{})){S.favRevs=newFRevs;changed=true;}
     if(!prefsTimer&&!prefsDirty){
       if(srv.lang&&srv.lang!==S.lang){S.lang=srv.lang;changed=true;}
       if(srv.theme&&srv.theme!==S.theme){S.theme=srv.theme;applyTheme();changed=true;}
@@ -564,13 +641,18 @@ function watchUserDoc(){
     });
     S.exams=mergedList;
     if(!finishingCount&&!pendingTx.length&&!recomputingMine){
-      if(JSON.stringify(srv.wrong)!==JSON.stringify(S.wrong)||JSON.stringify(srv.seen)!==JSON.stringify(S.seen)){
-        S.seen=srv.seen;S.wrong=srv.wrong;S.st=srv.st;S.hist=srv.hist;changed=true;
+      if(JSON.stringify(srv.wrong)!==JSON.stringify(S.wrong)||JSON.stringify(srv.seen)!==JSON.stringify(S.seen)||JSON.stringify(srv.hist)!==JSON.stringify(S.hist)||JSON.stringify(srv.favRevSt)!==JSON.stringify(S.favRevSt||{})){
+        S.seen=srv.seen;S.wrong=srv.wrong;S.st=srv.st;S.hist=srv.hist;S.favRevSt=srv.favRevSt||{};
+        changed=true;listStale=true;
       }
+    }
+    if(listStale){
+      V.att.loaded=false;V.mtAtt.loaded=false;V.trash.loaded=false;V.mtAttended={};
+      var act=activeModelTest();if(act)checkMTAttendance(act);
     }
     saveStateCache();
     if(QMETA.scoreVer>(S.lastScoreSync||0)&&!recomputingMine&&Q.length&&STATE_OK)recomputeMyProgressAndScores(QMETA.scoreVer);
-    if(changed&&!V.screen&&!V.edit)safeRender();
+    if(changed&&!V.edit&&V.screen!=="exam")safeRender();
   },function(err){console.warn(err);});
 }
 
@@ -592,35 +674,46 @@ function watchActiveAttempt(exId){
   },function(){});
 }
 
-/* ===== ৪. প্রোগ্রেস, ট্র্যাশ, রিস্টোর, অটো-রিক্যালকুলেশন ও অ্যাটেম্পটস ===== */
+/* ===== ৪. প্রোগ্রেস, রিভিশন Accuracy, ট্র্যাশ ও অ্যাটেম্পটস ===== */
 function computeResultStats(ex){
   var ids=(ex.ids||[]).filter(function(id){return !!BY[id];}),c=0,w=0,exNeg=ex.neg!=null?ex.neg:NEG;
   ids.forEach(function(id){var a=(ex.a||{})[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
   return {n:ids.length,c:c,w:w,sk:ids.length-c-w,sc:c-w*exNeg};
 }
 function applyFinish(st,ex){
+  var c=0,w=0;
   (ex.ids||[]).forEach(function(id){
     var a=(ex.a||{})[id];if(a===undefined||!BY[id])return;
     st.seen[id]=1;var s3=st.st[id]=st.st[id]||[0,0];
-    if(a===BY[id].a){s3[0]++;delete st.wrong[id];}else{s3[1]++;st.wrong[id]=1;}
+    if(a===BY[id].a){s3[0]++;c++;delete st.wrong[id];}else{s3[1]++;w++;st.wrong[id]=1;}
   });
+  if(ex.favRev){
+    st.favRevSt=st.favRevSt||{};
+    var rs=st.favRevSt[ex.favRev]=st.favRevSt[ex.favRev]||[0,0];
+    rs[0]+=c;rs[1]+=w;
+  }
   var r=ex.r||computeResultStats(ex);
   st.hist.unshift({d:ex.finishedAt||ex.at,t:ex.name,n:r.n,c:r.c,w:r.w,sc:r.sc});st.hist=st.hist.slice(0,30);
 }
 function computeProgressFromAttempts(attempts){
   var active=(attempts||[]).filter(function(ex){return ex&&!ex.deletedAt;});
   active.sort(function(a,b){return ((a.finishedAt||a.at||0)-(b.finishedAt||b.at||0));});
-  var seen={},wrong={},st={},hist=[];
+  var seen={},wrong={},st={},hist=[],favRevSt={};
   active.forEach(function(ex){
+    var c=0,w=0;
     (ex.ids||[]).forEach(function(id){
       var a=(ex.a||{})[id];if(a===undefined||!BY[id])return;
-      seen[id]=1;var s3=st.st[id]=st.st[id]||[0,0];
-      if(a===BY[id].a){s3[0]++;delete wrong[id];}else{s3[1]++;wrong[id]=1;}
+      seen[id]=1;var s3=st[id]=st[id]||[0,0];
+      if(a===BY[id].a){s3[0]++;c++;delete wrong[id];}else{s3[1]++;w++;wrong[id]=1;}
     });
+    if(ex.favRev){
+      var rs=favRevSt[ex.favRev]=favRevSt[ex.favRev]||[0,0];
+      rs[0]+=c;rs[1]+=w;
+    }
     var r=ex.r||computeResultStats(ex);
     hist.unshift({d:ex.finishedAt||ex.at||0,t:ex.name,n:r.n,c:r.c,w:r.w,sc:r.sc});
   });
-  return {seen:seen,wrong:wrong,st:st,hist:hist.slice(0,30)};
+  return {seen:seen,wrong:wrong,st:st,hist:hist.slice(0,30),favRevSt:favRevSt};
 }
 function sameRes(a,b){
   if(!a||!b)return false;
@@ -658,18 +751,18 @@ function recomputeUserProgressByUid(uid,targetScoreVer){
     });
     var prog=computeProgressFromAttempts(active);
     var ver=(targetScoreVer!=null)?targetScoreVer:(QMETA.scoreVer||Date.now());
-    var updObj={"state.seen":prog.seen,"state.wrong":prog.wrong,"state.st":prog.st,"state.hist":prog.hist,lastScoreSync:ver,updated:Date.now()};
+    var updObj={"state.seen":prog.seen,"state.wrong":prog.wrong,"state.st":prog.st,"state.hist":prog.hist,"state.favRevSt":prog.favRevSt,lastScoreSync:ver,updated:Date.now()};
     jobs.push(uRef.update(updObj).catch(function(){return uRef.set({state:prog,lastScoreSync:ver,updated:Date.now()},{merge:true});}));
     return Promise.all(jobs).then(function(){return {prog:prog,active:active,all:all,scoreVer:ver};});
   });
 }
 
 function recomputeMyProgressAndScores(targetScoreVer){
-  if(!UID||!DB||!Q.length||recomputingMine)return Promise.resolve();
+  if(!UID||!DB||!Q.length||recomputingMine||finishingCount>0||pendingTx.length)return Promise.resolve();
   recomputingMine=true;var u=UID;
   return recomputeUserProgressByUid(u,targetScoreVer).then(function(res){
     recomputingMine=false;if(!res||UID!==u)return;
-    S.seen=res.prog.seen;S.wrong=res.prog.wrong;S.st=res.prog.st;S.hist=res.prog.hist;S.lastScoreSync=res.scoreVer;
+    S.seen=res.prog.seen;S.wrong=res.prog.wrong;S.st=res.prog.st;S.hist=res.prog.hist;S.favRevSt=res.prog.favRevSt;S.lastScoreSync=res.scoreVer;
     var activeMap={};res.active.forEach(function(x){activeMap[x.id]=x;});
     if(V.att.loaded){V.att.items=res.active.filter(function(x){return !x.mtId;}).sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});V.att.hasMore=false;}
     if(V.mtAtt.loaded){V.mtAtt.items=res.active.filter(function(x){return !!x.mtId;}).sort(function(a,b){return (b.finishedAt||b.at||0)-(a.finishedAt||a.at||0);});}
@@ -689,12 +782,12 @@ function txProgress(mut,key){
       var d=sn.data()||{},srv=normalize(d.state),ap=(d.applied||[]).slice();
       if(key&&ap.indexOf(key)>=0)return srv;
       mut(srv);if(key)ap.push(key);
-      tx.set(ref,{state:{seen:srv.seen,wrong:srv.wrong,st:srv.st,hist:srv.hist},applied:ap.slice(-300),updated:Date.now()},{mergeFields:["state.seen","state.wrong","state.st","state.hist","applied","updated"]});
+      tx.set(ref,{state:{seen:srv.seen,wrong:srv.wrong,st:srv.st,hist:srv.hist,favRevSt:srv.favRevSt},applied:ap.slice(-300),updated:Date.now()},{mergeFields:["state.seen","state.wrong","state.st","state.hist","state.favRevSt","applied","updated"]});
       return srv;
     });
   }).then(function(srv){
     if(!srv||UID!==u)return;
-    S.seen=srv.seen;S.wrong=srv.wrong;S.st=srv.st;S.hist=srv.hist;saveStateCache();saveFail(false);
+    S.seen=srv.seen;S.wrong=srv.wrong;S.st=srv.st;S.hist=srv.hist;S.favRevSt=srv.favRevSt;saveStateCache();saveFail(false);
     if(V.tab==="home"&&!V.screen)safeRender();
   }).catch(function(err){console.warn(err);pendingTx.push({kind:"tx",mut:mut,key:key});saveFail(true);});
 }
@@ -722,16 +815,16 @@ function commitFinish(exRaw){
       tx.set(attRef,exCopy);
       if(scRef)tx.set(scRef,scoreDoc(exCopy));
       tx.set(userRef,{
-        state:{seen:srv.seen,wrong:srv.wrong,st:srv.st,hist:srv.hist,exams:remExams,runMap:runMap},
+        state:{seen:srv.seen,wrong:srv.wrong,st:srv.st,hist:srv.hist,favRevSt:srv.favRevSt,exams:remExams,runMap:runMap},
         applied:ap.slice(-300),updated:Date.now(),lastActive:Date.now(),online:true
-      },{mergeFields:["state.seen","state.wrong","state.st","state.hist","state.exams","state.runMap","applied","updated","lastActive","online"]});
+      },{mergeFields:["state.seen","state.wrong","state.st","state.hist","state.favRevSt","state.exams","state.runMap","applied","updated","lastActive","online"]});
       return {alreadyDone:false,srv:srv,ap:ap.slice(-300)};
     });
   }).then(function(res){
     finishingCount=Math.max(0,finishingCount-1);
     if(!res||UID!==u)return;
     var srv=res.srv;
-    S.seen=srv.seen;S.wrong=srv.wrong;S.st=srv.st;S.hist=srv.hist;
+    S.seen=srv.seen;S.wrong=srv.wrong;S.st=srv.st;S.hist=srv.hist;S.favRevSt=srv.favRevSt;
     if(res.ap)APPLIED=res.ap;
     S.exams=runningExamsOnly(S.exams).filter(function(x){return x.id!==exCopy.id;});
     removeRunLocal(exCopy.id);
@@ -753,8 +846,7 @@ function commitFinish(exRaw){
       return;
     }
     saveStateCache();saveFail(false);
-    /* অফলাইনে পুরোনো পরীক্ষা দেরিতে সিঙ্ক হলে সঠিক ক্রমে প্রোগ্রেস নিশ্চিত করতে রিক্যালকুলেট */
-    if(Q.length&&!recomputingMine)recomputeMyProgressAndScores(QMETA.scoreVer||S.lastScoreSync||0);
+    if(Q.length&&!recomputingMine&&finishingCount===0&&!pendingTx.length)recomputeMyProgressAndScores(QMETA.scoreVer||S.lastScoreSync||0);
   }).catch(function(err){
     finishingCount=Math.max(0,finishingCount-1);console.warn(err);
     var pCopy=JSON.parse(JSON.stringify(exCopy));pCopy.pendingFinish=true;saveRunLocal(pCopy);
@@ -770,7 +862,6 @@ function finalizeExamObject(ex,auto,customFinTime){
   ex.r=r;ex.status="done";ex.finishedAt=customFinTime||Date.now();ex.v2=1;
   var exCopy=JSON.parse(JSON.stringify(ex));
   delete exCopy._finishing;delete exCopy.dirtyCount;delete exCopy.pendingFinish;
-  /* সার্ভার কল করার আগেই লোকাল স্টোরেজে pendingFinish নিশ্চিত করা */
   var pLocal=JSON.parse(JSON.stringify(exCopy));pLocal.pendingFinish=true;saveRunLocal(pLocal);
   applyFinish(S,exCopy);
   S.exams=runningExamsOnly(S.exams).filter(function(x){return x.id!==exCopy.id;});
@@ -788,7 +879,7 @@ function finalizeExamObject(ex,auto,customFinTime){
 }
 
 function checkExpiredModelTests(){
-  if(!UID||!DB||!STATE_OK||!Q.length||!MT_LIST.length)return;
+  if(!draftsReady||!UID||!DB||!STATE_OK||!Q.length||!MT_LIST.length)return;
   var now=Date.now(),changed=false;
   S.exams.slice().forEach(function(x){
     if(!x||x.status==="done"||!x.mtId)return;
@@ -969,7 +1060,7 @@ function syncUserProgAfterAttChange(uid){
     return DB.runTransaction(function(tx){
       return tx.get(uRef).then(function(sn){
         var data=sn.data()||{},srv=normalize(data.state);
-        tx.update(uRef,{"state.seen":prog.seen,"state.wrong":prog.wrong,"state.st":prog.st,"state.hist":prog.hist,updated:Date.now()});
+        tx.update(uRef,{"state.seen":prog.seen,"state.wrong":prog.wrong,"state.st":prog.st,"state.hist":prog.hist,"state.favRevSt":prog.favRevSt,updated:Date.now()});
         return {prog:prog,active:active,all:all,srv:srv};
       });
     });
@@ -1108,7 +1199,7 @@ function masterTopics(){
 function clearSessionState(){
   clearTimeout(prefsTimer);prefsTimer=null;clearTimeout(favTimer);favTimer=null;clearTimeout(runSaveTimer);runSaveTimer=null;
   clearTimeout(draftTimer);draftTimer=null;clearTimeout(retryT);retryT=null;
-  pendingTx=[];APPLIED=[];saveFailing=false;finishingCount=0;prefsDirty=false;runDirty=false;STATE_OK=false;recomputingMine=false;loadingQNow=false;saveBar("");
+  pendingTx=[];APPLIED=[];saveFailing=false;finishingCount=0;prefsDirty=false;runDirty=false;STATE_OK=false;recomputingMine=false;loadingQNow=false;draftsReady=false;saveBar("");
   stopExamTimer();stopPresence();stopUsersWatch();stopReqsWatch();stopMTWatch();stopLiveSync();
   S=normalize(null);V=freshV();applyCfgFromState();applyTheme();
 }
@@ -1120,9 +1211,7 @@ function loadUserDoc(){
     var d=snapData.data()||{};
     S=normalize(d.state);
     S.exams=extractServerRunning(d);
-    var fq=readFavQueue(u);
-    Object.keys(fq.fav).forEach(function(k){if(fq.fav[k])S.fav[k]=1;else delete S.fav[k];});
-    Object.keys(fq.favRound).forEach(function(k){if(fq.favRound[k])S.favRound[k]=1;else delete S.favRound[k];});
+    applyFavQueueToState(S,u);
     STATE_OK=true;APPLIED=d.applied||[];S._adminDeleted=d.adminDeleted||[];S._userDeleted=d.userDeleted||[];
     var delAll=S._adminDeleted.concat(S._userDeleted);
     if(delAll.length)S.exams=S.exams.filter(function(x){return delAll.indexOf(x.id)<0;});
@@ -1157,7 +1246,7 @@ function boot(){
         mergeLocalRunningExams();
         if(hasFavPending())flushPendingFavs(true);
         return loadDrafts();
-      }).catch(function(){})
+      }).catch(function(){draftsReady=true;})
       .then(function(){
         if(Q.length&&STATE_OK&&QMETA.scoreVer>(S.lastScoreSync||0))return recomputeMyProgressAndScores(QMETA.scoreVer);
       }).catch(function(){})
@@ -1178,7 +1267,7 @@ function authScreen(){
     '<button class="btn alt" id="'+(isLogin?'toSignup':'toLogin')+'">'+(isLogin?'নতুন অ্যাকাউন্ট খুলুন':'আগে থেকে অ্যাকাউন্ট আছে, লগইন করুন')+'</button></div>';
 }
 
-/* ===== ৭. টপিক ট্রি (TOPIC_LIST ক্রমসহ), ফিল্টার ও বাছাই ===== */
+/* ===== ৭. টপিক ট্রি (TOPIC_LIST ক্রমসহ), ফিল্টার ও রিভিশন পিকার ===== */
 var COLL=(function(){try{return new Intl.Collator(["bn","en"],{numeric:true,sensitivity:"base"});}catch(e){return {compare:function(a,b){return a<b?-1:(a>b?1:0);}};}})();
 var SUBJ_ORDER=["বাংলা","English","সাধারণ জ্ঞান","গণিত"];
 var STU_SORT_OPTS=[["default","ডিফল্ট"],["az","নাম অনুযায়ী (A→Z)"],["new","নতুন MCQ বেশি থেকে কম"],["weak","দুর্বল টপিক আগে"]];
@@ -1258,23 +1347,23 @@ function planSubPick(p,subNMap,reqN){
   var reqTot=Math.max(1,Math.floor(+reqN||1)),autoTake=autoSubs.length?Math.min(Math.max(0,reqTot-custTot),autoPool.length):0;
   return {custSubs:custSubs,autoPool:autoPool,autoTake:autoTake,total:custTot+autoTake};
 }
-function pickFromPool(qs,take,rand,useRound){
+function pickFromPool(qs,take,rand,useRev,revId){
   if(take<=0||!qs.length)return [];
-  if(!useRound)return rand?weightedPick(qs,take):qs.slice(0,take);
-  S.favRound=S.favRound||{};
-  var unseen=qs.filter(function(x){return !S.favRound[x.id];});
+  if(!useRev)return rand?weightedPick(qs,take):qs.slice(0,take);
+  var revMap=getFavRevMap(revId);
+  var unseen=qs.filter(function(x){return !revMap[x.id];});
   if(unseen.length>=take){
     var p1=rand?weightedPick(unseen,take):unseen.slice(0,take);
-    p1.forEach(function(x){S.favRound[x.id]=1;queueFavChange("favRound",x.id,1);});
+    p1.forEach(function(x){setFavRevSeen(revId,x.id,true);});
     return p1;
   }
   var unseenIds={};unseen.forEach(function(x){unseenIds[x.id]=1;});
   var rest=qs.filter(function(x){return !unseenIds[x.id];});
-  qs.forEach(function(x){delete S.favRound[x.id];queueFavChange("favRound",x.id,0);});
-  unseen.forEach(function(x){S.favRound[x.id]=1;queueFavChange("favRound",x.id,1);});
+  qs.forEach(function(x){setFavRevSeen(revId,x.id,false);});
+  unseen.forEach(function(x){setFavRevSeen(revId,x.id,true);});
   var need=Math.min(take-unseen.length,rest.length);
   var p2=need>0?(rand?weightedPick(rest,need):rest.slice(0,need)):[];
-  p2.forEach(function(x){S.favRound[x.id]=1;queueFavChange("favRound",x.id,1);});
+  p2.forEach(function(x){setFavRevSeen(revId,x.id,true);});
   return unseen.concat(p2);
 }
 function homeStartText(p){
@@ -1303,17 +1392,53 @@ function favStartText(pFav){
   var c=V.cfg;
   if(!pFav.length)return 'এগুলো দিয়ে পরীক্ষা শুরু করুন';
   var estN=planSubPick(pFav,c.favSubN,c.favN).total;
-  return 'এগুলো দিয়ে পরীক্ষা শুরু করুন ('+bn(estN)+'টি'+(c.timer?' · '+fmtSec(estN*SEC_PER_Q):'')+')';
+  var rTxt=(c.favPool||"round")==="round"?(' · Rev '+bn(curFavRevId())):'';
+  return 'এগুলো দিয়ে পরীক্ষা শুরু করুন ('+bn(estN)+'টি'+rTxt+(c.timer?' · '+fmtSec(estN*SEC_PER_Q):'')+')';
 }
 function pickFavIds(pFav){
-  var c=V.cfg,useRound=(c.favPool||"round")==="round",pl=planSubPick(pFav,c.favSubN,c.favN),picked=[],rand=(c.favOrder||"rand")==="rand",mode=c.favMode||"subject";
-  pl.custSubs.forEach(function(cs){picked=picked.concat(pickFromPool(cs.qs,cs.take,rand,useRound));});
-  if(pl.autoTake>0)picked=picked.concat(pickFromPool(pl.autoPool,pl.autoTake,rand,useRound));
-  if(useRound)flushPendingFavs(false);
+  var c=V.cfg,useRev=(c.favPool||"round")==="round",revId=curFavRevId(),pl=planSubPick(pFav,c.favSubN,c.favN),picked=[],rand=(c.favOrder||"rand")==="rand",mode=c.favMode||"subject";
+  pl.custSubs.forEach(function(cs){picked=picked.concat(pickFromPool(cs.qs,cs.take,rand,useRev,revId));});
+  if(pl.autoTake>0)picked=picked.concat(pickFromPool(pl.autoPool,pl.autoTake,rand,useRev,revId));
+  if(useRev)flushPendingFavs(false);
   if(rand&&mode!=="subject")picked=shuffle(picked);
   return orderIds(picked.map(function(x){return x.id;}),mode);
 }
-  /* ===== ৮. মডেল টেস্ট ওয়াচ, টাইমার (পজসহ) ও এক্সাম ইঞ্জিন ===== */
+/* ===== ডিভাইস পরিবর্তন জনিত পুরোনো চলমান পরীক্ষার বাগ ফিক্স ===== */
+mergeLocalRunningExams=function(){
+  if(!UID)return;
+  var localMap=readRunLocal(UID).exams,del=(S._adminDeleted||[]).concat(S._userDeleted||[]),byId={};
+  runningExamsOnly(S.exams).forEach(function(x){byId[x.id]=x;});
+  Object.keys(localMap).forEach(function(id){
+    var loc=localMap[id];if(!loc)return;
+    if(del.indexOf(id)>=0||APPLIED.indexOf("f:"+id)>=0){removeRunLocal(id);return;}
+    if(loc.pendingFinish){
+      delete byId[id];
+      if(Q.length&&STATE_OK)commitFinish(loc);
+      else if(!pendingTx.some(function(p){return p.kind==="finish"&&p.ex.id===loc.id;}))pendingTx.push({kind:"finish",ex:loc});
+      return;
+    }
+    if(loc.status==="done"){removeRunLocal(id);return;}
+    var srv=byId[id];
+    byId[id]=srv?mergeExamObjects(loc,srv):loc;
+    if(!srv&&STATE_OK&&DB){
+      DB.collection("users").doc(UID).collection("attempts").doc(id).get().then(function(attSn){
+        if(attSn.exists){
+          removeRunLocal(id);
+          S.exams=S.exams.filter(function(x){return x.id!==id;});
+          if(V.ex&&V.ex.id===id&&V.ex.status!=="done"){
+            var ex0=attSn.data();
+            if(ex0&&!ex0.deletedAt){V.ex=ex0;if(V.screen==="exam")navReplace(function(){V.screen="result";});}
+            else{V.ex=null;if(V.screen==="exam")V.screen=null;}
+          }
+          safeRender();
+        }
+      }).catch(function(){});
+    }
+  });
+  S.exams=Object.keys(byId).map(function(k){return byId[k];});
+};
+
+/* ===== ৮. মডেল টেস্ট ওয়াচ, টাইমার (পজসহ) ও এক্সাম ইঞ্জিন ===== */
 function stopMTWatch(){if(mtUnsub){mtUnsub();mtUnsub=null;}}
 function checkMTAttendance(mt){
   if(!mt||!UID||!DB||V.mtAttended[mt.id]!==undefined)return;
@@ -1366,7 +1491,7 @@ function syncExamTimer(){
       var mt1=MT_LIST.filter(function(x){return x.id===V.ex.mtId;})[0];
       if(mt1&&mt1.endAt<=Date.now()){V.ex.left=0;stopExamTimer();finish(true);return;}
     }
-    /* সাধারণ পরীক্ষা ও পজ অবস্থায় ট্যাব সরালে টাইমার থেমে থাকবে যাতে পরে চালানো যায় */
+    /* ট্যাব সরালে বা বিরতি দিলে টাইমার পজ থাকবে (মডেল টেস্ট endAt-এ শেষ হবে) */
     if(V.exPaused||document.visibilityState==="hidden")return;
     V.ex.left=Math.max(0,(V.ex.left!=null?V.ex.left:V.ex.dur)-1);V.ex.updatedAt=Date.now();
     var el=document.getElementById("ex-timer");
@@ -1384,10 +1509,10 @@ function begin(ids,title,extraOpt){
     id:extraOpt.id||("e"+Date.now().toString(36)),name:title||"পরীক্ষা",at:Date.now(),updatedAt:Date.now(),dirtyCount:0,
     ids:ids,a:{},ansAt:{},status:"running",dur:dur,left:dur,
     reveal:extraOpt.reveal||V.cfg.reveal||"instant",showTopic:extraOpt.showTopic!==undefined?extraOpt.showTopic:!!V.cfg.showTopic,
-    mtId:extraOpt.mtId||null,lock:!!extraOpt.lock,neg:neg,mode:extraOpt.mode||"mixed"
+    mtId:extraOpt.mtId||null,favRev:extraOpt.favRev||null,lock:!!extraOpt.lock,neg:neg,mode:extraOpt.mode||"mixed"
   };
   S.exams.unshift(ex);V.exSubj="";V.exPaused=false;saveRunLocal(ex);saveRunExam(ex,true);
-  logUsage("exam_start",{id:ex.id,name:ex.name,n:ids.length,mtId:ex.mtId||null});
+  logUsage("exam_start",{id:ex.id,name:ex.name,n:ids.length,mtId:ex.mtId||null,favRev:ex.favRev||null});
   navPush(function(){V.ex=ex;V.filter="all";V.title=ex.name;V.screen="exam";});
 }
 function answer(id,k){
@@ -1533,7 +1658,7 @@ function nav(){
   document.getElementById("nav").innerHTML=T.map(function(x){return '<button data-tab="'+x[0]+'"'+(V.tab===x[0]?' aria-current="page"':'')+'>'+x[1]+'</button>';}).join("");
 }
 
-/* ===== ১০. ইউজার স্ক্রিন (হোম, পছন্দ, পরীক্ষা, ট্র্যাশ, ফলাফল, অগ্রগতি) ===== */
+/* ===== ১০. ইউজার স্ক্রিন (হোম, পছন্দ + Revision 1/2 Accuracy, পরীক্ষা, ট্র্যাশ, ফলাফল, অগ্রগতি) ===== */
 function homeMatches(){
   var txt=(V.homeQ||"").trim().toLowerCase();if(!txt)return [];
   return Q.filter(function(x){return (x.q+" "+x.o.join(" ")+" "+x.t+" "+x.s+" "+(x.i||"")+" "+(x.y||"")+" "+(x.bn||"")+" "+(x.e||"")).toLowerCase().indexOf(txt)>=0;});
@@ -1630,20 +1755,38 @@ function selIds(kind){
   if(kind==="fav")return favMatchedPool().map(function(x){return x.id;});
   return Q.filter(function(x){return !!S[kind][x.id]&&lsOn(kind,x.s+"||"+x.t);}).map(function(x){return x.id;});
 }
+function favRevisionBoxHtml(pFav){
+  var revId=curFavRevId(),revs=availableFavRevs(),revMap=getFavRevMap(revId),stMap=S.favRevSt||{};
+  var roundLeft=pFav.filter(function(x){return !revMap[x.id];}).length;
+  var curSt=stMap[revId],curTot=curSt?(curSt[0]+curSt[1]):0,curPct=curTot?Math.round(curSt[0]/curTot*100):null;
+  var opts=revs.map(function(r){
+    var rs=stMap[r],rt=rs?(rs[0]+rs[1]):0,rp=rt?(' ('+bn(Math.round(rs[0]/rt*100))+'%)'):'';
+    return '<option value="'+esc(r)+'"'+(r===revId?' selected':'')+'>Revision '+bn(r)+rp+'</option>';
+  }).join('');
+  var comp=revs.filter(function(r){var rs=stMap[r];return rs&&(rs[0]+rs[1])>0;}).map(function(r){
+    var rs=stMap[r],rp=Math.round(rs[0]/(rs[0]+rs[1])*100);
+    return '<span'+(r===revId?' style="font-weight:700;color:var(--ink)"':'')+'>Rev '+bn(r)+': '+bn(rp)+'%</span>';
+  }).join(' · ');
+  var h='<div class="rev-box">';
+  h+='<div class="row" style="margin-bottom:6px;gap:6px"><label style="flex:1">রিভিশন নির্বাচন</label><select data-cfg="favRevId" style="min-width:130px">'+opts+'</select><button type="button" class="btn alt sm" data-act="fav-new-rev">+ নতুন</button></div>';
+  if(pFav.length)h+='<div class="row" style="margin:4px 0"><span class="meta" style="margin:0;flex:1">Revision '+bn(revId)+'-এ বাকি: <b>'+bn(roundLeft)+' / '+bn(pFav.length)+'টি</b></span>'+(roundLeft<pFav.length?'<button type="button" class="btn alt sm" data-act="fav-reset-round">↻ রিসেট</button>':'')+'</div>';
+  h+='<div class="meta" style="margin:4px 0 0">Revision '+bn(revId)+' নির্ভুলতা: '+(curPct!==null?('<b>'+bn(curPct)+'%</b> (সঠিক '+bn(curSt[0])+' · ভুল '+bn(curSt[1])+')'):'এখনো পরীক্ষা দেওয়া হয়নি')+'</div>';
+  if(comp)h+='<div class="meta" style="margin:3px 0 0;font-size:13px">সব রিভিশন: '+comp+'</div>';
+  return h+'</div>';
+}
 function listTab(kind){
   if(kind==="fav"){
     var c=V.cfg,fDiff=V.favDiffFilter||"fav";if(fDiff==="all")fDiff="fav";
     var favAll=[],cFav=0,cEasy=0,cMed=0,cHard=0;
     Q.forEach(function(x){if(S.fav[x.id]){favAll.push(x);cFav++;var d=x.diff||"easy";if(d==="easy")cEasy++;else if(d==="medium")cMed++;else if(d==="hard")cHard++;}});
     var pFav=favMatchedPool(),T=groupTree(favAll),fp=c.favPool||"round";
-    var roundLeft=pFav.filter(function(x){return !(S.favRound&&S.favRound[x.id]);}).length;
     var chips=[["fav","★ পছন্দ",cFav],["easy","🟢 সহজ",cEasy],["medium","🟡 মাঝারি",cMed],["hard","🔴 কঠিন",cHard]];
     var h='<h1>পছন্দের প্রশ্ন</h1><p class="meta">পছন্দের '+bn(cFav)+'টি · মিলেছে '+bn(pFav.length)+'টি</p>';
     h+='<div class="chips">'+chips.map(function(ch){return '<button class="chip" data-act="favdiff" data-f="'+ch[0]+'" aria-pressed="'+(fDiff===ch[0])+'">'+ch[1]+' ('+bn(ch[2])+')</button>';}).join('')+'</div>';
     if(!cFav)return h+'<div class="panel meta">প্রশ্নের পাশের ☆ চাপলে এখানে জমা হবে।</div>';
     h+='<div class="panel"><div class="row"><label>পরীক্ষার নাম</label><input type="text" id="lname" placeholder="যেমন: ফেভারিট টেস্ট ১" value="'+esc(V.draft.lname||"")+'"></div>';
-    h+='<div class="row"><label>কোন প্রশ্ন আসবে</label><select data-cfg="favPool"><option value="round"'+(fp==="round"?" selected":"")+'>নতুন রাউন্ড (পুনরাবৃত্তি ছাড়া)</option><option value="wrong"'+(fp==="wrong"?" selected":"")+'>পছন্দের মধ্যে ভুলগুলো</option><option value="all"'+(fp==="all"?" selected":"")+'>সব পছন্দের প্রশ্ন</option></select></div>';
-    if(fp==="round"&&pFav.length)h+='<div class="row" style="margin-top:-2px"><span class="meta" style="margin:0;flex:1">এই রাউন্ডে বাকি: <b>'+bn(roundLeft)+' / '+bn(pFav.length)+'টি</b></span>'+(roundLeft<pFav.length?'<button type="button" class="btn alt sm" data-act="fav-reset-round">↻ রাউন্ড রিসেট</button>':'')+'</div>';
+    h+='<div class="row"><label>কোন প্রশ্ন আসবে</label><select data-cfg="favPool"><option value="round"'+(fp==="round"?" selected":"")+'>রিভিশন মোড (পুনরাবৃত্তি ছাড়া)</option><option value="wrong"'+(fp==="wrong"?" selected":"")+'>পছন্দের মধ্যে ভুলগুলো</option><option value="all"'+(fp==="all"?" selected":"")+'>সব পছন্দের প্রশ্ন</option></select></div>';
+    if(fp==="round")h+=favRevisionBoxHtml(pFav);
     h+='<div class="row"><label>প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(pFav.length)+')</label><input type="number" min="1" data-cfg="favN" value="'+(c.favN||20)+'"></div>';
     h+='<div class="row"><label>প্রশ্নের ক্রম</label><select data-cfg="favMode"><option value="subject"'+((c.favMode||"subject")==="subject"?" selected":"")+'>বিষয় অনুযায়ী (বাংলা → English → GK → Math)</option><option value="mixed"'+(c.favMode==="mixed"?" selected":"")+'>মিশ্র</option></select></div>';
     h+='<div class="row"><label>ক্রম</label><select data-cfg="favOrder"><option value="rand"'+((c.favOrder||"rand")==="rand"?" selected":"")+'>র‍্যান্ডম</option><option value="serial"'+(c.favOrder==="serial"?" selected":"")+'>সিরিয়াল</option></select></div>';
@@ -1724,7 +1867,7 @@ function result(){
   var ids=V.ex.ids.filter(function(id){return !!BY[id];}),f=V.filter||"all",cats={all:ids,right:[],wrong:[],skip:[]},exNeg=V.ex.neg!=null?V.ex.neg:NEG;
   ids.forEach(function(id){var a=V.ex.a[id];if(a===undefined)cats.skip.push(id);else if(a===BY[id].a)cats.right.push(id);else cats.wrong.push(id);});
   var r={n:ids.length,c:cats.right.length,w:cats.wrong.length,sk:cats.skip.length};r.sc=r.c-r.w*exNeg;V.ex.r=r;V.ex.bad=cats.wrong.concat(cats.skip);
-  var h='<h1>ফলাফল</h1><div class="total">'+bn(r.sc.toFixed(2))+' / '+bn(r.n)+'</div><p class="meta">সঠিক '+bn(r.c)+', ভুল '+bn(r.w)+', স্কিপ '+bn(r.sk)+'</p>';
+  var h='<h1>ফলাফল</h1><div class="total">'+bn(r.sc.toFixed(2))+' / '+bn(r.n)+'</div><p class="meta">সঠিক '+bn(r.c)+', ভুল '+bn(r.w)+', স্কিপ '+bn(r.sk)+(V.ex.favRev?' · Revision '+bn(V.ex.favRev):'')+'</p>';
   var sjL=[],sjM={};ids.forEach(function(id){var s0=BY[id].s,a0=V.ex.a[id];if(!sjM[s0]){sjM[s0]={c:0,w:0,sk:0,n:0};sjL.push(s0);}var m0=sjM[s0];m0.n++;if(a0===undefined)m0.sk++;else if(a0===BY[id].a)m0.c++;else m0.w++;});
   if(sjL.length>1){h+='<div class="panel"><h3 style="margin:0 0 6px">বিষয়ভিত্তিক ফলাফল</h3>';sjL.forEach(function(s0){var m0=sjM[s0];h+='<div class="weak-row"><b>'+esc(s0)+'</b><span class="meta" style="margin:0;text-align:right">সঠিক '+bn(m0.c)+' · ভুল '+bn(m0.w)+' · স্কিপ '+bn(m0.sk)+' · নম্বর '+bn((m0.c-m0.w*exNeg).toFixed(2))+'/'+bn(m0.n)+'</span></div>';});h+='</div>';}
   h+='<div class="btn-row" style="margin-bottom:10px"><button class="btn alt sm" data-act="pdf-q" data-exid="'+V.ex.id+'">📄 PDF (প্রশ্ন)</button><button class="btn alt sm" data-act="pdf-a" data-exid="'+V.ex.id+'">📄 PDF (উত্তরসহ)</button>';
@@ -1808,7 +1951,7 @@ function examsView(){
   done.forEach(function(x){
     var ok=x.ids.filter(function(id){return BY[id];}),c=0,w=0,exNeg=x.neg!=null?x.neg:NEG;
     ok.forEach(function(id){var a=x.a[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
-    h+='<div class="card"><b>'+esc(x.name)+'</b><div class="meta">'+fmt(x.finishedAt||x.at)+' · সঠিক '+bn(c)+', ভুল '+bn(w)+', নম্বর '+bn((c-w*exNeg).toFixed(2))+'/'+bn(ok.length)+'</div><button class="btn alt" data-act="exres" data-exid="'+x.id+'" style="margin:0 0 6px">ফলাফল দেখুন</button><div class="btn-row"><button class="btn alt sm" data-act="pdf-q" data-exid="'+x.id+'">📄 PDF (প্রশ্ন)</button><button class="btn alt sm" data-act="pdf-a" data-exid="'+x.id+'">📄 PDF (উত্তরসহ)</button></div>'+delPart(x)+'</div>';
+    h+='<div class="card"><b>'+esc(x.name)+'</b>'+(x.favRev?' <span class="off-badge">Rev '+bn(x.favRev)+'</span>':'')+'<div class="meta">'+fmt(x.finishedAt||x.at)+' · সঠিক '+bn(c)+', ভুল '+bn(w)+', নম্বর '+bn((c-w*exNeg).toFixed(2))+'/'+bn(ok.length)+'</div><button class="btn alt" data-act="exres" data-exid="'+x.id+'" style="margin:0 0 6px">ফলাফল দেখুন</button><div class="btn-row"><button class="btn alt sm" data-act="pdf-q" data-exid="'+x.id+'">📄 PDF (প্রশ্ন)</button><button class="btn alt sm" data-act="pdf-a" data-exid="'+x.id+'">📄 PDF (উত্তরসহ)</button></div>'+delPart(x)+'</div>';
   });
   if(V.att.hasMore)h+='<button class="btn alt" data-act="attmore"'+(V.att.loading?' disabled':'')+'>'+(V.att.loading?'লোড হচ্ছে…':'আরও দেখুন')+'</button>';
   return h;
@@ -2871,7 +3014,7 @@ function adminView(){
   if(V.adm&&V.adm.key)return topicView();
   return topicTree();
 }
-  /* ===== ১৩. অ্যাডমিন: লাইভ মডেল টেস্ট, মেরিট লিস্ট সিঙ্ক ও ড্যাশবোর্ড ===== */
+/* ===== ১৩. অ্যাডমিন: লাইভ মডেল টেস্ট, মেরিট লিস্ট সিঙ্ক ও ড্যাশবোর্ড ===== */
 function isLockedByOtherMT(q,editMtId){return !!(q.usedMT&&q.usedMT.some(function(id){return id!==editMtId;}));}
 function mtSortSubjects(list,pref){pref=pref||[];var seen=[];list.forEach(function(s){if(seen.indexOf(s)<0)seen.push(s);});return seen.map(function(s,i){var p=pref.indexOf(s);return {s:s,r:p>=0?p:1000+subjRank(s),i:i};}).sort(function(a,b){return (a.r-b.r)||(a.i-b.i);}).map(function(x){return x.s;});}
 function mtActiveSubjects(f){var out=[];Object.keys(f.selTopics||{}).forEach(function(k){if(f.selTopics[k]){var s=k.split("||")[0];if(out.indexOf(s)<0)out.push(s);}});return mtSortSubjects(out,f.subjOrder);}
@@ -3261,7 +3404,7 @@ function usrDetail(){
   list.forEach(function(x){
     var ok=x.ids.filter(function(id){return BY[id];}),c=0,w=0,exNeg=x.neg!=null?x.neg:NEG;
     ok.forEach(function(id){var a=(x.a||{})[id];if(a===undefined)return;a===BY[id].a?c++:w++;});
-    h+='<div class="card"><b>'+esc(x.name)+'</b>'+(x.mtId?' <span class="off-badge">মডেল টেস্ট</span>':'')+'<div class="meta">'+fmt(x.finishedAt||x.at)+' · সঠিক '+bn(c)+', ভুল '+bn(w)+', নম্বর '+bn((c-w*exNeg).toFixed(2))+'/'+bn(ok.length)+'</div><button class="btn alt" data-act="uexam" data-exid="'+x.id+'" style="margin:0 0 6px">ফলাফল ও প্রশ্ন দেখুন</button><button class="btn alt" data-act="uexdel" data-exid="'+x.id+'" style="margin:0;color:var(--bad)">🗑️ ট্র্যাশে পাঠান</button></div>';
+    h+='<div class="card"><b>'+esc(x.name)+'</b>'+(x.mtId?' <span class="off-badge">মডেল টেস্ট</span>':'')+(x.favRev?' <span class="off-badge">Rev '+bn(x.favRev)+'</span>':'')+'<div class="meta">'+fmt(x.finishedAt||x.at)+' · সঠিক '+bn(c)+', ভুল '+bn(w)+', নম্বর '+bn((c-w*exNeg).toFixed(2))+'/'+bn(ok.length)+'</div><button class="btn alt" data-act="uexam" data-exid="'+x.id+'" style="margin:0 0 6px">ফলাফল ও প্রশ্ন দেখুন</button><button class="btn alt" data-act="uexdel" data-exid="'+x.id+'" style="margin:0;color:var(--bad)">🗑️ ট্র্যাশে পাঠান</button></div>';
   });
   if(V.uatt.hasMore)h+='<button class="btn alt" data-act="uattmore"'+(V.uatt.loading?' disabled':'')+'>'+(V.uatt.loading?'লোড হচ্ছে…':'আরও দেখুন')+'</button>';
   return h;
@@ -3319,7 +3462,11 @@ var TR_PAIRS=[
   ["সঠিক উত্তর দিলে এখান থেকে সরে যাবে।","Answer correctly to remove it from here."],
   ["সঠিক উত্তর খালি অপশনে রাখা যাবে না।","Correct answer cannot point to an empty option."],
   ["মাঝখানের অপশন ফাঁকা রাখা যাবে না।","Middle options cannot be blank."],
-  ["নতুন রাউন্ড (পুনরাবৃত্তি ছাড়া)","New round (no repeats)"],
+  ["রিভিশন মোড (পুনরাবৃত্তি ছাড়া)","Revision mode (no repeats)"],
+  ["রিভিশন নির্বাচন","Select Revision"],
+  ["এখনো পরীক্ষা দেওয়া হয়নি","Not attempted yet"],
+  ["সব রিভিশন:","All revisions:"],
+  ["নির্ভুলতা:","Accuracy:"],
   ["দুর্বল টপিক (প্র্যাকটিস করুন)","Weak Topics (Practice Now)"],
   ["পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)","Password (min 6 characters)"],
   ["পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে","Show topic with questions in exam"],
@@ -3369,8 +3516,9 @@ var TR_PAIRS=[
   ["অ্যাডমিন দ্বারা ডিলিটেড","Deleted by admin"],
   ["আপনি ডিলিট করেছেন","Deleted by you"],
   ["টপিক লিস্ট ম্যানেজার","Topic List Manager"],
-  ["এই রাউন্ডে বাকি:","Left in this round:"],
-  ["রাউন্ড রিসেট","Reset round"],
+  ["-এ বাকি:"," left:"],
+  ["+ নতুন","+ New"],
+  ["↻ রিসেট","↻ Reset"],
   ["শুধু সহজ (Easy)","Easy only"],
   ["শুধু মাঝারি (Medium)","Medium only"],
   ["শুধু কঠিন (Hard)","Hard only"],
@@ -3563,80 +3711,7 @@ function render(){
   _lastV=curV;syncExamTimer();
 }
 
-/* ===== ১৬. ইভেন্ট লিসনার, লাইভ-ক্যাশ সিঙ্ক গার্ড ও বুট ===== */
-/* রিমোট ডেটা পরিবর্তন ও প্রথম অফলাইন বুট রিকভারির জন্য অতিরিক্ত সিঙ্ক গার্ড */
-var _origWatchUserDoc=watchUserDoc;
-watchUserDoc=function(){
-  if(userDocUnsub||!UID||!DB)return;
-  var u=UID;
-  userDocUnsub=DB.collection("users").doc(u).onSnapshot(function(sn){
-    if(UID!==u||!sn.exists||sn.metadata.hasPendingWrites)return;
-    var d=sn.data()||{},srv=normalize(d.state),changed=false,listStale=false;
-    var fq=readFavQueue(u);
-    var newFav=Object.assign({},srv.fav);
-    Object.keys(fq.fav).forEach(function(k){if(fq.fav[k])newFav[k]=1;else delete newFav[k];});
-    if(JSON.stringify(newFav)!==JSON.stringify(S.fav)){S.fav=newFav;changed=true;}
-    var newFR=Object.assign({},srv.favRound);
-    Object.keys(fq.favRound).forEach(function(k){if(fq.favRound[k])newFR[k]=1;else delete newFR[k];});
-    if(JSON.stringify(newFR)!==JSON.stringify(S.favRound)){S.favRound=newFR;changed=true;}
-    if(!prefsTimer&&!prefsDirty){
-      if(srv.lang&&srv.lang!==S.lang){S.lang=srv.lang;changed=true;}
-      if(srv.theme&&srv.theme!==S.theme){S.theme=srv.theme;applyTheme();changed=true;}
-    }
-    S.lastScoreSync=Math.max(S.lastScoreSync||0,d.lastScoreSync||0);
-    S._adminDeleted=d.adminDeleted||[];S._userDeleted=d.userDeleted||[];
-    var delAll=S._adminDeleted.concat(S._userDeleted);
-    var srvRun=extractServerRunning(d).filter(function(x){return delAll.indexOf(x.id)<0;});
-    var localRunMap={};S.exams.forEach(function(x){if(x.status!=="done")localRunMap[x.id]=x;});
-    var mergedList=[];
-    srvRun.forEach(function(sx){
-      var lx=localRunMap[sx.id];
-      var m=lx?mergeExamObjects(lx,sx):sx;
-      if(V.ex&&V.ex.id===m.id&&V.ex.status!=="done"){
-        var beforeLen=Object.keys(V.ex.a||{}).length;
-        V.ex=Object.assign(V.ex,m);saveRunLocal(V.ex);
-        if(Object.keys(V.ex.a||{}).length!==beforeLen)changed=true;
-      }
-      mergedList.push(m);delete localRunMap[sx.id];
-    });
-    Object.keys(localRunMap).forEach(function(id){
-      if(delAll.indexOf(id)>=0){removeRunLocal(id);return;}
-      mergedList.push(localRunMap[id]);
-    });
-    S.exams=mergedList;
-    if(!finishingCount&&!pendingTx.length&&!recomputingMine){
-      if(JSON.stringify(srv.wrong)!==JSON.stringify(S.wrong)||JSON.stringify(srv.seen)!==JSON.stringify(S.seen)||JSON.stringify(srv.hist)!==JSON.stringify(S.hist)){
-        S.seen=srv.seen;S.wrong=srv.wrong;S.st=srv.st;S.hist=srv.hist;
-        changed=true;listStale=true;
-      }
-    }
-    if(listStale){
-      V.att.loaded=false;V.mtAtt.loaded=false;V.trash.loaded=false;V.mtAttended={};
-      var act=activeModelTest();if(act)checkMTAttendance(act);
-    }
-    saveStateCache();
-    if(QMETA.scoreVer>(S.lastScoreSync||0)&&!recomputingMine&&Q.length&&STATE_OK)recomputeMyProgressAndScores(QMETA.scoreVer);
-    if(changed&&!V.edit){
-      if(V.screen!=="exam")safeRender();
-    }
-  },function(err){console.warn(err);});
-};
-
-var _origRetryAll=retryAll;
-retryAll=function(){
-  if(UID&&DB&&!Q.length&&!loadingQNow){
-    loadingQNow=true;
-    loadQuestions().then(function(){
-      loadingQNow=false;QERR="";mergeLocalRunningExams();
-      _origRetryAll();
-      if(STATE_OK&&QMETA.scoreVer>(S.lastScoreSync||0))recomputeMyProgressAndScores(QMETA.scoreVer);
-      safeRender();
-    }).catch(function(){loadingQNow=false;_origRetryAll();});
-    return;
-  }
-  _origRetryAll();
-};
-
+/* ===== ১৬. ইভেন্ট লিসনার ও বুট ===== */
 document.addEventListener("click",function(e){if(!e.target.closest(".sugg-wrap"))closeSuggs();});
 app.addEventListener("focusin",function(e){
   var t=e.target;if(t.id==="a_s")showSugg("s","");else if(t.id==="a_t")showSugg("t","");else if(t.id==="a_src")showSugg("i","");
@@ -3704,11 +3779,16 @@ app.addEventListener("click",function(e){
   if(t.dataset.act==="expause")return pauseExam(true);
   if(t.dataset.act==="exresume")return pauseExam(false);
   if(t.dataset.act==="favdiff"){V.favDiffFilter=t.dataset.f;return render();}
+  if(t.dataset.act==="fav-new-rev"){
+    var revs=availableFavRevs(),nextRev=String((+revs[revs.length-1]||1)+1);
+    S.favRevs=S.favRevs||{};S.favRevs[nextRev]=S.favRevs[nextRev]||{};
+    V.cfg.favRevId=nextRev;savePrefs(true);
+    var yn2=app.scrollTop;render();app.scrollTop=yn2;return;
+  }
   if(t.dataset.act==="fav-reset-round"){
-    var fDiffR=V.favDiffFilter||"fav";if(fDiffR==="all")fDiffR="fav";
+    var revId=curFavRevId(),fDiffR=V.favDiffFilter||"fav";if(fDiffR==="all")fDiffR="fav";
     var mR=Q.filter(function(x){return matchFav(x,fDiffR);});
-    S.favRound=S.favRound||{};
-    mR.forEach(function(x){delete S.favRound[x.id];queueFavChange("favRound",x.id,0);});
+    mR.forEach(function(x){setFavRevSeen(revId,x.id,false);});
     flushPendingFavs(false);
     var yr0=app.scrollTop;render();app.scrollTop=yr0;return;
   }
@@ -3785,7 +3865,7 @@ app.addEventListener("click",function(e){
     t.disabled=true;
     restoreAttemptFromTrash(UID,exR).then(function(res){
       logUsage("exam_restore",{id:exR.id,name:exR.name});
-      S.seen=res.prog.seen;S.wrong=res.prog.wrong;S.st=res.prog.st;S.hist=res.prog.hist;
+      S.seen=res.prog.seen;S.wrong=res.prog.wrong;S.st=res.prog.st;S.hist=res.prog.hist;S.favRevSt=res.prog.favRevSt;
       V.trash.items=V.trash.items.filter(function(x){return x.id!==exR.id;});
       V.att.loaded=false;saveStateCache();
       alert(S.lang==="bn"?"পরীক্ষাটি সফলভাবে ফিরিয়ে আনা হয়েছে!":"Exam restored successfully!");
@@ -3828,7 +3908,7 @@ app.addEventListener("click",function(e){
       if(tgt.mtId)V.mtAttended[tgt.mtId]={trashed:true,ex:Object.assign({},tgt,{deletedAt:Date.now()})};
       if(V.ex&&V.ex.id===exId){V.ex=null;V.screen=null;}
       V.trash.loaded=false;
-      S.seen=res.prog.seen;S.wrong=res.prog.wrong;S.st=res.prog.st;S.hist=res.prog.hist;
+      S.seen=res.prog.seen;S.wrong=res.prog.wrong;S.st=res.prog.st;S.hist=res.prog.hist;S.favRevSt=res.prog.favRevSt;
       saveStateCache();render();
     }).catch(function(err){t.disabled=false;alert("ট্র্যাশে পাঠানো যায়নি: "+err.message);loadMoreAttempts(true);});
     return;
@@ -3929,7 +4009,8 @@ app.addEventListener("click",function(e){
       var pFav2=favMatchedPool();if(!pFav2.length)return;
       if(t.dataset.go==="exam"){
         var idsF=pickFavIds(pFav2);if(!idsF.length)return;
-        return begin(idsF,nm2||("পছন্দ পরীক্ষা – "+new Date().toLocaleDateString("en-GB")),{mode:V.cfg.favMode||"subject"});
+        var revTag=(V.cfg.favPool||"round")==="round"?curFavRevId():null;
+        return begin(idsF,nm2||("পছন্দ পরীক্ষা – "+(revTag?("Revision "+revTag+" · "):"")+new Date().toLocaleDateString("en-GB")),{mode:V.cfg.favMode||"subject",favRev:revTag});
       }
       navPush(function(){V.title=nm2||"পছন্দের প্রশ্ন";V.list=pFav2.map(function(x){return x.id;});V.screen="browse";});return;
     }
