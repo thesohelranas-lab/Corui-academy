@@ -1311,37 +1311,41 @@ function boot(){
             if(sn.exists){var d=sn.data()||{};QMETA={qUpd:d.qUpd||0,scoreVer:d.scoreVer||0,totalCount:(d.totalCount!=null?d.totalCount:null),fullSyncAt:d.fullSyncAt||0};}
           }).catch(function(){}),
           loadTopicConfig()
-        ]).then(function(){
-          return cacheGet().then(function(c){
-            var admNeed=ADMIN&&(!c||c.ver!==CACHE_VER||!c.fullSyncAt||(Date.now()-c.fullSyncAt)>6*3600000);
-            return loadQuestions(admNeed);
-          });
-        }).then(function(){
-          QERR="";
-          if(ADMIN){
-            var cnt=Object.keys(RAW).filter(function(id){return RAW[id]&&!RAW[id].deleted;}).length;
-            if(QMETA.totalCount!==cnt){
-              var nu=nextUpd();QMETA.totalCount=cnt;QMETA.fullSyncAt=nu;
-              DB.collection("appConfig").doc("qMeta").set({totalCount:cnt,fullSyncAt:nu,qUpd:nu,scoreVer:nu,updated:Date.now()},{merge:true}).catch(function(){});
-            }
-            return false;
-          }
-          return checkQMismatchAndSync();
-        }).catch(function(err){console.warn(err);QERR=(err&&err.message)||"error";});
+        ]);
       })
-      .catch(function(err){console.warn(err);})
+      .then(function(){
+        return cacheGet().then(function(c){
+          var admNeed=ADMIN&&(!c||c.ver!==CACHE_VER||!c.fullSyncAt||(Date.now()-c.fullSyncAt)>6*3600000);
+          return loadQuestions(admNeed);
+        });
+      })
+      .then(function(){
+        QERR="";
+        if(ADMIN){
+          var cnt=Object.keys(RAW).filter(function(id){return RAW[id]&&!RAW[id].deleted;}).length;
+          if(QMETA.totalCount!==cnt){
+            var nu=nextUpd();QMETA.totalCount=cnt;QMETA.fullSyncAt=nu;
+            DB.collection("appConfig").doc("qMeta").set({totalCount:cnt,fullSyncAt:nu,qUpd:nu,scoreVer:nu,updated:Date.now()},{merge:true}).catch(function(){});
+          }
+          return false;
+        }
+        return checkQMismatchAndSync();
+      })
+      .catch(function(err){console.warn(err);QERR=(err&&err.message)||"error";})
       .then(function(){return migrateOldExams();})
       .then(function(){
         watchModelTests();watchUserDoc();watchQMeta();watchTopics();
         mergeLocalRunningExams();
         if(hasFavPending())flushPendingFavs(true);
         return loadDrafts();
-      }).catch(function(){draftsReady=true;})
+      })
+      .catch(function(){draftsReady=true;})
       .then(function(){
         if(Q.length&&STATE_OK&&(QMETA.scoreVer>(S.lastScoreSync||0)||V._needMtSync)){
           V._needMtSync=false;return recomputeMyProgressAndScores(QMETA.scoreVer||S.lastScoreSync||0);
         }
-      }).catch(function(){})
+      })
+      .catch(function(){})
       .then(function(){
         checkExpiredModelTests();
         booted=true;render();history.replaceState(snap(),"","#"+V.tab);
@@ -1494,6 +1498,41 @@ function pickFavIds(pFav){
   if(rand&&mode!=="subject")picked=shuffle(picked);
   return orderIds(picked.map(function(x){return x.id;}),mode);
 }
+
+/* ===== ডিভাইস পরিবর্তন জনিত পুরোনো চলমান পরীক্ষার বাগ ফিক্স ===== */
+mergeLocalRunningExams=function(){
+  if(!UID)return;
+  var localMap=readRunLocal(UID).exams,del=(S._adminDeleted||[]).concat(S._userDeleted||[]),byId={};
+  runningExamsOnly(S.exams).forEach(function(x){byId[x.id]=x;});
+  Object.keys(localMap).forEach(function(id){
+    var loc=localMap[id];if(!loc)return;
+    if(del.indexOf(id)>=0||APPLIED.indexOf("f:"+id)>=0){removeRunLocal(id);return;}
+    if(loc.pendingFinish){
+      delete byId[id];
+      if(Q.length&&STATE_OK)commitFinish(loc);
+      else if(!pendingTx.some(function(p){return p.kind==="finish"&&p.ex.id===loc.id;}))pendingTx.push({kind:"finish",ex:loc});
+      return;
+    }
+    if(loc.status==="done"){removeRunLocal(id);return;}
+    var srv=byId[id];
+    byId[id]=srv?mergeExamObjects(loc,srv):loc;
+    if(!srv&&STATE_OK&&DB){
+      DB.collection("users").doc(UID).collection("attempts").doc(id).get().then(function(attSn){
+        if(attSn.exists){
+          removeRunLocal(id);
+          S.exams=S.exams.filter(function(x){return x.id!==id;});
+          if(V.ex&&V.ex.id===id&&V.ex.status!=="done"){
+            var ex0=attSn.data();
+            if(ex0&&!ex0.deletedAt){V.ex=ex0;if(V.screen==="exam")navReplace(function(){V.screen="result";});}
+            else{V.ex=null;if(V.screen==="exam")V.screen=null;}
+          }
+          safeRender();
+        }
+      }).catch(function(){});
+    }
+  });
+  S.exams=Object.keys(byId).map(function(k){return byId[k];});
+};
 
 /* ===== ৮. মডেল টেস্ট ওয়াচ, টাইমার (পজসহ) ও এক্সাম ইঞ্জিন ===== */
 function stopMTWatch(){if(mtUnsub){mtUnsub();mtUnsub=null;}}
@@ -1762,6 +1801,20 @@ function groupHead(s,g,T,kind){
   var attr=kind?' data-lkind="'+kind+'" data-lgrp="'+esc(s+"||"+g)+'"':' data-grp="'+esc(s+"||"+g)+'"';
   return '<label class="sub" style="margin:10px 0 2px"><input type="checkbox"'+attr+(all?" checked":"")+'><span>'+esc(g)+'</span>'+info+'</label>';
 }
+function renderHomeSummaryBoard(p){
+  var c=V.cfg,totN=Math.min(p.length,+c.n||10);if(totN<=0)return "";
+  var estN=planSubPick(p,c.subN,c.n).total;if(estN<=0)estN=totN;
+  var minT=Math.round((estN*SEC_PER_Q)/60);
+  var subDist={},newCnt=0,eTot=0,eMed=0,eHard=0;
+  p.slice(0,estN).forEach(function(x){
+    subDist[x.s]=(subDist[x.s]||0)+1;
+    if(!S.seen[x.id])newCnt++;
+    var d=x.diff||"easy";if(d==="medium")eMed++;else if(d==="hard")eHard++;else eTot++;
+  });
+  var subTxt=Object.keys(subDist).map(function(s){return esc(s)+": "+bn(subDist[s])+"টি";}).join(" · ");
+  var diffTxt='🟢 '+bn(eTot)+'  🟡 '+bn(eMed)+'  🔴 '+bn(eHard);
+  return '<div class="panel" style="background:var(--okbg);border-color:var(--ok);padding:10px 12px;margin:8px 0"><div style="font-weight:700;font-size:14px;color:var(--ok);margin-bottom:2px">📋 পরীক্ষার রূপরেখা ('+bn(estN)+'টি MCQ'+(c.timer&&minT?' · প্রায় '+bn(minT)+' মিনিট':'')+')</div><div class="meta" style="margin:0;font-size:13.5px;color:var(--ink)">• বিষয় বণ্টন: '+subTxt+'<br>• নতুন প্রশ্ন: '+bn(newCnt)+'টি · কঠিনতা: '+diffTxt+'</div></div>';
+}
 function home(){
   var c=V.cfg,T=groupTree(),p=pool(),mfH=parseMcqFilter(c.mcq),rsvH=reservedIds();
   var thLabel=(S.theme==="dark")?"☀️ লাইট":(S.theme==="light"?"🌙 ডার্ক":"🌓 অটো");
@@ -1775,10 +1828,14 @@ function home(){
   h+='<div class="row"><label>প্রতিষ্ঠান / সোর্স</label><select data-cfg="inst"><option value="">সব</option>'+insts.map(function(x){return '<option'+(c.inst===x?" selected":"")+'>'+esc(x)+'</option>';}).join("")+'</select></div>';
   h+='<div class="row"><label>MCQ id/range</label><input type="text" data-cfg="mcq" placeholder="যেমন: q12, q20-q40 (ফাঁকা = সব)" value="'+esc(c.mcq||"")+'"></div>';
   h+='<div class="row"><label>প্রশ্ন সংখ্যা (সর্বোচ্চ '+bn(p.length)+')</label><input type="number" min="1" data-cfg="n" value="'+c.n+'"></div>';
+  h+=renderHomeSummaryBoard(p);
+  h+='<button class="btn alt sm" data-act="toggle-adv" style="margin:4px 0 10px;width:100%">⚙️ আরও সেটিংস (Advanced Settings) ▼</button>';
+  h+='<div id="home-adv-box" style="display:none">';
   h+='<div class="row"><label>প্রশ্নের ক্রম</label><select data-cfg="mode"><option value="subject"'+((c.mode||"subject")==="subject"?" selected":"")+'>বিষয় অনুযায়ী (বাংলা → English → GK → Math)</option><option value="mixed"'+(c.mode==="mixed"?" selected":"")+'>মিশ্র</option></select></div><div class="row"><label>ক্রম</label><select data-cfg="order"><option value="rand"'+(c.order==="rand"?" selected":"")+'>র‍্যান্ডম</option><option value="serial"'+(c.order==="serial"?" selected":"")+'>সিরিয়াল</option></select></div>';
   h+='<div class="row"><label>উত্তর কখন দেখাবে</label><select data-cfg="reveal"><option value="instant"'+(c.reveal==="instant"?" selected":"")+'>প্রতিটা প্রশ্নের পরপরই</option><option value="end"'+(c.reveal==="end"?" selected":"")+'>পরীক্ষা শেষ করার পর</option></select></div>';
   h+='<div class="row"><label>টাইমার (প্রতি প্রশ্নে ৩০ সেকেন্ড)</label><input type="checkbox" data-cfg="timer"'+(c.timer?' checked':'')+'></div>';
   h+='<div class="row"><label>পরীক্ষায় প্রশ্নের সাথে টপিক দেখাবে</label><input type="checkbox" data-cfg="showTopic"'+(c.showTopic?' checked':'')+'></div>';
+  h+='</div>';
   h+='<button class="btn" id="start"'+(p.length?'':' disabled')+'>'+homeStartText(p)+'</button></div>';
   h+='<div class="meta">টপিক বেছে নিন। ফিল্টার দিলে প্রতিটা টপিকের পাশে দেখাবে কয়টা প্রশ্ন মিলেছে। প্রতিটি বিষয়ের পাশে চাইলে আলাদা প্রশ্ন সংখ্যা (অটো/কাস্টম) লিখতে পারেন। প্রতি ভুল উত্তরে '+bn(NEG)+' নম্বর কাটা যায়।</div>';
   if(!Q.length)return h+'<div class="panel meta">ডেটাবেস থেকে প্রশ্ন লোড হয়নি বা কোনো প্রশ্ন নেই।</div>';
@@ -2714,7 +2771,7 @@ function admSave(){
   if(!sVal||!tVal){alert("বিষয় ও টপিক লিখুন।");return;}if(!q){alert("প্রশ্ন ফাঁকা রাখা যাবে না।");return;}
   if(isNew){
     var pfx=idPrefix(sVal),cMap={};
-    if(!pfx){var asked=prompt("নতুন বিষয় '"+sVal+"'-এর জন্য ID অক্ষর লিখুন (যেমন: I, P, C):");if(!asked)return;asked=asked.trim().toUpperCase().replace(/[^A-Z]/g,"");if(!asked){alert("বৈধ ইংরেজি অক্ষর না দিলে সেভ হবে না।");return;}cMap[sVal]=asked;}
+    if(!pfx){var asked=prompt("নতুন বিষয় '"+sVal+"'-এর জন্য আইডি (ID) অক্ষর লিখুন (যেমন: I, P, C):");if(!asked)return;asked=asked.trim().toUpperCase().replace(/[^A-Z]/g,"");if(!asked){alert("বৈধ ইংরেজি অক্ষর না দিলে সেভ হবে না।");return;}cMap[sVal]=asked;}
     id=newQId(sVal,{},cMap);
   }
   var o4=[0,1,2,3].map(function(k){return gv("a_o"+k);}),radEl=document.querySelector("input[name='a_ans_rad']:checked"),ansIdx=radEl?+radEl.value:0,po=parseOpts(o4,ansIdx);
