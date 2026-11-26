@@ -1287,6 +1287,7 @@ function boot(){
           }
           return checkQMismatchAndSync();
         }).catch(function(err){console.warn(err);QERR=(err&&err.message)||"error";});
+        })
       .catch(function(err){console.warn(err);})
       .then(function(){return migrateOldExams();})
       .then(function(){
