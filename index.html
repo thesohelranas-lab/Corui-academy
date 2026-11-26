@@ -145,7 +145,7 @@ var ADMIN=false,ADMIN_EMAIL="thesohelranas@gmail.com";
 var ID_PFX=[["বাংলা","B"],["bangla","B"],["english","E"],["ইংরেজি","E"],["সাধারণ","G"],["gk","G"],["general","G"],["গণিত","M"],["math","M"]];
 var IMP_FIELDS=["s","t","q","o","a","i","y","bn","e","ex","rule","explText","diff","v"];
 var Q=[],RAW={},BY={},insts=[],MT_LIST=[],TOPIC_LIST=[],QERR="";
-var QMETA={qUpd:0,scoreVer:0};
+var QMETA={qUpd:0,scoreVer:0,totalCount:null,fullSyncAt:0},CACHE_VER=2,fullSyncTriedKey="";
 var UID=null,DB=null,booted=false,draftsReady=false;
 var prefsTimer=null,favTimer=null,runSaveTimer=null,draftTimer=null,hbTimer=null,retryT=null,exTimer=null,exPingTick=0;
 var usrUnsub=null,reqUnsub=null,mtUnsub=null,userDocUnsub=null,qMetaUnsub=null,topicsUnsub=null,activeAttUnsub=null,mtRestUnsub=null;
@@ -570,24 +570,43 @@ function stopLiveSync(){
   if(mtRestUnsub){mtRestUnsub();mtRestUnsub=null;}
 }
 
+function checkQMismatchAndSync(){
+  if(!DB||loadingQNow)return Promise.resolve(false);
+  var key=(QMETA.qUpd||0)+":"+(QMETA.totalCount!=null?QMETA.totalCount:"")+":"+(QMETA.fullSyncAt||0);
+  if(fullSyncTriedKey===key)return Promise.resolve(false);
+  return cacheGet().then(function(c){
+    var locFull=(c&&c.fullSyncAt)||0;
+    var needFull=(QMETA.fullSyncAt>locFull)||(QMETA.totalCount!=null&&Q.length!==QMETA.totalCount);
+    if(!needFull)return false;
+    fullSyncTriedKey=key;loadingQNow=true;
+    return loadQuestions(true).then(function(){
+      loadingQNow=false;QERR="";
+      if(STATE_OK&&Q.length)return recomputeMyProgressAndScores(QMETA.scoreVer||S.lastScoreSync||0);
+    }).catch(function(){loadingQNow=false;}).then(function(){safeRender();return true;});
+  });
+}
 function watchQMeta(){
   if(qMetaUnsub||!DB)return;
   qMetaUnsub=DB.collection("appConfig").doc("qMeta").onSnapshot(function(sn){
     if(!sn.exists)return;
-    var d=sn.data()||{};QMETA={qUpd:d.qUpd||0,scoreVer:d.scoreVer||0};
+    var d=sn.data()||{};
+    QMETA={qUpd:d.qUpd||0,scoreVer:d.scoreVer||0,totalCount:(d.totalCount!=null?d.totalCount:null),fullSyncAt:d.fullSyncAt||0};
     var localMax=maxUpdOf(RAW);
     if(QMETA.qUpd>localMax&&!loadingQNow){
       loadingQNow=true;
       loadQuestions().then(function(){
         loadingQNow=false;QERR="";
-        if(QMETA.scoreVer>(S.lastScoreSync||0))return recomputeMyProgressAndScores(QMETA.scoreVer);
+        return checkQMismatchAndSync();
+      }).then(function(){
+        if(QMETA.scoreVer>(S.lastScoreSync||0)&&!recomputingMine&&Q.length&&STATE_OK)return recomputeMyProgressAndScores(QMETA.scoreVer);
       }).catch(function(){loadingQNow=false;}).then(function(){safeRender();});
-    }else if(QMETA.scoreVer>(S.lastScoreSync||0)&&!recomputingMine&&Q.length&&STATE_OK){
-      recomputeMyProgressAndScores(QMETA.scoreVer);
+    }else{
+      checkQMismatchAndSync().then(function(did){
+        if(!did&&QMETA.scoreVer>(S.lastScoreSync||0)&&!recomputingMine&&Q.length&&STATE_OK)recomputeMyProgressAndScores(QMETA.scoreVer);
+      });
     }
   },function(err){console.warn(err);});
 }
-
 function watchTopics(){
   if(topicsUnsub||!DB)return;
   topicsUnsub=DB.collection("appConfig").doc("topics").onSnapshot(function(sn){
@@ -1154,12 +1173,18 @@ function cacheGet(){return idb().then(function(db){return new Promise(function(r
 function cachePut(v){return idb().then(function(db){return new Promise(function(res){var t=db.transaction("kv","readwrite");t.objectStore("kv").put(v,"questions");t.oncomplete=function(){res();};t.onerror=function(){res();};});}).catch(function(){});}
 function maxUpdOf(map){var m=0;Object.keys(map).forEach(function(k){if((map[k].upd||0)>m)m=map[k].upd||0;});return m;}
 function nextUpd(){return Math.max(Date.now(),maxUpdOf(RAW)+1,QMETA.qUpd+1);}
-function syncQuestionCache(){return cachePut({ver:1,map:RAW,maxUpd:maxUpdOf(RAW),at:Date.now()});}
+function syncQuestionCache(){
+  return cacheGet().then(function(c){
+    var fSync=Math.max((c&&c.fullSyncAt)||0,QMETA.fullSyncAt||0);
+    return cachePut({ver:CACHE_VER,map:RAW,maxUpd:maxUpdOf(RAW),fullSyncAt:fSync,at:Date.now()});
+  });
+}
 function bumpQMeta(updTs,scoreChanged){
   if(!ADMIN||!DB)return Promise.resolve();
-  var u=updTs||nextUpd(),patch={qUpd:u,updated:Date.now()};
+  var u=updTs||nextUpd(),cnt=Object.keys(RAW).filter(function(id){return RAW[id]&&!RAW[id].deleted;}).length;
+  var patch={qUpd:u,totalCount:cnt,updated:Date.now()};
   if(scoreChanged)patch.scoreVer=u;
-  QMETA.qUpd=Math.max(QMETA.qUpd||0,u);
+  QMETA.qUpd=Math.max(QMETA.qUpd||0,u);QMETA.totalCount=cnt;
   if(scoreChanged)QMETA.scoreVer=Math.max(QMETA.scoreVer||0,u);
   return DB.collection("appConfig").doc("qMeta").set(patch,{merge:true}).catch(function(){});
 }
@@ -1168,14 +1193,21 @@ function buildFrom(map){
   var arr=Object.keys(out).map(function(k){return out[k];});arr.sort(function(a,b){return (a.ord||0)-(b.ord||0);});
   setQuestions(arr);
 }
-function loadQuestions(){
+function loadQuestions(forceFull){
   return cacheGet().then(function(c){
-    var have=(c&&c.ver===1&&c.map)?c:null,map=have?have.map:{},maxUpd=have?(have.maxUpd||0):0;
+    var have=(!forceFull&&c&&c.ver===CACHE_VER&&c.map)?c:null;
+    var map=have?Object.assign({},have.map):{},maxUpd=have?(have.maxUpd||0):0;
     var qy=have?DB.collection("questions").where("upd",">",maxUpd):DB.collection("questions");
     return qy.get().then(function(snap){
       snap.forEach(function(d){var data=d.data();map[d.id]=data;if((data.upd||0)>maxUpd)maxUpd=data.upd||0;});
-      RAW=map;buildFrom(map);return cachePut({ver:1,map:map,maxUpd:maxUpd,at:Date.now()});
-    }).catch(function(err){if(have){RAW=map;buildFrom(map);return;}throw err;});
+      RAW=map;buildFrom(map);
+      var fSync=have?(c.fullSyncAt||0):Math.max(Date.now(),QMETA.fullSyncAt||0);
+      return cachePut({ver:CACHE_VER,map:map,maxUpd:maxUpd,fullSyncAt:fSync,at:Date.now()});
+    }).catch(function(err){
+      var fb=(have&&map)||(c&&c.map);
+      if(fb){RAW=fb;buildFrom(fb);return;}
+      throw err;
+    });
   });
 }
 function loadTopicConfig(){
@@ -1199,7 +1231,7 @@ function masterTopics(){
 function clearSessionState(){
   clearTimeout(prefsTimer);prefsTimer=null;clearTimeout(favTimer);favTimer=null;clearTimeout(runSaveTimer);runSaveTimer=null;
   clearTimeout(draftTimer);draftTimer=null;clearTimeout(retryT);retryT=null;
-  pendingTx=[];APPLIED=[];saveFailing=false;finishingCount=0;prefsDirty=false;runDirty=false;STATE_OK=false;recomputingMine=false;loadingQNow=false;draftsReady=false;saveBar("");
+  pendingTx=[];APPLIED=[];saveFailing=false;finishingCount=0;prefsDirty=false;runDirty=false;STATE_OK=false;recomputingMine=false;loadingQNow=false;draftsReady=false;QMETA={qUpd:0,scoreVer:0,totalCount:null,fullSyncAt:0};fullSyncTriedKey="";saveBar("");
   stopExamTimer();stopPresence();stopUsersWatch();stopReqsWatch();stopMTWatch();stopLiveSync();
   S=normalize(null);V=freshV();applyCfgFromState();applyTheme();
 }
@@ -1233,12 +1265,28 @@ function boot(){
         startPresence();
         if(ADMIN){watchPendingReqs();watchMTRestoreReqs();}
         logUsage("session_start");
-        return Promise.all([
-          loadQuestions().then(function(){QERR="";}).catch(function(err){console.warn(err);QERR=(err&&err.message)||"error";}),
-          loadTopicConfig(),
-          DB.collection("appConfig").doc("qMeta").get().then(function(sn){if(sn.exists){var d=sn.data()||{};QMETA={qUpd:d.qUpd||0,scoreVer:d.scoreVer||0};}}).catch(function(){})
-        ]);
-      })
+       return Promise.all([
+          DB.collection("appConfig").doc("qMeta").get().then(function(sn){
+            if(sn.exists){var d=sn.data()||{};QMETA={qUpd:d.qUpd||0,scoreVer:d.scoreVer||0,totalCount:(d.totalCount!=null?d.totalCount:null),fullSyncAt:d.fullSyncAt||0};}
+          }).catch(function(){}),
+          loadTopicConfig()
+        ]).then(function(){
+          return cacheGet().then(function(c){
+            var admNeed=ADMIN&&(!c||c.ver!==CACHE_VER||!c.fullSyncAt||(Date.now()-c.fullSyncAt)>6*3600000);
+            return loadQuestions(admNeed);
+          });
+        }).then(function(){
+          QERR="";
+          if(ADMIN){
+            var cnt=Object.keys(RAW).filter(function(id){return RAW[id]&&!RAW[id].deleted;}).length;
+            if(QMETA.totalCount!==cnt){
+              var nu=nextUpd();QMETA.totalCount=cnt;QMETA.fullSyncAt=nu;
+              DB.collection("appConfig").doc("qMeta").set({totalCount:cnt,fullSyncAt:nu,qUpd:nu,scoreVer:nu,updated:Date.now()},{merge:true}).catch(function(){});
+            }
+            return false;
+          }
+          return checkQMismatchAndSync();
+        }).catch(function(err){console.warn(err);QERR=(err&&err.message)||"error";});
       .catch(function(err){console.warn(err);})
       .then(function(){return migrateOldExams();})
       .then(function(){
